@@ -1,0 +1,157 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner() {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'owner';
+    }
+    
+    function isEmployee() {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'employee';
+    }
+    
+    function isOwnerOrEmployee() {
+      return isOwner() || isEmployee();
+    }
+    
+    function isClient() {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'client';
+    }
+    
+    function isOwnerOrSelf(userId) {
+      return isOwner() || (isEmployee() && request.auth.uid == userId);
+    }
+
+    // Map employee document to current user
+    function employeeOwns(empId) {
+      return isEmployee() &&
+             exists(/databases/$(database)/documents/employees/$(empId)) &&
+             get(/databases/$(database)/documents/employees/$(empId)).data.userId == request.auth.uid;
+    }
+    
+    // Users collection
+    match /users/{userId} {
+      // SIMPLE RULE: Allow users to read their own document
+      // This is the most important rule - must work for login
+      allow read: if isAuthenticated() && request.auth.uid == userId;
+      
+      // Allow owners to read any user document
+      // Note: This requires the owner to first read their own doc, so it's secondary
+      allow read: if isAuthenticated() && 
+                     request.auth.uid != userId &&
+                     exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+                     get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'owner';
+      
+      // Allow authenticated users to create their own user document
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+      // Allow owners to create user documents
+      allow create: if isAuthenticated() && 
+                       exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+                       get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'owner';
+      
+      // Allow users to update their own document
+      allow update: if isAuthenticated() && request.auth.uid == userId;
+      // Allow owners to update any user document
+      allow update: if isAuthenticated() && 
+                       request.auth.uid != userId &&
+                       exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+                       get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'owner';
+      
+      // Only owners can delete users
+      allow delete: if isAuthenticated() && 
+                       exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+                       get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'owner';
+    }
+    
+    // Employees collection
+    match /employees/{employeeId} {
+      allow read: if true; // Public read for booking page
+      allow create: if isOwner();
+      allow update: if isOwner() || (isEmployee() && resource.data.userId == request.auth.uid);
+      allow delete: if isOwner();
+    }
+    
+    // Services collection
+    match /services/{serviceId} {
+      allow read: if true; // Public read for booking page
+      allow create: if isOwner();
+      allow update: if isOwner();
+      allow delete: if isOwner();
+    }
+    
+    // EmployeeServices junction
+    match /employeeServices/{id} {
+      allow read: if true;
+      allow create: if isOwner();
+      allow update: if isOwner();
+      allow delete: if isOwner();
+    }
+    
+    // Availability collection
+    match /availability/{availabilityId} {
+      allow read: if true; // Public read for booking slots
+      allow create: if isOwner() || employeeOwns(request.resource.data.employeeId);
+      allow update: if isOwner() || employeeOwns(resource.data.employeeId);
+      allow delete: if isOwner() || employeeOwns(resource.data.employeeId);
+    }
+
+    // Blocked slots collection
+    match /blockedSlots/{blockedSlotId} {
+      allow read: if true; // Public read needed to check availability for booking
+      allow create: if isOwner() || employeeOwns(request.resource.data.employeeId);
+      allow update: if isOwner() || employeeOwns(resource.data.employeeId);
+      allow delete: if isOwner() || employeeOwns(resource.data.employeeId);
+    }
+    
+    // Bookings collection
+    match /bookings/{bookingId} {
+      allow read: if true; // Public read needed to check slot availability
+      allow create: if true; // Public create for client bookings
+      // Allow clients to cancel their own bookings (update status to cancelled)
+      allow update: if isOwner() || 
+                       employeeOwns(resource.data.employeeId) ||
+                       (isClient() && resource.data.clientEmail == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.email);
+      allow delete: if isOwner();
+    }
+    
+    // Clients collection
+    match /clients/{clientId} {
+      // Clients can read their own profile
+      allow read: if isAuthenticated() && request.auth.uid == clientId;
+      // Owners can read all client profiles
+      allow read: if isOwner() || isEmployee();
+      // Authenticated users can create their own client profile
+      allow create: if isAuthenticated() && request.auth.uid == clientId;
+      // Clients can update their own profile
+      allow update: if isAuthenticated() && request.auth.uid == clientId;
+      // Only owners can delete client profiles
+      allow delete: if isOwner();
+    }
+    
+    // Salon collection
+    match /salons/{salonId} {
+      allow read: if true; // Public read
+      allow create: if isOwner();
+      allow update: if isOwner() && resource.data.ownerId == request.auth.uid;
+      allow delete: if isOwner() && resource.data.ownerId == request.auth.uid;
+    }
+    
+    // Expenses collection
+    match /expenses/{expenseId} {
+      allow read: if isOwner(); // Only owners can read expenses
+      allow create: if isOwner(); // Only owners can create expenses
+      allow update: if isOwner(); // Only owners can update expenses
+      allow delete: if isOwner(); // Only owners can delete expenses
+    }
+  }
+}

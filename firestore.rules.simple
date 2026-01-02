@@ -1,0 +1,35 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // SIMPLIFIED RULES FOR TESTING - Replace with full rules later
+    
+    // Users collection - MOST IMPORTANT
+    match /users/{userId} {
+      // Allow users to read their own document (CRITICAL FOR LOGIN)
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth != null && request.auth.uid == userId;
+      allow update: if request.auth != null && request.auth.uid == userId;
+      allow delete: if false; // Disable delete for now
+    }
+    
+    // Temporary: Allow all authenticated reads for other collections
+    // TODO: Replace with proper rules after testing
+    match /{document=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
