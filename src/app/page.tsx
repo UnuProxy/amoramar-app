@@ -931,13 +931,13 @@ export default function HomePage() {
                   </div>
                   <div className="flex gap-2">
                     <button
-                      onClick={() => openAuthModal('login')}
+                      onClick={login}
                       className="px-4 py-2 rounded-xl border border-rose-200 text-[11px] font-bold uppercase tracking-[0.18em] text-rose-700 hover:bg-rose-600 hover:text-white transition-all"
                     >
                       Ya tengo cuenta
                     </button>
                     <button
-                      onClick={() => openAuthModal('signup')}
+                      onClick={login}
                       className="px-4 py-2 rounded-xl bg-rose-700 text-white text-[11px] font-bold uppercase tracking-[0.18em] hover:brightness-95 transition-all"
                     >
                       Crear cuenta

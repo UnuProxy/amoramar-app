@@ -233,8 +233,8 @@ export default function SchedulePage() {
             startTime: dayConfig.startTime,
             endTime: dayConfig.endTime,
             isAvailable: true,
-            startDate: generatorDateRange.start || null,
-            endDate: generatorDateRange.end || null,
+            startDate: generatorDateRange.start || undefined,
+            endDate: generatorDateRange.end || undefined,
           });
         }
       }
@@ -292,8 +292,8 @@ export default function SchedulePage() {
             await updateAvailability(slot.id, {
               isAvailable: false,
               serviceId: selectedServiceId,
-              startDate: dateRange.start || null,
-              endDate: dateRange.end || null,
+              startDate: dateRange.start || undefined,
+              endDate: dateRange.end || undefined,
             });
           }
           continue;
@@ -319,8 +319,8 @@ export default function SchedulePage() {
               endTime,
               isAvailable: true,
               serviceId: selectedServiceId,
-              startDate: dateRange.start || null,
-              endDate: dateRange.end || null,
+              startDate: dateRange.start || undefined,
+              endDate: dateRange.end || undefined,
             });
           } else {
             const newId = await createAvailability({
@@ -330,8 +330,8 @@ export default function SchedulePage() {
               startTime,
               endTime,
               isAvailable: true,
-              startDate: dateRange.start || null,
-              endDate: dateRange.end || null,
+              startDate: dateRange.start || undefined,
+              endDate: dateRange.end || undefined,
             });
             usedIds.add(newId);
           }

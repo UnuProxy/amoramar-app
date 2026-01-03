@@ -311,8 +311,8 @@ export function AdminCalendar({
       if (blockModal.isEdit && blockModal.blockedSlotId) {
         await updateBlockedSlot(blockModal.blockedSlotId, {
           startTime: blockModal.startTime,
-          endTime: blockModal.endTime || null,
-          reason: blockModal.reason || null,
+          endTime: blockModal.endTime || undefined,
+          reason: blockModal.reason || undefined,
         });
       } else {
         await createBlockedSlot({
@@ -376,7 +376,6 @@ export function AdminCalendar({
     try {
       await updateBooking(booking.id, {
         status: newStatus,
-        cancelledAt: newStatus === 'cancelled' ? new Date() : undefined,
         completedAt: newStatus === 'completed' ? new Date() : undefined,
       });
       setBookings((prev) => prev.map((b) => (b.id === booking.id ? { ...b, status: newStatus } : b)));

@@ -608,8 +608,8 @@ export default function EmployeeCalendarPage() {
       if (blockModal.isEdit && blockModal.blockedSlotId) {
         await updateBlockedSlot(blockModal.blockedSlotId, {
           startTime: blockModal.startTime,
-          endTime: blockModal.endTime || null,
-          reason: blockModal.reason || null,
+          endTime: blockModal.endTime || undefined,
+          reason: blockModal.reason || undefined,
         });
       } else {
         await createBlockedSlot({
@@ -677,8 +677,6 @@ export default function EmployeeCalendarPage() {
     try {
       await updateBooking(booking.id, {
         status: newStatus,
-        // Optional timestamps (if your schema supports them). If not used, they are ignored.
-        cancelledAt: newStatus === 'cancelled' ? new Date() : undefined,
         completedAt: newStatus === 'completed' ? new Date() : undefined,
       });
       setBookings((prev) =>

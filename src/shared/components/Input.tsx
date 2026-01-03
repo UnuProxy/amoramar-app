@@ -24,7 +24,7 @@ export const Input: React.FC<InputProps> = ({
   const inputType = isPassword ? (showPassword ? 'text' : 'password') : type;
 
   // Determine if we're in a dark context (login page)
-  const isDarkContext = className?.includes('bg-primary') || props.className?.includes('bg-primary');
+  const isDarkContext = className?.includes('bg-primary');
   
   return (
     <div className="w-full">

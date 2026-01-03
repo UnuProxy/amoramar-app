@@ -67,8 +67,6 @@ export default function BookingDetailPage() {
       
       if (newStatus === 'completed') {
         updates.completedAt = new Date();
-      } else if (newStatus === 'cancelled') {
-        updates.cancelledAt = new Date();
       }
       
       await updateBooking(booking.id, updates);
