@@ -141,10 +141,13 @@ export default function FinancialDashboard() {
   const filteredBookings = useMemo(() => {
     return bookings.filter(
       (b) => {
-        const isConfirmedOrCompleted = b.status === 'confirmed' || b.status === 'completed';
-        const isPaidPending = b.status === 'pending' && (b.paymentStatus === 'paid' || b.depositPaid);
+        // Only count bookings that have ACTUAL PAYMENT or are completed
+        const isCompleted = b.status === 'completed';
+        const hasPaidDeposit = b.depositPaid === true;
+        const isPaid = b.paymentStatus === 'paid';
         
-        if (!isConfirmedOrCompleted && !isPaidPending) return false;
+        // Must have either: completed status, paid deposit, or paid payment status
+        if (!isCompleted && !hasPaidDeposit && !isPaid) return false;
         
         return b.bookingDate >= startDate && b.bookingDate <= endDate;
       }
@@ -177,10 +180,13 @@ export default function FinancialDashboard() {
   const payoutBookings = useMemo(() => {
     return bookings.filter(
       (b) => {
-        const isConfirmedOrCompleted = b.status === 'confirmed' || b.status === 'completed';
-        const isPaidPending = b.status === 'pending' && (b.paymentStatus === 'paid' || b.depositPaid);
+        // Only count bookings that have ACTUAL PAYMENT or are completed
+        const isCompleted = b.status === 'completed';
+        const hasPaidDeposit = b.depositPaid === true;
+        const isPaid = b.paymentStatus === 'paid';
         
-        if (!isConfirmedOrCompleted && !isPaidPending) return false;
+        // Must have either: completed status, paid deposit, or paid payment status
+        if (!isCompleted && !hasPaidDeposit && !isPaid) return false;
         
         return b.bookingDate >= payoutStartDate && b.bookingDate <= payoutEndDate;
       }
