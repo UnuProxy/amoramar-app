@@ -29,7 +29,14 @@ export default function FinancialDashboard() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState<DateRange>('month');
+  const [payoutMonth, setPayoutMonth] = useState<string>(() => new Date().toISOString().slice(0, 7));
   const [showAddExpense, setShowAddExpense] = useState(false);
+  const [payoutDetail, setPayoutDetail] = useState<{
+    employee: Employee;
+    bookings: Booking[];
+    total: number;
+    percentage: number;
+  } | null>(null);
   
   // New expense form
   const [newExpense, setNewExpense] = useState<{
@@ -58,8 +65,10 @@ export default function FinancialDashboard() {
     loadData();
   }, []);
 
+  const overlayOpen = showAddExpense || Boolean(payoutDetail);
+
   useEffect(() => {
-    if (showAddExpense) {
+    if (overlayOpen) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = 'unset';
@@ -67,7 +76,7 @@ export default function FinancialDashboard() {
     return () => {
       document.body.style.overflow = 'unset';
     };
-  }, [showAddExpense]);
+  }, [overlayOpen]);
 
   const loadData = async () => {
     try {
@@ -94,7 +103,14 @@ export default function FinancialDashboard() {
     return typeof service.price === 'number' ? service.price : parseFloat(String(service.price || 0));
   };
 
-  // Date range filtering
+  const getBookingAmount = (booking: Booking): number => {
+    if (booking.depositAmount != null) {
+      return booking.depositAmount / 100;
+    }
+    return getServicePrice(booking.serviceId);
+  };
+
+  // Date range filtering (paid bookings only for revenue)
   const { startDate, endDate } = useMemo(() => {
     const today = new Date();
     let start = new Date();
@@ -119,7 +135,7 @@ export default function FinancialDashboard() {
   const filteredBookings = useMemo(() => {
     return bookings.filter(
       (b) =>
-        (b.status === 'confirmed' || b.status === 'completed') &&
+        b.paymentStatus === 'paid' &&
         b.bookingDate >= startDate &&
         b.bookingDate <= endDate
     );
@@ -129,12 +145,37 @@ export default function FinancialDashboard() {
     return expenses.filter((e) => e.date >= startDate && e.date <= endDate);
   }, [expenses, startDate, endDate]);
 
+  // Month-specific window for therapist payouts
+  const { payoutStartDate, payoutEndDate } = useMemo(() => {
+    if (!payoutMonth) {
+      return {
+        payoutStartDate: startDate,
+        payoutEndDate: endDate,
+      };
+    }
+    const [yearStr, monthStr] = payoutMonth.split('-');
+    const year = Number(yearStr);
+    const month = Number(monthStr) - 1; // zero-based
+    const start = new Date(year, month, 1);
+    const end = new Date(year, month + 1, 0);
+    return {
+      payoutStartDate: start.toISOString().split('T')[0],
+      payoutEndDate: end.toISOString().split('T')[0],
+    };
+  }, [payoutMonth, startDate, endDate]);
+
+  const payoutBookings = useMemo(() => {
+    return bookings.filter(
+      (b) =>
+        b.paymentStatus === 'paid' &&
+        b.bookingDate >= payoutStartDate &&
+        b.bookingDate <= payoutEndDate
+    );
+  }, [bookings, payoutStartDate, payoutEndDate]);
+
   // Calculate financials
   const financials = useMemo(() => {
-    const totalRevenue = filteredBookings.reduce(
-      (sum, booking) => sum + getServicePrice(booking.serviceId),
-      0
-    );
+    const totalRevenue = filteredBookings.reduce((sum, booking) => sum + getBookingAmount(booking), 0);
 
     const totalExpenses = filteredExpenses.reduce((sum, expense) => sum + expense.amount, 0);
 
@@ -157,7 +198,7 @@ export default function FinancialDashboard() {
     const revenueByService = services
       .map((service) => {
         const serviceBookings = filteredBookings.filter((b) => b.serviceId === service.id);
-        const revenue = serviceBookings.reduce((sum, b) => sum + getServicePrice(b.serviceId), 0);
+        const revenue = serviceBookings.reduce((sum, b) => sum + getBookingAmount(b), 0);
         return {
           service,
           revenue,
@@ -172,12 +213,28 @@ export default function FinancialDashboard() {
     const revenueByEmployee = employees
       .map((employee) => {
         const employeeBookings = filteredBookings.filter((b) => b.employeeId === employee.id);
-        const revenue = employeeBookings.reduce((sum, b) => sum + getServicePrice(b.serviceId), 0);
+        const revenue = employeeBookings.reduce((sum, b) => sum + getBookingAmount(b), 0);
         return {
           employee,
           revenue,
           bookingsCount: employeeBookings.length,
           percentage: totalRevenue > 0 ? (revenue / totalRevenue) * 100 : 0,
+        };
+      })
+      .filter((item) => item.revenue > 0)
+      .sort((a, b) => b.revenue - a.revenue);
+
+    const payoutTotalRevenue = payoutBookings.reduce((sum, booking) => sum + getBookingAmount(booking), 0);
+
+    const payoutByEmployee = employees
+      .map((employee) => {
+        const employeeBookings = payoutBookings.filter((b) => b.employeeId === employee.id);
+        const revenue = employeeBookings.reduce((sum, b) => sum + getBookingAmount(b), 0);
+        return {
+          employee,
+          revenue,
+          bookingsCount: employeeBookings.length,
+          percentage: payoutTotalRevenue > 0 ? (revenue / payoutTotalRevenue) * 100 : 0,
         };
       })
       .filter((item) => item.revenue > 0)
@@ -191,8 +248,10 @@ export default function FinancialDashboard() {
       expensesByCategory,
       revenueByService,
       revenueByEmployee,
+      payoutByEmployee,
+      payoutTotalRevenue,
     };
-  }, [filteredBookings, filteredExpenses, services, employees]);
+  }, [filteredBookings, filteredExpenses, services, employees, payoutBookings]);
 
   const handleAddExpense = async () => {
     if (!newExpense.name || !newExpense.amount) {
@@ -246,6 +305,23 @@ export default function FinancialDashboard() {
       console.error('Error deleting expense:', error);
       alert('Error al eliminar el gasto');
     }
+  };
+
+  const openPayoutModal = (employeeId: string) => {
+    const employee = employees.find((e) => e.id === employeeId);
+    if (!employee) return;
+    const bookingsForEmployee = payoutBookings.filter((b) => b.employeeId === employeeId);
+    const total = bookingsForEmployee.reduce((sum, b) => sum + getServicePrice(b.serviceId), 0);
+    const percentage =
+      financials.payoutTotalRevenue > 0 ? (total / financials.payoutTotalRevenue) * 100 : 0;
+    setPayoutDetail({
+      employee,
+      bookings: bookingsForEmployee.sort((a, b) =>
+        `${b.bookingDate}T${b.bookingTime}`.localeCompare(`${a.bookingDate}T${a.bookingTime}`)
+      ),
+      total,
+      percentage,
+    });
   };
 
   if (loading) {
@@ -379,19 +455,45 @@ export default function FinancialDashboard() {
           </div>
         </div>
 
-        {/* Revenue by Employee */}
+        {/* Revenue by Employee with monthly payout selector */}
         <div className="bg-white border border-neutral-100 rounded-[48px] overflow-hidden shadow-sm">
-          <div className="px-10 py-8 border-b border-neutral-100 bg-neutral-50/30">
-            <h2 className="text-sm font-black text-neutral-800 tracking-[0.3em] uppercase text-center">Ingresos por Terapeuta</h2>
+          <div className="px-10 py-8 border-b border-neutral-100 bg-neutral-50/30 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <h2 className="text-sm font-black text-neutral-800 tracking-[0.3em] uppercase text-center lg:text-left">
+              Ingresos por Terapeuta (Payout mensual)
+            </h2>
+            <div className="flex items-center gap-3">
+              <label className="text-[10px] font-black text-neutral-500 uppercase tracking-[0.2em]">Mes</label>
+              <input
+                type="month"
+                value={payoutMonth}
+                onChange={(e) => setPayoutMonth(e.target.value)}
+                className="px-4 py-2 border border-neutral-200 rounded-xl text-xs font-black uppercase tracking-[0.15em] focus:border-rose-500 outline-none"
+              />
+            </div>
           </div>
           
           <div className="p-10">
-            {financials.revenueByEmployee.length === 0 ? (
-              <div className="text-center py-12 text-neutral-300 font-bold uppercase tracking-widest text-xs">Sin datos</div>
+            {financials.payoutByEmployee.length === 0 ? (
+              <div className="text-center py-12 text-neutral-300 font-bold uppercase tracking-widest text-xs">
+                Sin datos para {payoutMonth || 'el mes seleccionado'}
+              </div>
             ) : (
               <div className="space-y-8">
-                {financials.revenueByEmployee.map((item, index) => (
-                  <div key={item.employee.id} className="group">
+                <div className="flex items-center justify-between bg-neutral-50 border border-neutral-100 rounded-2xl p-4">
+                  <div className="text-xs font-black text-neutral-500 uppercase tracking-[0.2em]">
+                    Total mes
+                  </div>
+                  <div className="text-lg font-black text-neutral-900">
+                    {formatCurrency(financials.payoutTotalRevenue)}
+                  </div>
+                </div>
+                {financials.payoutByEmployee.map((item, index) => (
+                  <button
+                    key={item.employee.id}
+                    type="button"
+                    onClick={() => openPayoutModal(item.employee.id)}
+                    className="group w-full text-left"
+                  >
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-4">
                         <div className="w-12 h-12 rounded-xl bg-neutral-800 flex items-center justify-center text-white font-black text-lg overflow-hidden">
@@ -402,13 +504,21 @@ export default function FinancialDashboard() {
                           )}
                         </div>
                         <div>
-                          <p className="text-lg font-black text-neutral-800 uppercase tracking-tighter leading-none">{item.employee.firstName} {item.employee.lastName}</p>
-                          <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest mt-1">{item.bookingsCount} RESERVAS</p>
+                          <p className="text-lg font-black text-neutral-800 uppercase tracking-tighter leading-none">
+                            {item.employee.firstName} {item.employee.lastName}
+                          </p>
+                          <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest mt-1">
+                            {item.bookingsCount} {item.bookingsCount === 1 ? 'reserva' : 'reservas'}
+                          </p>
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="text-xl font-black text-rose-600 tabular-nums leading-none">{formatCurrency(item.revenue)}</p>
-                        <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest mt-1">{item.percentage.toFixed(0)}% DEL TOTAL</p>
+                        <p className="text-xl font-black text-rose-600 tabular-nums leading-none">
+                          {formatCurrency(item.revenue)}
+                        </p>
+                        <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest mt-1">
+                          {item.percentage.toFixed(0)}% del total mensual
+                        </p>
                       </div>
                     </div>
                     <div className="w-full bg-neutral-100 rounded-full h-1 overflow-hidden">
@@ -417,7 +527,7 @@ export default function FinancialDashboard() {
                         style={{ width: `${item.percentage}%` }}
                       />
                     </div>
-                  </div>
+                  </button>
                 ))}
               </div>
             )}
@@ -519,6 +629,106 @@ export default function FinancialDashboard() {
           </table>
         </div>
       </div>
+
+      {/* Payout detail modal */}
+      {payoutDetail && (
+        <div className="fixed inset-0 z-[120] flex items-start sm:items-center justify-center bg-neutral-900/70 backdrop-blur-lg p-4">
+          <div className="w-full max-w-3xl bg-white rounded-[32px] sm:rounded-[40px] shadow-2xl overflow-hidden border border-neutral-100 max-h-[90vh] flex flex-col">
+            <div className="px-6 sm:px-10 py-6 sm:py-8 flex items-start sm:items-center justify-between gap-4 border-b border-neutral-100">
+              <div className="space-y-2">
+                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-neutral-400">
+                  Detalle de pagos • {new Date(payoutStartDate + 'T00:00:00').toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}
+                </p>
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-2xl bg-neutral-900 text-white flex items-center justify-center font-black text-lg overflow-hidden">
+                    {payoutDetail.employee.profileImage ? (
+                      <img src={payoutDetail.employee.profileImage} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <span>{payoutDetail.employee.firstName?.[0] || 'T'}</span>
+                    )}
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-black text-neutral-900 tracking-tight leading-none">
+                      {payoutDetail.employee.firstName} {payoutDetail.employee.lastName}
+                    </h3>
+                    <p className="text-xs font-bold uppercase tracking-[0.2em] text-neutral-400 mt-1">
+                      {payoutDetail.bookings.length} {payoutDetail.bookings.length === 1 ? 'reserva' : 'reservas'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => setPayoutDetail(null)}
+                className="w-12 h-12 rounded-2xl bg-neutral-100 text-neutral-400 hover:bg-neutral-800 hover:text-white transition-all flex items-center justify-center"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="px-6 sm:px-10 py-6 bg-neutral-50/60 border-b border-neutral-100 flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.25em] text-neutral-500">Total a pagar</p>
+                <p className="text-3xl font-black text-neutral-900">{formatCurrency(payoutDetail.total)}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-xs font-black uppercase tracking-[0.25em] text-neutral-500">Participación</p>
+                <p className="text-xl font-black text-rose-600">{payoutDetail.percentage.toFixed(1)}% del mes</p>
+              </div>
+            </div>
+
+            <div className="flex-1 min-h-0 overflow-y-auto px-6 sm:px-10 py-6 space-y-4">
+              {payoutDetail.bookings.length === 0 ? (
+                <div className="text-center py-12 text-neutral-300 font-bold uppercase tracking-widest text-xs">
+                  No hay reservas en este mes.
+                </div>
+              ) : (
+                payoutDetail.bookings.map((booking) => {
+                  const service = services.find((s) => s.id === booking.serviceId);
+                  return (
+                    <div
+                      key={booking.id}
+                      className="flex items-center justify-between bg-white border border-neutral-100 rounded-2xl p-4 shadow-sm"
+                    >
+                      <div className="space-y-1">
+                        <p className="text-sm font-black text-neutral-900 uppercase tracking-tight">
+                          {service?.serviceName || 'Servicio'}
+                        </p>
+                        <p className="text-xs font-bold text-neutral-500 uppercase tracking-[0.2em]">
+                          {new Date(booking.bookingDate + 'T00:00:00').toLocaleDateString('es-ES', {
+                            day: '2-digit',
+                            month: 'short',
+                            year: 'numeric',
+                          })}{' '}
+                          · {booking.bookingTime}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-lg font-black text-neutral-900 tabular-nums">
+                          {formatCurrency(getServicePrice(booking.serviceId))}
+                        </p>
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600">
+                          {booking.status === 'completed' ? 'Pagado' : booking.status}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            <div className="px-6 sm:px-10 py-6 bg-neutral-50 border-t border-neutral-100 flex items-center justify-end">
+              <button
+                onClick={() => setPayoutDetail(null)}
+                className="px-8 py-3 text-sm font-black uppercase tracking-[0.2em] text-neutral-500 hover:text-neutral-900 transition-colors"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Add Expense Modal - Clean & Focused */}
       {showAddExpense && (

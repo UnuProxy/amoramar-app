@@ -40,14 +40,16 @@ type GenerationMode = 'weekly' | 'custom';
 
 export default function SchedulePage() {
   const { user } = useAuth();
+  const todayStr = new Date().toISOString().split('T')[0];
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [availability, setAvailability] = useState<Availability[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [services, setServices] = useState<Service[]>([]);
   const [selectedServiceId, setSelectedServiceId] = useState<string | undefined>(undefined);
-  const [dateRange, setDateRange] = useState<{ start: string; end: string }>({ start: '', end: '' });
+  const [dateRange, setDateRange] = useState<{ start: string; end: string }>({ start: todayStr, end: '' });
   const [loadingAvailability, setLoadingAvailability] = useState(false);
+  const [existingAvailabilityCount, setExistingAvailabilityCount] = useState(0);
   
   // Schedule generator state
   const [showGenerator, setShowGenerator] = useState(false);
@@ -62,10 +64,9 @@ export default function SchedulePage() {
     sunday: { enabled: false, startTime: '10:00', endTime: '14:00' },
   });
   const [generatorDateRange, setGeneratorDateRange] = useState<{ start: string; end: string }>({
-    start: '',
+    start: todayStr,
     end: '',
   });
-  const todayStr = new Date().toISOString().split('T')[0];
   
   const [daySlots, setDaySlots] = useState<
     Record<DayOfWeek, { enabled: boolean; slots: { id?: string; startTime: string; endTime: string }[] }>
@@ -151,10 +152,16 @@ export default function SchedulePage() {
       if (serviceId && availabilityData.length === 0) {
         availabilityData = await getAvailability(employeeId);
       }
+      setExistingAvailabilityCount(availabilityData.length);
       setAvailability(availabilityData);
       const firstWithDates = availabilityData.find((a) => a.startDate || a.endDate);
+      const startFromExistingOrToday = firstWithDates?.startDate
+        ? firstWithDates.startDate < todayStr
+          ? todayStr
+          : firstWithDates.startDate
+        : todayStr;
       setDateRange({
-        start: firstWithDates?.startDate || '',
+        start: startFromExistingOrToday,
         end: firstWithDates?.endDate || '',
       });
 
@@ -199,6 +206,14 @@ export default function SchedulePage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedServiceId]);
+
+  // Keep generator dates anchored to today when switching service
+  useEffect(() => {
+    setGeneratorDateRange((prev) => ({
+      start: prev.start || todayStr,
+      end: prev.end,
+    }));
+  }, [selectedServiceId, todayStr]);
 
   const handleGenerateSchedule = async () => {
     if (!employee || !selectedServiceId || !selectedService) {
@@ -434,6 +449,11 @@ export default function SchedulePage() {
                     </p>
                   </div>
                 </div>
+                {existingAvailabilityCount > 0 && (
+                  <p className="mt-3 text-xs text-accent-700">
+                    Ya tienes disponibilidad guardada para este servicio. Las nuevas fechas reemplazarán la existente.
+                  </p>
+                )}
               </div>
             )}
           </div>

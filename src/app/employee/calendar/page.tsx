@@ -17,7 +17,6 @@ import {
   updateBooking,
 } from '@/shared/lib/firestore';
 import { sendEmployeeNotification } from '@/shared/lib/email';
-import { Button } from '@/shared/components/Button';
 import { Loading } from '@/shared/components/Loading';
 import { addMinutesToTime, generateTimeSlots, formatDate, formatTime, formatCurrency, cn } from '@/shared/lib/utils';
 import type {
@@ -350,6 +349,10 @@ export default function EmployeeCalendarPage() {
   };
 
   const openNewBooking = (defaults: Partial<BookingFormData>) => {
+    if (defaults.bookingDate && defaults.bookingTime && isSlotInPast(defaults.bookingDate, defaults.bookingTime)) {
+      alert('No puedes reservar en un horario pasado.');
+      return;
+    }
     setBookingForm({
       clientName: '',
       clientEmail: '',
@@ -367,6 +370,10 @@ export default function EmployeeCalendarPage() {
   const handleCreateBooking = async () => {
     if (!bookingForm.clientName || !bookingForm.serviceId || !bookingForm.bookingDate || !bookingForm.bookingTime) {
       alert('Por favor completa todos los campos requeridos');
+      return;
+    }
+    if (isSlotInPast(bookingForm.bookingDate, bookingForm.bookingTime)) {
+      alert('No puedes crear una reserva en el pasado.');
       return;
     }
 
@@ -580,6 +587,10 @@ export default function EmployeeCalendarPage() {
   };
 
   const openBlockModal = (date: string, startTime: string, blocked?: BlockedSlot) => {
+    if (!blocked && isSlotInPast(date, startTime)) {
+      alert('No puedes bloquear un horario pasado.');
+      return;
+    }
     if (blocked) {
       setBlockModal({
         date,
@@ -602,6 +613,11 @@ export default function EmployeeCalendarPage() {
 
   const handleSaveBlock = async () => {
     if (!employee || !selectedServiceId || !blockModal) return;
+
+    if (isSlotInPast(blockModal.date, blockModal.startTime)) {
+      alert('No puedes guardar un bloqueo en una fecha u horario pasado.');
+      return;
+    }
     
     setSavingBlock(true);
     try {
@@ -675,7 +691,7 @@ export default function EmployeeCalendarPage() {
     }
 
     try {
-      await updateBooking(booking.id, {
+      await updateBookingWithGuard(booking, {
         status: newStatus,
         completedAt: newStatus === 'completed' ? new Date() : undefined,
       });
@@ -685,6 +701,34 @@ export default function EmployeeCalendarPage() {
     } catch (error) {
       console.error('Error updating booking:', error);
       alert('No se pudo actualizar la reserva');
+    }
+  };
+
+  const handleMarkPaid = async (booking: Booking) => {
+    setBookingModal((prev) => (prev ? { ...prev, saving: true } : prev));
+    try {
+      await updateBookingWithGuard(booking, {
+        paymentStatus: 'paid',
+        depositPaid: true,
+      });
+      setBookings((prev) =>
+        prev.map((b) =>
+          b.id === booking.id ? { ...b, paymentStatus: 'paid', depositPaid: true } : b
+        )
+      );
+      setBookingModal((prev) =>
+        prev
+          ? {
+              ...prev,
+              saving: false,
+              booking: { ...prev.booking, paymentStatus: 'paid', depositPaid: true },
+            }
+          : prev
+      );
+    } catch (error: any) {
+      console.error('Error marking paid:', error);
+      alert(error?.message || 'No se pudo marcar como pagado.');
+      setBookingModal((prev) => (prev ? { ...prev, saving: false } : prev));
     }
   };
 
@@ -733,6 +777,16 @@ export default function EmployeeCalendarPage() {
         };
       });
     }
+  };
+
+  const updateBookingWithGuard = async (booking: Booking, updates: Partial<Booking>) => {
+    if (!user || !employee) {
+      throw new Error('Debes iniciar sesión para actualizar la reserva.');
+    }
+    if (booking.employeeId !== employee.id) {
+      throw new Error('Solo el terapeuta asignado puede actualizar esta reserva.');
+    }
+    await updateBooking(booking.id, updates);
   };
 
   const startReschedule = async () => {
@@ -811,7 +865,7 @@ export default function EmployeeCalendarPage() {
       const oldDate = booking.bookingDate;
       const oldTime = booking.bookingTime;
       
-      await updateBooking(booking.id, {
+      await updateBookingWithGuard(booking, {
         bookingDate: newDate,
         bookingTime: newTime,
         status: 'confirmed',
@@ -1151,6 +1205,21 @@ export default function EmployeeCalendarPage() {
                               </button>
                             );
                           }
+                          
+                          if (isPast) {
+                            return (
+                              <div
+                                key={slot}
+                                className="relative w-full p-3 rounded-2xl bg-neutral-50 border border-neutral-200 text-neutral-400"
+                              >
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs font-black tabular-nums tracking-tight">{slot}</span>
+                                  <div className="w-1.5 h-1.5 rounded-full bg-neutral-400 opacity-60" />
+                                </div>
+                                <p className="text-[9px] font-black uppercase tracking-[0.15em] mt-2">Horario pasado</p>
+                              </div>
+                            );
+                          }
 
                           return (
                             <div
@@ -1374,27 +1443,53 @@ export default function EmployeeCalendarPage() {
               </div>
 
               {bookingModal.mode === 'view' ? (
-                <div className="flex flex-wrap gap-4">
-                  <button
-                    onClick={startReschedule}
-                    disabled={bookingModal.booking.status === 'completed' || bookingModal.saving}
-                    className="flex-1 py-5 bg-neutral-900 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl hover:bg-accent-600 transition disabled:opacity-50"
-                  >
-                    Cambiar reserva
-                  </button>
-                  <button
-                    onClick={cancelBookingFromModal}
-                    disabled={bookingModal.booking.status === 'completed' || bookingModal.saving}
-                    className="flex-1 py-5 bg-amber-50 text-amber-600 text-[10px] font-black uppercase tracking-widest rounded-2xl hover:bg-amber-600 hover:text-white transition disabled:opacity-50"
-                  >
-                    Cancelar
-                  </button>
-                  {bookingModal.booking.status === 'completed' && (
-                    <p className="w-full text-center text-[9px] font-black text-neutral-400 uppercase tracking-widest">
-                      Esta reserva está completada y no se puede modificar.
-                    </p>
-                  )}
-                </div>
+                (() => {
+                  const ownsBooking = bookingModal.booking.employeeId === employee?.id;
+                  const isCompleted = bookingModal.booking.status === 'completed';
+                  const isSettled =
+                    bookingModal.booking.paymentStatus === 'paid' ||
+                    bookingModal.booking.depositPaid ||
+                    bookingModal.booking.paymentStatus === 'refunded';
+                  const canMarkPaid = ownsBooking && !isSettled && bookingModal.booking.status !== 'cancelled';
+                  const actionsDisabled = isCompleted || bookingModal.saving || !ownsBooking;
+                  return (
+                    <div className="flex flex-wrap gap-4">
+                      {canMarkPaid && (
+                        <button
+                          onClick={() => handleMarkPaid(bookingModal.booking)}
+                          disabled={bookingModal.saving}
+                          className="flex-1 py-5 bg-success-500 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl hover:brightness-95 transition disabled:opacity-50"
+                        >
+                          Marcar pagado
+                        </button>
+                      )}
+                      <button
+                        onClick={startReschedule}
+                        disabled={actionsDisabled}
+                        className="flex-1 py-5 bg-neutral-900 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl hover:bg-accent-600 transition disabled:opacity-50"
+                      >
+                        Cambiar reserva
+                      </button>
+                      <button
+                        onClick={cancelBookingFromModal}
+                        disabled={actionsDisabled}
+                        className="flex-1 py-5 bg-amber-50 text-amber-600 text-[10px] font-black uppercase tracking-widest rounded-2xl hover:bg-amber-600 hover:text-white transition disabled:opacity-50"
+                      >
+                        Cancelar
+                      </button>
+                      {isCompleted && (
+                        <p className="w-full text-center text-[9px] font-black text-neutral-400 uppercase tracking-widest">
+                          Esta reserva está completada y no se puede modificar.
+                        </p>
+                      )}
+                      {!ownsBooking && !isCompleted && (
+                        <p className="w-full text-center text-[9px] font-black text-neutral-400 uppercase tracking-widest">
+                          Solo el terapeuta asignado puede modificar esta reserva.
+                        </p>
+                      )}
+                    </div>
+                  );
+                })()
               ) : (
                 <div className="space-y-6">
                   <div className="grid grid-cols-2 gap-6">

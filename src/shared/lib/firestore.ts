@@ -9,6 +9,7 @@ import {
   query,
   where,
   orderBy,
+  limit,
   Timestamp,
   QueryConstraint,
   Firestore,
@@ -183,6 +184,24 @@ export const deleteEmployee = async (employeeId: string): Promise<void> => {
   const docRef = doc(checkDb(), 'employees', employeeId);
   await deleteDoc(docRef);
 };
+
+export async function getEmployeeByUserId(userId: string): Promise<Employee | null> {
+  const database = checkDb();
+  if (!database) return null;
+  const coll = employeesCollection();
+  if (!coll) return null;
+  const q = query(coll, where('userId', '==', userId), limit(1));
+  const snap = await getDocs(q);
+  const docSnap = snap.docs[0];
+  if (!docSnap) return null;
+  const data = docSnap.data();
+  return {
+    id: docSnap.id,
+    ...data,
+    createdAt: timestampToDate(data.createdAt),
+    updatedAt: timestampToDate(data.updatedAt),
+  } as Employee;
+}
 
 // Services Collection
 export const servicesCollection = () => {

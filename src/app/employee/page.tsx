@@ -104,8 +104,9 @@ export default function EmployeeBookingsPage() {
   const upcomingBookings = bookings
     .filter((b) => {
       if (b.status !== 'confirmed' && b.status !== 'pending') return false;
-      const start = new Date(`${b.bookingDate}T${b.bookingTime}:00`);
-      return start.getTime() >= currentTime.getTime();
+      const start = new Date(`${b.bookingDate}T${b.bookingTime}:00`).getTime();
+      // Only show bookings that haven't started yet
+      return start >= currentTime.getTime();
     })
     .sort((a, b) => {
       const dateA = new Date(`${a.bookingDate}T${a.bookingTime}:00`);
@@ -114,6 +115,15 @@ export default function EmployeeBookingsPage() {
     });
 
   const handleMarkPaid = async (booking: Booking) => {
+    if (!user || !employee) {
+      alert('Inicia sesión para actualizar pagos.');
+      return;
+    }
+    if (booking.employeeId !== employee.id) {
+      alert('Solo el terapeuta asignado puede actualizar este pago.');
+      return;
+    }
+
     try {
       await updateBooking(booking.id, {
         depositPaid: true,
@@ -149,6 +159,14 @@ export default function EmployeeBookingsPage() {
   const handleStatusChange = async (booking: Booking, status: Booking['status']) => {
     if (status === 'cancelled') {
       await handleCancel(booking);
+      return;
+    }
+    if (!user || !employee) {
+      alert('Inicia sesión para actualizar reservas.');
+      return;
+    }
+    if (booking.employeeId !== employee.id) {
+      alert('Solo el terapeuta asignado puede modificar esta reserva.');
       return;
     }
 
