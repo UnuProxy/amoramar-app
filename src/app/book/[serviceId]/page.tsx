@@ -661,38 +661,50 @@ export default function DirectBookingPage() {
                             type="button"
                             onClick={() => setFormData({ ...formData, employeeId: emp.id })}
                             className={cn(
-                              "p-6 rounded-[24px] text-left transition-all border-2 flex items-center gap-4",
+                              "p-6 rounded-[24px] text-left transition-all border-2 flex flex-col items-center gap-4 relative overflow-hidden",
                               formData.employeeId === emp.id
                                 ? "border-rose-600 bg-rose-50/50 shadow-xl"
                                 : "border-neutral-100 bg-white hover:border-rose-200 hover:shadow-lg"
                             )}
                           >
-                            {emp.profileImage ? (
-                              <img
-                                src={emp.profileImage}
-                                alt={emp.firstName}
-                                className="w-16 h-16 rounded-[20px] object-cover shadow-md"
-                              />
-                            ) : (
-                              <div className="w-16 h-16 rounded-[20px] bg-gradient-to-br from-rose-400 to-rose-600 flex items-center justify-center text-white font-black text-xl shadow-md">
-                                {emp.firstName[0]}{emp.lastName[0]}
-                              </div>
-                            )}
-                            <div className="flex-1 min-w-0">
-                              <p className="font-black text-neutral-800 uppercase tracking-tight">
-                                {emp.firstName} {emp.lastName}
-                              </p>
-                              {emp.position && (
-                                <p className="text-[10px] font-bold text-rose-600 uppercase tracking-widest mt-1">{emp.position}</p>
-                              )}
-                            </div>
+                            {/* Checkmark for selected */}
                             {formData.employeeId === emp.id && (
-                              <div className="w-8 h-8 rounded-full bg-rose-600 flex items-center justify-center flex-shrink-0">
+                              <div className="absolute top-4 right-4 w-8 h-8 rounded-full bg-rose-600 flex items-center justify-center z-10">
                                 <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
                                   <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                                 </svg>
                               </div>
                             )}
+                            
+                            {/* Therapist Photo - Large and Prominent */}
+                            <div className="relative w-full aspect-[4/3] rounded-[20px] overflow-hidden bg-gradient-to-br from-neutral-100 to-neutral-200">
+                              {emp.profileImage ? (
+                                <Image
+                                  src={emp.profileImage}
+                                  alt={`${emp.firstName} ${emp.lastName}`}
+                                  fill
+                                  className="object-cover"
+                                  sizes="(max-width: 640px) 100vw, 50vw"
+                                />
+                              ) : (
+                                <div className="w-full h-full bg-gradient-to-br from-rose-400 to-rose-600 flex items-center justify-center text-white font-black text-5xl">
+                                  {emp.firstName[0]}{emp.lastName[0]}
+                                </div>
+                              )}
+                            </div>
+                            
+                            {/* Therapist Info */}
+                            <div className="w-full text-center">
+                              <p className="font-black text-lg text-neutral-900 uppercase tracking-tight mb-1">
+                                {emp.firstName} {emp.lastName}
+                              </p>
+                              {emp.position && (
+                                <p className="text-[10px] font-bold text-rose-600 uppercase tracking-widest">{emp.position}</p>
+                              )}
+                              {emp.bio && (
+                                <p className="text-xs text-neutral-600 mt-2 line-clamp-2">{emp.bio}</p>
+                              )}
+                            </div>
                           </button>
                         ))}
                       </div>
