@@ -715,6 +715,11 @@ export default function HomePage() {
 
               <div className="relative">
                 <div className="aspect-square bg-rose-100 border-2 border-rose-200 overflow-hidden">
+                  <img 
+                    src="/images/hero/FounderImage.jpg" 
+                    alt="Fundador de Amor Amar" 
+                    className="w-full h-full object-cover"
+                  />
                   <div className="absolute inset-0 bg-gradient-to-t from-neutral-900/20 to-transparent" />
                 </div>
                 <div className="absolute -bottom-6 -right-6 bg-white border-2 border-rose-700 p-6 max-w-sm shadow-xl">
