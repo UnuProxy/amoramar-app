@@ -62,7 +62,7 @@ export default function ClientDashboard() {
             Hola, <span className="text-rose-600">{user?.firstName || user?.email?.split('@')[0] || 'Invitado'}</span>
           </h1>
           <p className="text-neutral-400 text-sm font-black uppercase tracking-[0.3em] mt-4">
-            Tu Oasis de Bienestar en Ibiza
+            Tu Salón de Belleza en Ibiza
           </p>
         </div>
         <Link

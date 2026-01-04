@@ -40,7 +40,7 @@ const TESTIMONIALS = [
   { name: 'Sofia, Italy', text: 'I come back every month. The only place in Ibiza that truly understands wellness. Not just treatments—it feels like family.', service: 'Full Body Massage' },
   { name: 'Elena, Spain', text: 'My skin has never looked better. But what amazes me most is how they remember everything about me.', service: 'Jade Facial' },
   { name: 'Marcus, Germany', text: 'As someone who tried many places, this is the real deal. The difference is the people—they genuinely care.', service: 'Couples Massage' },
-  { name: 'Yuki, Japan', text: 'I felt so welcome. The therapist understood exactly what I needed without me saying a word. Pure magic.', service: 'Thermal Spa' },
+  { name: 'Yuki, Japan', text: 'I felt so welcome. The therapist understood exactly what I needed without me saying a word. Pure magic.', service: 'Balayage' },
   { name: 'Lena, Austria', text: 'Finally found a place that respects both luxury AND the human touch. Coming back next week.', service: 'Hair Treatment' },
   { name: 'Pablo, Madrid', text: 'The best €580 I spent in Ibiza. My girlfriend and I felt like we were floating.', service: 'Couples Massage' },
 ];
@@ -601,7 +601,7 @@ export default function HomePage() {
 
               {/* Tagline */}
               <p className="text-lg sm:text-xl md:text-2xl text-white/90 font-light tracking-wide mb-10">
-                Donde el bienestar y el lujo se unen
+                Donde la belleza y el lujo se unen
               </p>
 
               {/* CTA Buttons - Made MUCH more prominent */}
@@ -652,7 +652,7 @@ export default function HomePage() {
             <div className="text-center">
               <div className="inline-flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-rose-50 to-rose-100/50 rounded-full border border-rose-200 mb-4">
                 <svg className="w-6 h-6 text-rose-600" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
-                <span className="text-sm font-semibold text-rose-800 tracking-wider">EXCELENCIA EN BIENESTAR</span>
+                <span className="text-sm font-semibold text-rose-800 tracking-wider">EXCELENCIA EN BELLEZA</span>
               </div>
               <h2 className="text-3xl md:text-4xl font-light tracking-tight text-neutral-900 mb-4">
                 Reconocidos por nuestra dedicación al cuidado excepcional
@@ -840,7 +840,7 @@ export default function HomePage() {
                     </div>
                     <h3 className="text-2xl font-light text-neutral-900 mb-2">{member.firstName} {member.lastName}</h3>
                     <p className="text-sm text-rose-700 font-light tracking-widest uppercase mb-4">Terapeuta</p>
-                    <p className="text-neutral-700 font-light leading-relaxed">{member.bio || 'Experto en bienestar y cuidado personal.'}</p>
+                    <p className="text-neutral-700 font-light leading-relaxed">{member.bio || 'Experto en belleza y cuidado personal.'}</p>
                   </div>
                 ))}
               </div>

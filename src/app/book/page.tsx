@@ -601,8 +601,7 @@ export default function BookAllServicesPage() {
               {bookingStep === 1 && (
                 <div className="space-y-8">
                   <div className="text-center mb-8">
-                    <h2 className="text-2xl font-black text-neutral-800 uppercase tracking-tight mb-2">Nuestros Servicios</h2>
-                    <p className="text-neutral-500 font-medium">Elige la experiencia que deseas vivir</p>
+                    <h2 className="text-2xl font-black text-neutral-800 uppercase tracking-tight">Nuestros Servicios</h2>
                   </div>
 
                   {services.length === 0 ? (
@@ -857,48 +856,45 @@ export default function BookAllServicesPage() {
                             type="button"
                             onClick={() => setFormData({ ...formData, employeeId: emp.id })}
                             className={cn(
-                              "p-6 rounded-[24px] text-left transition-all border-2 flex flex-col items-center gap-4 relative overflow-hidden",
+                              "p-4 rounded-[24px] text-left transition-all border-2 flex items-center gap-4 relative overflow-hidden",
                               formData.employeeId === emp.id
-                                ? "border-rose-600 bg-rose-50/50 shadow-xl"
-                                : "border-neutral-100 bg-white hover:border-rose-200 hover:shadow-lg"
+                                ? "border-rose-600 bg-rose-50/50 shadow-lg"
+                                : "border-neutral-100 bg-white hover:border-rose-200 hover:shadow-md"
                             )}
                           >
                             {/* Checkmark for selected */}
                             {formData.employeeId === emp.id && (
-                              <div className="absolute top-4 right-4 w-8 h-8 rounded-full bg-rose-600 flex items-center justify-center z-10">
-                                <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                              <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-rose-600 flex items-center justify-center z-10">
+                                <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
                                   <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                                 </svg>
                               </div>
                             )}
                             
-                            {/* Therapist Photo - Large and Prominent */}
-                            <div className="relative w-full aspect-[4/3] rounded-[20px] overflow-hidden bg-gradient-to-br from-neutral-100 to-neutral-200">
+                            {/* Therapist Photo - Small and Round */}
+                            <div className="relative w-16 h-16 rounded-full overflow-hidden bg-gradient-to-br from-neutral-100 to-neutral-200 flex-shrink-0 border-2 border-white shadow-sm">
                               {emp.profileImage ? (
                                 <Image
                                   src={emp.profileImage}
                                   alt={`${emp.firstName} ${emp.lastName}`}
                                   fill
                                   className="object-cover"
-                                  sizes="(max-width: 640px) 100vw, 50vw"
+                                  sizes="64px"
                                 />
                               ) : (
-                                <div className="w-full h-full bg-gradient-to-br from-rose-400 to-rose-600 flex items-center justify-center text-white font-black text-5xl">
+                                <div className="w-full h-full bg-gradient-to-br from-rose-400 to-rose-600 flex items-center justify-center text-white font-black text-xl">
                                   {emp.firstName[0]}{emp.lastName[0]}
                                 </div>
                               )}
                             </div>
                             
                             {/* Therapist Info */}
-                            <div className="w-full text-center">
-                              <p className="font-black text-lg text-neutral-900 uppercase tracking-tight mb-1">
+                            <div className="flex-1 min-w-0">
+                              <p className="font-black text-neutral-900 uppercase tracking-tight truncate">
                                 {emp.firstName} {emp.lastName}
                               </p>
                               {emp.position && (
-                                <p className="text-[10px] font-bold text-rose-600 uppercase tracking-widest">{emp.position}</p>
-                              )}
-                              {emp.bio && (
-                                <p className="text-xs text-neutral-600 mt-2 line-clamp-2">{emp.bio}</p>
+                                <p className="text-[9px] font-bold text-rose-600 uppercase tracking-widest truncate">{emp.position}</p>
                               )}
                             </div>
                           </button>
