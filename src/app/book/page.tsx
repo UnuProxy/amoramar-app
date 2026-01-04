@@ -637,6 +637,20 @@ export default function BookAllServicesPage() {
                           <p className="text-xs sm:text-sm text-neutral-500 font-medium leading-relaxed mb-4 sm:mb-6 line-clamp-2">
                             {service.description}
                           </p>
+
+                          {/* Therapists on Stage 1 */}
+                          {service.employees && service.employees.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5 mb-6">
+                              {service.employees.map((emp) => (
+                                <span 
+                                  key={emp.id}
+                                  className="px-2 py-0.5 rounded-md bg-rose-50 text-rose-600 text-[9px] font-bold uppercase tracking-wider border border-rose-100"
+                                >
+                                  {emp.firstName}
+                                </span>
+                              ))}
+                            </div>
+                          )}
                           
                           <div className="flex items-end justify-between pt-3 sm:pt-4 border-t border-neutral-100">
                             <div>

@@ -150,6 +150,7 @@ export interface Service {
   price: number;
   category: ServiceCategory;
   isActive: boolean;
+  employees?: { id: string; firstName: string; lastName: string }[];
   createdAt: Date;
   updatedAt: Date;
 }

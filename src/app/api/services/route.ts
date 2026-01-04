@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServices, createService, getEmployeeServices } from '@/shared/lib/firestore';
-import type { ApiResponse, Service, ServiceFormData } from '@/shared/lib/types';
+import { getServices, createService, getEmployeeServices, getEmployees } from '@/shared/lib/firestore';
+import type { ApiResponse, Service, ServiceFormData, Employee } from '@/shared/lib/types';
 
 export async function GET(request: NextRequest) {
   try {
@@ -10,13 +10,31 @@ export async function GET(request: NextRequest) {
 
     const services = await getServices(salonId);
 
-    // If requested, filter services to only those with assigned employees
+    // If requested, filter services to only those with assigned employees and attach names
     if (withEmployees) {
+      const allEmployees = await getEmployees(salonId);
+      
       const servicesWithEmployees = await Promise.all(
         services.map(async (service) => {
           const employeeServices = await getEmployeeServices(undefined, service.id);
-          const hasEmployees = employeeServices.some(es => es.isOffered);
-          return hasEmployees ? service : null;
+          const assignedEmployeeIds = employeeServices
+            .filter(es => es.isOffered)
+            .map(es => es.employeeId);
+          
+          if (assignedEmployeeIds.length === 0) return null;
+
+          const assignedEmployees = allEmployees
+            .filter(emp => assignedEmployeeIds.includes(emp.id))
+            .map(emp => ({
+              id: emp.id,
+              firstName: emp.firstName,
+              lastName: emp.lastName
+            }));
+
+          return {
+            ...service,
+            employees: assignedEmployees
+          };
         })
       );
       
