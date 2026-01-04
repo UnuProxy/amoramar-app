@@ -145,7 +145,7 @@ export default function ClientHistoryPage() {
       </div>
 
       {/* Stats Grid - Luxury High Impact */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
         <div className="bg-white border border-neutral-100 rounded-[40px] p-10 shadow-sm hover:shadow-xl transition-all group overflow-hidden relative">
           <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-50 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-700 opacity-50" />
           <div className="relative">
@@ -167,18 +167,9 @@ export default function ClientHistoryPage() {
         <div className="bg-neutral-900 rounded-[40px] p-10 shadow-2xl group overflow-hidden relative">
           <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-700" />
           <div className="relative">
-            <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em] mb-4">Total Inversión</p>
-            <p className="text-6xl font-black text-white tracking-tighter">{formatCurrency(stats.totalSpent)}</p>
-            <p className="text-[10px] font-black text-rose-400 uppercase tracking-widest mt-2">BIENESTAR TOTAL</p>
-          </div>
-        </div>
-
-        <div className="bg-white border border-neutral-100 rounded-[40px] p-10 shadow-sm hover:shadow-xl transition-all group overflow-hidden relative">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-purple-50 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-700 opacity-50" />
-          <div className="relative">
-            <p className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em] mb-4">Tiempo Total</p>
-            <p className="text-6xl font-black text-neutral-900 tracking-tighter">{stats.totalHours}<span className="text-2xl">H</span></p>
-            <p className="text-[10px] font-black text-purple-600 uppercase tracking-widest mt-2">TU TIEMPO</p>
+            <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em] mb-4">Tiempo Total</p>
+            <p className="text-6xl font-black text-white tracking-tighter">{stats.totalHours}<span className="text-2xl">H</span></p>
+            <p className="text-[10px] font-black text-rose-400 uppercase tracking-widest mt-2">TU BIENESTAR</p>
           </div>
         </div>
       </div>
@@ -274,15 +265,9 @@ export default function ClientHistoryPage() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-10 border-t lg:border-t-0 pt-8 lg:pt-0">
-                  <div className="text-right">
-                    <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest mb-1">Precio Pago</p>
-                    <p className="text-3xl font-black text-neutral-900 tabular-nums">{formatCurrency(service?.price || 0)}</p>
-                  </div>
-                  <button className="w-16 h-16 rounded-[24px] bg-neutral-50 text-neutral-300 flex items-center justify-center hover:bg-neutral-900 hover:text-white transition-all shadow-sm">
-                    <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
-                    </svg>
+                <div className="flex items-center gap-6">
+                  <button className="px-8 py-4 rounded-2xl bg-rose-600 text-white text-[10px] font-black uppercase tracking-[0.2em] hover:bg-neutral-900 transition-all shadow-lg">
+                    Reservar de Nuevo
                   </button>
                 </div>
               </div>
