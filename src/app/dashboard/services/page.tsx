@@ -1,15 +1,17 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { getServices } from '@/shared/lib/firestore';
+import { getServices, getEmployees, getEmployeeServices } from '@/shared/lib/firestore';
 import { Button } from '@/shared/components/Button';
 import { Loading } from '@/shared/components/Loading';
 import Link from 'next/link';
 import { formatCurrency, cn } from '@/shared/lib/utils';
-import type { Service } from '@/shared/lib/types';
+import type { Service, Employee, EmployeeService } from '@/shared/lib/types';
 
 export default function ServicesPage() {
   const [services, setServices] = useState<Service[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [employeeServices, setEmployeeServices] = useState<EmployeeService[]>([]);
   const [loading, setLoading] = useState(true);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [copiedGeneral, setCopiedGeneral] = useState(false);
@@ -17,8 +19,14 @@ export default function ServicesPage() {
   useEffect(() => {
     const fetchServices = async () => {
       try {
-        const data = await getServices();
-        setServices(data);
+        const [servicesData, employeesData, employeeServicesData] = await Promise.all([
+          getServices(),
+          getEmployees(),
+          getEmployeeServices(),
+        ]);
+        setServices(servicesData);
+        setEmployees(employeesData);
+        setEmployeeServices(employeeServicesData);
       } catch (error) {
         console.error('Error fetching services:', error);
       } finally {
@@ -28,6 +36,14 @@ export default function ServicesPage() {
 
     fetchServices();
   }, []);
+
+  const getServiceEmployees = (serviceId: string): Employee[] => {
+    const serviceEmployeeIds = employeeServices
+      .filter((es) => es.serviceId === serviceId && es.isOffered)
+      .map((es) => es.employeeId);
+    
+    return employees.filter((emp) => serviceEmployeeIds.includes(emp.id));
+  };
 
   const fallbackCopyText = (text: string) => {
     if (typeof document === 'undefined') return false;
@@ -190,6 +206,7 @@ export default function ServicesPage() {
             <thead>
               <tr className="bg-neutral-50/50">
                 <th className="px-10 py-8 text-left text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em]">Tratamiento</th>
+                <th className="px-10 py-8 text-left text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em]">Terapeutas</th>
                 <th className="px-10 py-8 text-center text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em]">Categoría</th>
                 <th className="px-10 py-8 text-center text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em]">Duración</th>
                 <th className="px-10 py-8 text-center text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em]">Precio</th>
@@ -200,7 +217,7 @@ export default function ServicesPage() {
             <tbody className="divide-y divide-neutral-100">
               {services.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-10 py-20 text-center">
+                  <td colSpan={7} className="px-10 py-20 text-center">
                     <div className="w-20 h-20 bg-neutral-50 rounded-3xl flex items-center justify-center mx-auto mb-6">
                       <svg className="w-10 h-10 text-neutral-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
@@ -210,17 +227,35 @@ export default function ServicesPage() {
                   </td>
                 </tr>
               ) : (
-                services.map((service) => (
-                  <tr key={service.id} className="hover:bg-neutral-50 transition-all group">
-                    <td className="px-10 py-10">
-                      <div className="space-y-1">
-                        <p className="text-2xl font-black text-neutral-900 uppercase tracking-tighter leading-none">{service.serviceName}</p>
-                        {service.description && (
-                          <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest truncate max-w-xs">{service.description}</p>
+                services.map((service) => {
+                  const serviceEmployees = getServiceEmployees(service.id);
+                  return (
+                    <tr key={service.id} className="hover:bg-neutral-50 transition-all group">
+                      <td className="px-10 py-10">
+                        <div className="space-y-1">
+                          <p className="text-2xl font-black text-neutral-900 uppercase tracking-tighter leading-none">{service.serviceName}</p>
+                          {service.description && (
+                            <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest truncate max-w-xs">{service.description}</p>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-10 py-10">
+                        {serviceEmployees.length > 0 ? (
+                          <div className="flex flex-wrap gap-2">
+                            {serviceEmployees.map((emp) => (
+                              <span
+                                key={emp.id}
+                                className="px-3 py-1.5 rounded-lg bg-neutral-100 text-neutral-700 text-[10px] font-black uppercase tracking-wider"
+                              >
+                                {emp.firstName}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-[10px] font-bold text-neutral-300 uppercase tracking-widest">Sin asignar</span>
                         )}
-                      </div>
-                    </td>
-                    <td className="px-10 py-10 text-center">
+                      </td>
+                      <td className="px-10 py-10 text-center">
                       <span className="px-4 py-2 rounded-xl bg-neutral-100 text-neutral-500 text-[10px] font-black uppercase tracking-[0.2em]">
                         {service.category || 'VARIOS'}
                       </span>
@@ -279,7 +314,8 @@ export default function ServicesPage() {
                       </div>
                     </td>
                   </tr>
-                ))
+                  );
+                })
               )}
             </tbody>
           </table>
