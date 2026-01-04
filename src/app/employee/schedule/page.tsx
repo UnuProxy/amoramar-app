@@ -160,9 +160,13 @@ export default function SchedulePage() {
           ? todayStr
           : firstWithDates.startDate
         : todayStr;
+      // Don't load end date if it's in the past
+      const endFromExisting = firstWithDates?.endDate && firstWithDates.endDate >= todayStr 
+        ? firstWithDates.endDate 
+        : '';
       setDateRange({
         start: startFromExistingOrToday,
-        end: firstWithDates?.endDate || '',
+        end: endFromExisting,
       });
 
       // Map availability to per-day slots
