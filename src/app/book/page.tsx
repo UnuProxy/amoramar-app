@@ -645,16 +645,25 @@ export default function BookAllServicesPage() {
                           {service.employees && service.employees.length > 0 && (
                             <div className="flex flex-wrap gap-1.5 mb-6">
                               {service.employees.map((emp) => (
-                                <button
+                                <div
                                   key={emp.id}
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     selectService(service, emp.id);
                                   }}
+                                  role="button"
+                                  tabIndex={0}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                      e.stopPropagation();
+                                      e.preventDefault();
+                                      selectService(service, emp.id);
+                                    }
+                                  }}
                                   className="px-2 py-0.5 rounded-md bg-rose-50 text-rose-600 text-[9px] font-bold uppercase tracking-wider border border-rose-100 hover:bg-rose-600 hover:text-white transition-all cursor-pointer"
                                 >
                                   {emp.firstName}
-                                </button>
+                                </div>
                               ))}
                             </div>
                           )}
