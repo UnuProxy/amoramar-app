@@ -103,6 +103,10 @@ export default function DirectBookingPage() {
           const data = await response.json();
           if (data.success) {
             setServiceEmployees(data.data);
+            // Auto-select if only one employee
+            if (data.data.length === 1) {
+              setFormData(prev => ({ ...prev, employeeId: data.data[0].id }));
+            }
           }
         } catch (err) {
           console.error('Error fetching service employees:', err);
@@ -646,67 +650,95 @@ export default function DirectBookingPage() {
                   </div>
 
                   {/* Employee Selection */}
-                  <div className="pt-6 border-t border-neutral-100">
-                    <label className="block text-[10px] font-black text-neutral-400 uppercase tracking-widest mb-4">Elige Tu Profesional</label>
-                    {serviceEmployees.length === 0 ? (
-                      <div className="p-8 bg-neutral-50 rounded-2xl text-center">
-                        <div className="w-3 h-3 rounded-full bg-rose-600 animate-ping mx-auto mb-4" />
-                        <p className="text-neutral-500 font-medium">Cargando profesionales...</p>
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {serviceEmployees.map((emp) => (
-                          <button
-                            key={emp.id}
-                            type="button"
-                            onClick={() => setFormData({ ...formData, employeeId: emp.id })}
-                            className={cn(
-                              "p-4 rounded-[24px] text-left transition-all border-2 flex items-center gap-4 relative overflow-hidden",
-                              formData.employeeId === emp.id
-                                ? "border-rose-600 bg-rose-50/50 shadow-lg"
-                                : "border-neutral-100 bg-white hover:border-rose-200 hover:shadow-md"
-                            )}
-                          >
-                            {/* Checkmark for selected */}
-                            {formData.employeeId === emp.id && (
-                              <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-rose-600 flex items-center justify-center z-10">
-                                <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                </svg>
-                              </div>
-                            )}
-                            
-                            {/* Therapist Photo - Small and Round */}
-                            <div className="relative w-16 h-16 rounded-full overflow-hidden bg-gradient-to-br from-neutral-100 to-neutral-200 flex-shrink-0 border-2 border-white shadow-sm">
-                              {emp.profileImage ? (
-                                <Image
-                                  src={emp.profileImage}
-                                  alt={`${emp.firstName} ${emp.lastName}`}
-                                  fill
-                                  className="object-cover"
-                                  sizes="64px"
-                                />
-                              ) : (
-                                <div className="w-full h-full bg-gradient-to-br from-rose-400 to-rose-600 flex items-center justify-center text-white font-black text-xl">
-                                  {emp.firstName[0]}{emp.lastName[0]}
+                  {serviceEmployees.length > 1 && (
+                    <div className="pt-6 border-t border-neutral-100">
+                      <label className="block text-[10px] font-black text-neutral-400 uppercase tracking-widest mb-4">Elige Tu Profesional</label>
+                      {serviceEmployees.length === 0 ? (
+                        <div className="p-8 bg-neutral-50 rounded-2xl text-center">
+                          <div className="w-3 h-3 rounded-full bg-rose-600 animate-ping mx-auto mb-4" />
+                          <p className="text-neutral-500 font-medium">Cargando profesionales...</p>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          {serviceEmployees.map((emp) => (
+                            <button
+                              key={emp.id}
+                              type="button"
+                              onClick={() => setFormData({ ...formData, employeeId: emp.id })}
+                              className={cn(
+                                "p-4 rounded-[24px] text-left transition-all border-2 flex items-center gap-4 relative overflow-hidden",
+                                formData.employeeId === emp.id
+                                  ? "border-rose-600 bg-rose-50/50 shadow-lg"
+                                  : "border-neutral-100 bg-white hover:border-rose-200 hover:shadow-md"
+                              )}
+                            >
+                              {/* Checkmark for selected */}
+                              {formData.employeeId === emp.id && (
+                                <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-rose-600 flex items-center justify-center z-10">
+                                  <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                  </svg>
                                 </div>
                               )}
+                              
+                              {/* Therapist Photo - Small and Round */}
+                              <div className="relative w-16 h-16 rounded-full overflow-hidden bg-gradient-to-br from-neutral-100 to-neutral-200 flex-shrink-0 border-2 border-white shadow-sm">
+                                {emp.profileImage ? (
+                                  <Image
+                                    src={emp.profileImage}
+                                    alt={`${emp.firstName} ${emp.lastName}`}
+                                    fill
+                                    className="object-cover"
+                                    sizes="64px"
+                                  />
+                                ) : (
+                                  <div className="w-full h-full bg-gradient-to-br from-rose-400 to-rose-600 flex items-center justify-center text-white font-black text-xl">
+                                    {emp.firstName[0]}{emp.lastName[0]}
+                                  </div>
+                                )}
+                              </div>
+                              
+                              {/* Therapist Info */}
+                              <div className="flex-1 min-w-0">
+                                <p className="font-black text-neutral-900 uppercase tracking-tight truncate">
+                                  {emp.firstName} {emp.lastName}
+                                </p>
+                                {emp.position && (
+                                  <p className="text-[9px] font-bold text-rose-600 uppercase tracking-widest truncate">{emp.position}</p>
+                                )}
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Summary if only one therapist */}
+                  {serviceEmployees.length === 1 && (
+                    <div className="pt-6 border-t border-neutral-100">
+                      <div className="p-4 bg-neutral-50 rounded-[24px] flex items-center gap-4 border border-neutral-100">
+                        <div className="relative w-12 h-12 rounded-full overflow-hidden bg-white shadow-sm flex-shrink-0">
+                          {serviceEmployees[0].profileImage ? (
+                            <Image src={serviceEmployees[0].profileImage} alt="" fill className="object-cover" />
+                          ) : (
+                            <div className="w-full h-full bg-rose-600 text-white flex items-center justify-center font-black text-xs">
+                              {serviceEmployees[0].firstName[0]}
                             </div>
-                            
-                            {/* Therapist Info */}
-                            <div className="flex-1 min-w-0">
-                              <p className="font-black text-neutral-900 uppercase tracking-tight truncate">
-                                {emp.firstName} {emp.lastName}
-                              </p>
-                              {emp.position && (
-                                <p className="text-[9px] font-bold text-rose-600 uppercase tracking-widest truncate">{emp.position}</p>
-                              )}
-                            </div>
-                          </button>
-                        ))}
+                          )}
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest mb-0.5">Profesional asignado</p>
+                          <p className="font-black text-neutral-900 uppercase tracking-tight">{serviceEmployees[0].firstName} {serviceEmployees[0].lastName}</p>
+                        </div>
+                        <div className="ml-auto w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center">
+                          <svg className="w-4 h-4 text-emerald-600" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                        </div>
                       </div>
-                    )}
-                  </div>
+                    </div>
+                  )}
 
                   {/* Login Prompt */}
                   {!user && (
