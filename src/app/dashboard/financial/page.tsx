@@ -35,8 +35,6 @@ export default function FinancialDashboard() {
     employee: Employee;
     bookings: Booking[];
     totalRevenue: number;
-    payout: number;
-    commission: number;
   } | null>(null);
   
   // New expense form
@@ -260,14 +258,10 @@ export default function FinancialDashboard() {
       .map((employee) => {
         const employeeBookings = payoutBookings.filter((b) => b.employeeId === employee.id);
         const revenue = employeeBookings.reduce((sum, b) => sum + getBookingAmount(b), 0);
-        const commission = employee.commission ?? 50; // default 50%
-        const payout = (revenue * commission) / 100;
         
         return {
           employee,
           revenue,
-          payout,
-          commission,
           bookingsCount: employeeBookings.length,
           percentage: payoutTotalRevenue > 0 ? (revenue / payoutTotalRevenue) * 100 : 0,
         };
@@ -347,8 +341,6 @@ export default function FinancialDashboard() {
     if (!employee) return;
     const bookingsForEmployee = payoutBookings.filter((b) => b.employeeId === employeeId);
     const totalRevenue = bookingsForEmployee.reduce((sum, b) => sum + getServicePrice(b.serviceId), 0);
-    const commission = employee.commission ?? 50;
-    const payout = (totalRevenue * commission) / 100;
 
     setPayoutDetail({
       employee,
@@ -356,8 +348,6 @@ export default function FinancialDashboard() {
         `${b.bookingDate}T${b.bookingTime}`.localeCompare(`${a.bookingDate}T${a.bookingTime}`)
       ),
       totalRevenue,
-      payout,
-      commission,
     });
   };
 
@@ -551,13 +541,10 @@ export default function FinancialDashboard() {
                       </div>
                       <div className="text-right">
                         <p className="text-xl font-black text-rose-600 tabular-nums leading-none">
-                          {formatCurrency(item.payout)}
+                          {formatCurrency(item.revenue)}
                         </p>
                         <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest mt-1">
-                          GANANCIA ({item.commission}%)
-                        </p>
-                        <p className="text-[10px] font-bold text-neutral-300 uppercase tracking-widest mt-1">
-                          GENERA: {formatCurrency(item.revenue)}
+                          TOTAL GENERADO
                         </p>
                       </div>
                     </div>
@@ -709,15 +696,12 @@ export default function FinancialDashboard() {
 
             <div className="px-6 sm:px-10 py-6 bg-neutral-50/60 border-b border-neutral-100 flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.25em] text-neutral-500">Lo que el terapeuta gana</p>
-                <p className="text-3xl font-black text-rose-600">{formatCurrency(payoutDetail.payout)}</p>
-                <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest mt-1">
-                  Basado en {payoutDetail.commission}% de comisión
-                </p>
+                <p className="text-xs font-black uppercase tracking-[0.25em] text-neutral-500">Total Generado (100%)</p>
+                <p className="text-3xl font-black text-rose-600">{formatCurrency(payoutDetail.totalRevenue)}</p>
               </div>
               <div className="text-right">
-                <p className="text-xs font-black uppercase tracking-[0.25em] text-neutral-500">Total Generado (100%)</p>
-                <p className="text-xl font-black text-neutral-900">{formatCurrency(payoutDetail.totalRevenue)}</p>
+                <p className="text-xs font-black uppercase tracking-[0.25em] text-neutral-500">Total Servicios</p>
+                <p className="text-xl font-black text-neutral-900">{payoutDetail.bookings.length} CITAS</p>
               </div>
             </div>
 
