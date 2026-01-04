@@ -34,8 +34,9 @@ export default function FinancialDashboard() {
   const [payoutDetail, setPayoutDetail] = useState<{
     employee: Employee;
     bookings: Booking[];
-    total: number;
-    percentage: number;
+    totalRevenue: number;
+    payout: number;
+    commission: number;
   } | null>(null);
   
   // New expense form
@@ -104,25 +105,30 @@ export default function FinancialDashboard() {
   };
 
   const getBookingAmount = (booking: Booking): number => {
+    // If it's paid or completed, use the full service price
+    if (booking.paymentStatus === 'paid' || booking.status === 'completed' || booking.depositPaid) {
+      return getServicePrice(booking.serviceId);
+    }
+    // If it's just a deposit, use the deposit amount
     if (booking.depositAmount != null) {
       return booking.depositAmount / 100;
     }
     return getServicePrice(booking.serviceId);
   };
 
-  // Date range filtering (paid bookings only for revenue)
+  // Date range filtering (confirmed or completed bookings for accurate revenue)
   const { startDate, endDate } = useMemo(() => {
     const today = new Date();
     let start = new Date();
 
     if (dateRange === 'month') {
-      start.setMonth(today.getMonth() - 1);
+      start.setDate(1); // Start of current month
     } else if (dateRange === 'quarter') {
       start.setMonth(today.getMonth() - 3);
     } else if (dateRange === 'year') {
       start.setFullYear(today.getFullYear() - 1);
     } else {
-      start = new Date(0); // all time
+      start = new Date(2025, 0, 1); // reasonable all time start
     }
 
     return {
@@ -135,7 +141,7 @@ export default function FinancialDashboard() {
   const filteredBookings = useMemo(() => {
     return bookings.filter(
       (b) =>
-        b.paymentStatus === 'paid' &&
+        (b.status === 'confirmed' || b.status === 'completed') &&
         b.bookingDate >= startDate &&
         b.bookingDate <= endDate
     );
@@ -167,7 +173,7 @@ export default function FinancialDashboard() {
   const payoutBookings = useMemo(() => {
     return bookings.filter(
       (b) =>
-        b.paymentStatus === 'paid' &&
+        (b.status === 'confirmed' || b.status === 'completed') &&
         b.bookingDate >= payoutStartDate &&
         b.bookingDate <= payoutEndDate
     );
@@ -229,10 +235,15 @@ export default function FinancialDashboard() {
     const payoutByEmployee = employees
       .map((employee) => {
         const employeeBookings = payoutBookings.filter((b) => b.employeeId === employee.id);
-        const revenue = employeeBookings.reduce((sum, b) => sum + getBookingAmount(b), 0);
+        const revenue = employeeBookings.reduce((sum, b) => sum + getServicePrice(b.serviceId), 0);
+        const commission = employee.commission ?? 50; // default 50%
+        const payout = (revenue * commission) / 100;
+        
         return {
           employee,
           revenue,
+          payout,
+          commission,
           bookingsCount: employeeBookings.length,
           percentage: payoutTotalRevenue > 0 ? (revenue / payoutTotalRevenue) * 100 : 0,
         };
@@ -311,16 +322,18 @@ export default function FinancialDashboard() {
     const employee = employees.find((e) => e.id === employeeId);
     if (!employee) return;
     const bookingsForEmployee = payoutBookings.filter((b) => b.employeeId === employeeId);
-    const total = bookingsForEmployee.reduce((sum, b) => sum + getServicePrice(b.serviceId), 0);
-    const percentage =
-      financials.payoutTotalRevenue > 0 ? (total / financials.payoutTotalRevenue) * 100 : 0;
+    const totalRevenue = bookingsForEmployee.reduce((sum, b) => sum + getServicePrice(b.serviceId), 0);
+    const commission = employee.commission ?? 50;
+    const payout = (totalRevenue * commission) / 100;
+
     setPayoutDetail({
       employee,
       bookings: bookingsForEmployee.sort((a, b) =>
         `${b.bookingDate}T${b.bookingTime}`.localeCompare(`${a.bookingDate}T${a.bookingTime}`)
       ),
-      total,
-      percentage,
+      totalRevenue,
+      payout,
+      commission,
     });
   };
 
@@ -514,10 +527,13 @@ export default function FinancialDashboard() {
                       </div>
                       <div className="text-right">
                         <p className="text-xl font-black text-rose-600 tabular-nums leading-none">
-                          {formatCurrency(item.revenue)}
+                          {formatCurrency(item.payout)}
                         </p>
                         <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest mt-1">
-                          {item.percentage.toFixed(0)}% del total mensual
+                          GANANCIA ({item.commission}%)
+                        </p>
+                        <p className="text-[10px] font-bold text-neutral-300 uppercase tracking-widest mt-1">
+                          GENERA: {formatCurrency(item.revenue)}
                         </p>
                       </div>
                     </div>
@@ -669,12 +685,15 @@ export default function FinancialDashboard() {
 
             <div className="px-6 sm:px-10 py-6 bg-neutral-50/60 border-b border-neutral-100 flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.25em] text-neutral-500">Total a pagar</p>
-                <p className="text-3xl font-black text-neutral-900">{formatCurrency(payoutDetail.total)}</p>
+                <p className="text-xs font-black uppercase tracking-[0.25em] text-neutral-500">Lo que el terapeuta gana</p>
+                <p className="text-3xl font-black text-rose-600">{formatCurrency(payoutDetail.payout)}</p>
+                <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest mt-1">
+                  Basado en {payoutDetail.commission}% de comisión
+                </p>
               </div>
               <div className="text-right">
-                <p className="text-xs font-black uppercase tracking-[0.25em] text-neutral-500">Participación</p>
-                <p className="text-xl font-black text-rose-600">{payoutDetail.percentage.toFixed(1)}% del mes</p>
+                <p className="text-xs font-black uppercase tracking-[0.25em] text-neutral-500">Total Generado (100%)</p>
+                <p className="text-xl font-black text-neutral-900">{formatCurrency(payoutDetail.totalRevenue)}</p>
               </div>
             </div>
 

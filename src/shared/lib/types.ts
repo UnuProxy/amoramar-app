@@ -117,6 +117,7 @@ export interface Employee {
   province?: string;
   postalCode?: string;
   status: EmployeeStatus;
+  commission?: number; // percentage (0-100)
   createdAt: Date;
   updatedAt: Date;
 }
@@ -277,6 +278,7 @@ export interface EmployeeFormData {
   postalCode: string;
   bio?: string;
   profileImage?: string;
+  commission?: number;
 }
 
 export interface ServiceFormData {

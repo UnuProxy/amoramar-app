@@ -42,8 +42,22 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
           city: employee.city || '',
           province: employee.province || '',
           postalCode: employee.postalCode || '',
+          commission: employee.commission || 0,
         }
-      : undefined,
+      : {
+          firstName: '',
+          lastName: '',
+          email: '',
+          phone: '',
+          bio: '',
+          nationalId: '',
+          position: '',
+          addressLine1: '',
+          city: '',
+          province: '',
+          postalCode: '',
+          commission: 50, // Default to 50%
+        },
   });
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -103,6 +117,7 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
           city: data.city,
           province: data.province,
           postalCode: data.postalCode,
+          commission: Number(data.commission),
         });
       } else {
         // Create new employee with user account
@@ -151,6 +166,7 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
           province: data.province,
           postalCode: data.postalCode,
           status: 'active',
+          commission: Number(data.commission),
         });
 
         // Upload profile image if selected
@@ -281,6 +297,31 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
           </select>
           {errors.position?.message && (
             <p className="mt-2 text-xs text-red-600 font-light">{errors.position.message}</p>
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <label className="block text-xs font-light tracking-wide text-primary-600 uppercase">
+            Comisión (%)
+          </label>
+          <div className="flex items-center gap-3">
+            <input
+              type="number"
+              min="0"
+              max="100"
+              {...register('commission', { 
+                required: 'La comisión es obligatoria',
+                min: { value: 0, message: 'Mínimo 0%' },
+                max: { value: 100, message: 'Máximo 100%' }
+              })}
+              className="w-24 px-4 py-3 border border-primary-300 rounded-sm focus:outline-none focus:ring-1 focus:ring-accent-500 bg-white text-primary-900 font-light"
+            />
+            <span className="text-sm font-light text-primary-400 uppercase tracking-widest">
+              Porcentaje sobre cada servicio
+            </span>
+          </div>
+          {errors.commission?.message && (
+            <p className="mt-1 text-xs text-red-600 font-light">{errors.commission.message}</p>
           )}
         </div>
       </div>
