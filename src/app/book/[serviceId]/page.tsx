@@ -9,6 +9,7 @@ import { formatCurrency, cn } from '@/shared/lib/utils';
 import type { Service, Employee, BookingFormData, Client } from '@/shared/lib/types';
 import { loadStripe, type Stripe, type StripeCardElement, type StripeElements } from '@stripe/stripe-js';
 import Link from 'next/link';
+import Image from 'next/image';
 import { getClient, getClientByEmail } from '@/shared/lib/firestore';
 
 type Step = 1 | 2 | 3;

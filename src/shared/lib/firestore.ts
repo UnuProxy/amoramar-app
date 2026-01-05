@@ -193,8 +193,9 @@ export async function getEmployeeByUserId(userId: string): Promise<Employee | nu
   const q = query(coll, where('userId', '==', userId), limit(1));
   const snap = await getDocs(q);
   const docSnap = snap.docs[0];
-  if (!docSnap) return null;
-  const data = docSnap.data();
+  if (!docSnap || !docSnap.exists()) return null;
+  const data = docSnap.data() as any;
+  if (!data) return null;
   return {
     id: docSnap.id,
     ...data,
