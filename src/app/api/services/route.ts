@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
         })
       );
       
-      const filtered = servicesWithEmployees.filter((s): s is Service => s !== null);
+      const filtered = servicesWithEmployees.filter((s) => s !== null) as Service[];
       
       return NextResponse.json<ApiResponse<Service[]>>({
         success: true,
