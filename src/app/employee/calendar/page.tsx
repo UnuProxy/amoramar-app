@@ -318,6 +318,7 @@ export default function EmployeeCalendarPage() {
             employeeId: bookingForm.employeeId,
             serviceId: bookingForm.serviceId,
             date: bookingForm.bookingDate,
+            isStaffBooking: 'true',
           });
           const res = await fetch(`/api/slots/available?${params.toString()}`);
           const json = await res.json();
@@ -941,6 +942,7 @@ export default function EmployeeCalendarPage() {
         employeeId: booking.employeeId,
         serviceId: booking.serviceId,
         date,
+        isStaffBooking: 'true',
       });
       const res = await fetch(`/api/slots/available?${params.toString()}`);
       const json = await res.json();

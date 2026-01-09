@@ -216,7 +216,7 @@ export default function DashboardPage() {
     setBookingSlotsLoading(true);
     setBookingSlotsError(null);
     try {
-      const params = new URLSearchParams({ serviceId, employeeId, date });
+      const params = new URLSearchParams({ serviceId, employeeId, date, isStaffBooking: 'true' });
       const res = await fetch(`/api/slots/available?${params.toString()}`);
       const json = await res.json();
       if (!res.ok || !json?.success) {

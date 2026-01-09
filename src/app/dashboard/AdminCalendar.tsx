@@ -406,6 +406,7 @@ export function AdminCalendar({
         employeeId: booking.employeeId,
         serviceId: booking.serviceId,
         date,
+        isStaffBooking: 'true',
       });
       const res = await fetch(`/api/slots/available?${params.toString()}`);
       const json = await res.json();

@@ -14,6 +14,8 @@ export async function GET(request: NextRequest) {
     const date = searchParams.get('date');
     const isConsultation = searchParams.get('isConsultation') === 'true';
     const customDuration = searchParams.get('duration');
+    // Allow staff bookings to bypass the 30-minute buffer for walk-ins
+    const isStaffBooking = searchParams.get('isStaffBooking') === 'true';
 
     if (!employeeId || !serviceId || !date) {
       return NextResponse.json<ApiResponse<null>>(
@@ -128,11 +130,11 @@ export async function GET(request: NextRequest) {
     const today = now.toISOString().split('T')[0];
     const isToday = date === today;
     const currentMinutes = now.getHours() * 60 + now.getMinutes();
-    // Add buffer time - slots must be at least MIN_BOOKING_BUFFER_MINUTES in the future
-    const minimumSlotTime = currentMinutes + MIN_BOOKING_BUFFER_MINUTES;
+    // Add buffer time - only for client bookings, not for staff (walk-ins)
+    const minimumSlotTime = isStaffBooking ? currentMinutes : currentMinutes + MIN_BOOKING_BUFFER_MINUTES;
     
     if (isToday) {
-      console.log(`[Slots API] Is today - Current time: ${now.toLocaleTimeString()}, Current minutes: ${currentMinutes}, Min slot time: ${minimumSlotTime}`);
+      console.log(`[Slots API] Is today - Current time: ${now.toLocaleTimeString()}, Current minutes: ${currentMinutes}, Min slot time: ${minimumSlotTime}, Staff booking: ${isStaffBooking}`);
     }
 
     // Filter out booked slots, blocked slots, and past slots
