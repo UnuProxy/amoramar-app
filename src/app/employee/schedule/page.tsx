@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/shared/hooks/useAuth';
 import {
   getAvailability,
-  getEmployees,
+  getEmployeeByUserId, // Use this more reliable function
   createAvailability,
   updateAvailability,
   getServices,
@@ -112,8 +112,7 @@ export default function SchedulePage() {
       if (!user) return;
 
       try {
-        const employees = await getEmployees();
-        const foundEmployee = employees.find((e) => e.userId === user.id);
+        const foundEmployee = await getEmployeeByUserId(user.id);
         
         if (foundEmployee) {
           setEmployee(foundEmployee);
@@ -123,15 +122,36 @@ export default function SchedulePage() {
             getEmployeeServices(foundEmployee.id),
             getServices()
           ]);
+
+          // DEBUG: Log to console to help identify mismatches if it happens again
+          console.log('Employee services records found:', employeeServices.length);
+          console.log('Total services in system:', allServices.length);
+
           const assignedServices = allServices.filter((s) =>
             employeeServices.some((es) => es.serviceId === s.id)
           );
+          
           setServices(assignedServices);
           const defaultServiceId = assignedServices[0]?.id;
           setSelectedServiceId(defaultServiceId);
 
           if (defaultServiceId) {
             await loadAvailability(foundEmployee.id, defaultServiceId);
+          } else {
+            // If no assignments found, maybe try one more time after a short delay
+            // in case the assignment was JUST created
+            setTimeout(async () => {
+              const freshEmployeeServices = await getEmployeeServices(foundEmployee.id);
+              if (freshEmployeeServices.length > 0) {
+                const freshAssignedServices = allServices.filter((s) =>
+                  freshEmployeeServices.some((es) => es.serviceId === s.id)
+                );
+                setServices(freshAssignedServices);
+                const freshDefaultId = freshAssignedServices[0]?.id;
+                setSelectedServiceId(freshDefaultId);
+                if (freshDefaultId) await loadAvailability(foundEmployee.id, freshDefaultId);
+              }
+            }, 2000);
           }
         }
       } catch (error) {

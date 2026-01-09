@@ -49,8 +49,9 @@ export async function POST(request: NextRequest) {
     // In production, get salonId from authenticated user context or service
     const salonId = 'default-salon-id';
 
-    const allowUnpaid = data.allowUnpaid === true;
-    const createdByRole = data.createdByRole ?? (allowUnpaid ? 'employee' : 'client');
+    const isConsultation = data.isConsultation === true;
+    const allowUnpaid = data.allowUnpaid === true || isConsultation;
+    const createdByRole = data.createdByRole ?? (allowUnpaid ? (isConsultation ? 'client' : 'employee') : 'client');
     const createdByName = data.createdByName ?? (createdByRole === 'client' ? data.clientName : undefined);
     const createdByUserId = data.createdByUserId;
 
@@ -141,16 +142,18 @@ export async function POST(request: NextRequest) {
       clientPhone: data.clientPhone,
       bookingDate: data.bookingDate,
       bookingTime: data.bookingTime,
-      status: allowUnpaid ? 'pending' : 'confirmed',
+      status: isConsultation ? 'confirmed' : (allowUnpaid ? 'pending' : 'confirmed'),
       createdByRole,
       createdByName,
       createdByUserId,
       notes: data.notes || undefined,
-      requiresDeposit: true,
-      depositAmount,
-      depositPaid: !allowUnpaid,
+      requiresDeposit: !isConsultation,
+      depositAmount: isConsultation ? 0 : depositAmount,
+      depositPaid: isConsultation ? true : !allowUnpaid,
       paymentIntentId: data.paymentIntentId,
-      paymentStatus: allowUnpaid ? 'pending' : 'paid',
+      paymentStatus: isConsultation ? 'paid' : (allowUnpaid ? 'pending' : 'paid'),
+      isConsultation,
+      consultationDuration: isConsultation ? data.consultationDuration : undefined,
     });
 
     if (!service || !employee) {
@@ -160,12 +163,12 @@ export async function POST(request: NextRequest) {
       sendBookingConfirmation({
         clientName: data.clientName,
         clientEmail: data.clientEmail,
-        serviceName: service.serviceName,
+        serviceName: isConsultation ? `Consulta Gratuita - ${service.serviceName}` : service.serviceName,
         employeeName: `${employee.firstName} ${employee.lastName}`,
         bookingDate: data.bookingDate,
         bookingTime: data.bookingTime,
-        duration: service.duration,
-        price: servicePrice.toString(),
+        duration: isConsultation && data.consultationDuration ? data.consultationDuration : service.duration,
+        price: isConsultation ? '0' : servicePrice.toString(),
       }).catch((error) => console.error('Error sending confirmation email:', error));
 
       // Send notification email to employee (async, don't wait)

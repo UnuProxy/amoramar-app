@@ -1,12 +1,15 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { getBookings, getEmployees, getServices, updateBooking } from '@/shared/lib/firestore';
+import { getBookings, getEmployees, getServices, updateBooking, getClients, deleteClient, getClientByEmail, deleteBooking } from '@/shared/lib/firestore';
+import { updateClient } from '@/shared/lib/firestore';
 import { Loading } from '@/shared/components/Loading';
 import { cn, formatDate, formatTime } from '@/shared/lib/utils';
-import type { Booking, Employee, Service, TimeSlot } from '@/shared/lib/types';
+import type { Booking, Client, Employee, Service, TimeSlot, PaymentMethod } from '@/shared/lib/types';
 import { AdminCalendar } from './AdminCalendar';
 import { CurrentBookingPanel } from '@/shared/components/CurrentBookingPanel';
+import { PaymentMethodModal } from '@/shared/components/PaymentMethodModal';
+import { ClosingSaleModal } from '@/shared/components/ClosingSaleModal';
 import { useDelayedRender } from '@/shared/hooks/useDelayedRender';
 import { useAuth } from '@/shared/hooks/useAuth';
 import Link from 'next/link';
@@ -25,6 +28,9 @@ interface ClientData {
   totalSpent: number;
   lastBooking?: Booking;
   allBookings: Booking[];
+  userId?: string;
+  createdAt?: Date;
+  isNew?: boolean;
 }
 
 export default function DashboardPage() {
@@ -40,7 +46,11 @@ export default function DashboardPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [services, setServices] = useState<Service[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
+  const [clientSuggestionsOpen, setClientSuggestionsOpen] = useState(false);
+  const [clientDeleting, setClientDeleting] = useState(false);
+  const [clientNotesSaving, setClientNotesSaving] = useState(false);
   
   // Filters
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('all');
@@ -50,6 +60,11 @@ export default function DashboardPage() {
   const [selectedClientEmail, setSelectedClientEmail] = useState<string | null>(null);
   const [bookingModalOpen, setBookingModalOpen] = useState(false);
   const bookingModalShouldRender = useDelayedRender(bookingModalOpen, 220);
+  const [showPaymentMethodModal, setShowPaymentMethodModal] = useState(false);
+  const [showClosingSaleModal, setShowClosingSaleModal] = useState(false);
+  const [bookingToMarkPaid, setBookingToMarkPaid] = useState<Booking | null>(null);
+  const [processingPayment, setProcessingPayment] = useState(false);
+  const [newBookingNeedsPayment, setNewBookingNeedsPayment] = useState(false);
   const [bookingForm, setBookingForm] = useState({
     clientName: '',
     clientEmail: '',
@@ -132,15 +147,17 @@ export default function DashboardPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [bookingsData, employeesData, servicesData] = await Promise.all([
+        const [bookingsData, employeesData, servicesData, clientsData] = await Promise.all([
           getBookings(),
           getEmployees(),
           getServices(),
+          getClients(),
         ]);
 
         setBookings(bookingsData);
         setEmployees(employeesData);
         setServices(servicesData);
+        setClients(clientsData);
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
       } finally {
@@ -290,11 +307,21 @@ export default function DashboardPage() {
       alert('Completa todos los datos de la reserva.');
       return;
     }
+    // Show payment modal first
+    setNewBookingNeedsPayment(true);
+    setShowPaymentMethodModal(true);
+  };
+
+  const handleConfirmNewBookingPayment = async (paymentMethod: PaymentMethod, adjustedAmount?: number, notes?: string) => {
     setBookingSaving(true);
+    setProcessingPayment(true);
+    
     try {
+      const noPaymentCollected = adjustedAmount === 0;
       const createdByName = user?.firstName
         ? `${user.firstName} ${user.lastName || ''}`.trim()
         : user?.email || 'Admin';
+        
       const response = await fetch('/api/bookings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -307,7 +334,10 @@ export default function DashboardPage() {
           clientEmail: bookingForm.clientEmail,
           clientPhone: bookingForm.clientPhone,
           notes: bookingForm.notes || undefined,
-          allowUnpaid: true,
+          allowUnpaid: noPaymentCollected,
+          depositPaid: !noPaymentCollected,
+          finalPaymentMethod: noPaymentCollected ? undefined : paymentMethod,
+          paymentNotes: notes || undefined,
           createdByRole: user?.role ?? 'owner',
           createdByName,
           createdByUserId: user?.id,
@@ -329,8 +359,9 @@ export default function DashboardPage() {
         bookingTime: bookingForm.bookingTime,
         status: 'pending',
         requiresDeposit: true,
-        depositPaid: false,
-        paymentStatus: 'pending',
+        depositPaid: !noPaymentCollected,
+        paymentStatus: noPaymentCollected ? 'pending' : 'paid',
+        finalPaymentMethod: noPaymentCollected ? undefined : paymentMethod,
         createdByRole: user?.role ?? 'owner',
         createdByName,
         createdByUserId: user?.id,
@@ -340,17 +371,42 @@ export default function DashboardPage() {
       };
       setBookings((prev) => [newBooking, ...prev]);
       setBookingRefreshKey((prev) => prev + 1);
+      setShowPaymentMethodModal(false);
+      setNewBookingNeedsPayment(false);
       closeBookingModal();
     } catch (error: any) {
       console.error('Error creating booking:', error);
       alert(error?.message || 'No se pudo crear la reserva');
+    } finally {
       setBookingSaving(false);
+      setProcessingPayment(false);
     }
   };
 
   // Build client database
   const clientDatabase = useMemo(() => {
     const clientMap = new Map<string, ClientData>();
+    const newThreshold = new Date();
+    newThreshold.setDate(newThreshold.getDate() - 7);
+
+    clients.forEach((client) => {
+      const fullName = `${client.firstName} ${client.lastName}`.trim() || client.email;
+      clientMap.set(client.email.toLowerCase(), {
+        name: fullName,
+        email: client.email,
+        phone: client.phone || '',
+        userId: client.userId || client.id,
+        hairColorNotes: client.hairColorNotes || '',
+        totalBookings: 0,
+        confirmedBookings: 0,
+        completedBookings: 0,
+        cancelledBookings: 0,
+        totalSpent: 0,
+        allBookings: [],
+        createdAt: client.createdAt,
+        isNew: client.createdAt ? client.createdAt >= newThreshold : false,
+      });
+    });
 
     bookings.forEach(booking => {
       const email = booking.clientEmail.toLowerCase();
@@ -360,19 +416,23 @@ export default function DashboardPage() {
         clientMap.set(email, {
           name: booking.clientName,
           email: booking.clientEmail,
-          phone: booking.clientPhone,
+          phone: booking.clientPhone || '',
           totalBookings: 0,
           confirmedBookings: 0,
           completedBookings: 0,
           cancelledBookings: 0,
           totalSpent: 0,
           allBookings: [],
+          createdAt: booking.createdAt,
         });
       }
 
       const client = clientMap.get(email)!;
+      client.name = client.name || booking.clientName;
+      client.phone = client.phone || booking.clientPhone || '';
       client.totalBookings++;
       client.allBookings.push(booking);
+      client.createdAt = client.createdAt || booking.createdAt;
 
       if (booking.status === 'confirmed') {
         client.confirmedBookings++;
@@ -390,8 +450,14 @@ export default function DashboardPage() {
       }
     });
 
+    clientMap.forEach((client, key) => {
+      const isRecent = client.createdAt ? client.createdAt >= newThreshold : false;
+      const isNew = client.totalBookings === 0 || isRecent;
+      clientMap.set(key, { ...client, isNew });
+    });
+
     return Array.from(clientMap.values()).sort((a, b) => b.totalSpent - a.totalSpent);
-  }, [bookings, getServicePrice]);
+  }, [bookings, clients, getServicePrice]);
 
   // Filter bookings based on selected criteria
   const filteredBookings = useMemo(() => {
@@ -412,6 +478,10 @@ export default function DashboardPage() {
     if (selectedEmployeeId !== 'all') {
       filtered = filtered.filter(b => b.employeeId === selectedEmployeeId);
     }
+
+    // Hide paid bookings if viewing 'today' or 'week' usually helps keep view tight
+    // But for admin, we might want to see them in the history table.
+    // However, for the "Active/Upcoming" panels, they should be gone.
 
     // Date range filter
     if (dateRange === 'today') {
@@ -507,20 +577,236 @@ export default function DashboardPage() {
   };
 
   const handleMarkPaid = async (booking: Booking) => {
+    // Show high-end closing sale modal
+    setBookingToMarkPaid(booking);
+    setShowClosingSaleModal(true);
+  };
+
+  const handleConfirmFinalPayment = async (paymentMethod: PaymentMethod, finalAmount: number, notes: string, closedByEmployeeId?: string) => {
+    if (!bookingToMarkPaid || !user) return;
+
     try {
-      await updateBooking(booking.id, {
-        depositPaid: true,
-        paymentStatus: 'paid',
-      });
-      setBookings((prev) =>
-        prev.map((b) => (b.id === booking.id ? { ...b, depositPaid: true, paymentStatus: 'paid' } : b))
-      );
+      setProcessingPayment(true);
+      
+      const bookingEmployee = employees.find(e => e.id === bookingToMarkPaid.employeeId);
+      const isFullPayment = bookingEmployee?.employmentType === 'employee';
+      
+      // Determine who closed the sale
+      let closedByUserId = user.id;
+      let closedByName: string;
+      let closedByRole = user.role;
+      
+      if (closedByEmployeeId) {
+        // Admin specified which employee closed the sale
+        const specifiedEmployee = employees.find(e => e.id === closedByEmployeeId);
+        if (specifiedEmployee && specifiedEmployee.userId) {
+          closedByUserId = specifiedEmployee.userId;
+          closedByName = `${specifiedEmployee.firstName} ${specifiedEmployee.lastName}`.trim();
+          closedByRole = 'employee';
+        } else {
+          // Fallback to admin
+          const closingEmployee = employees.find(e => e.userId === user.id);
+          closedByName = closingEmployee 
+            ? `${closingEmployee.firstName} ${closingEmployee.lastName}`.trim()
+            : user.email?.split('@')[0] || 'Admin';
+        }
+      } else {
+        // Default: the current user closed it
+        const closingEmployee = employees.find(e => e.userId === user.id);
+        closedByName = closingEmployee 
+          ? `${closingEmployee.firstName} ${closingEmployee.lastName}`.trim()
+          : user.email?.split('@')[0] || 'Admin';
+      }
+      
+      if (isFullPayment) {
+        await updateBooking(bookingToMarkPaid.id, {
+          status: 'completed',
+          paymentStatus: 'paid',
+          depositPaid: true,
+          finalPaymentReceived: true,
+          finalPaymentAmount: finalAmount,
+          finalPaymentMethod: paymentMethod,
+          finalPaymentReceivedAt: new Date(),
+          finalPaymentReceivedBy: closedByUserId,
+          finalPaymentReceivedByName: closedByName,
+          completedBy: closedByUserId,
+          completedByName: closedByName,
+          completedByRole: closedByRole,
+          completedAt: new Date(),
+          paymentNotes: notes || undefined,
+        });
+        setBookings((prev) => prev.map((b) => 
+          b.id === bookingToMarkPaid.id 
+            ? { 
+                ...b, 
+                status: 'completed',
+                paymentStatus: 'paid',
+                depositPaid: true,
+                finalPaymentReceived: true,
+                finalPaymentAmount: finalAmount, 
+                finalPaymentMethod: paymentMethod,
+                completedByName: closedByName,
+                paymentNotes: notes || undefined,
+              } 
+            : b
+        ));
+      } else {
+        await updateBooking(bookingToMarkPaid.id, {
+          status: 'completed',
+          paymentStatus: 'paid',
+          depositPaid: true,
+          finalPaymentMethod: paymentMethod,
+          finalPaymentReceivedAt: new Date(),
+          finalPaymentReceivedBy: closedByUserId,
+          finalPaymentReceivedByName: closedByName,
+          completedBy: closedByUserId,
+          completedByName: closedByName,
+          completedByRole: closedByRole,
+          completedAt: new Date(),
+          paymentNotes: notes || undefined,
+        });
+        setBookings((prev) => prev.map((b) => 
+          b.id === bookingToMarkPaid.id 
+            ? { 
+                ...b, 
+                status: 'completed',
+                paymentStatus: 'paid', 
+                depositPaid: true, 
+                finalPaymentMethod: paymentMethod, 
+                completedByName: closedByName,
+                paymentNotes: notes || undefined 
+              } 
+            : b
+        ));
+      }
+      
       setBookingRefreshKey((prev) => prev + 1);
+      setShowClosingSaleModal(false);
+      setBookingToMarkPaid(null);
     } catch (error) {
-      console.error('Error marking paid:', error);
-      alert('No se pudo marcar como pagado');
+      console.error('Error closing sale:', error);
+      alert('No se pudo cerrar la venta');
+    } finally {
+      setProcessingPayment(false);
     }
   };
+
+  const selectedEmployee = employees.find(e => e.id === selectedEmployeeId);
+  const selectedEmployeeStats = analytics.employeeStats.find(s => s.employee.id === selectedEmployeeId);
+  const selectedClient = selectedClientEmail ? clientDatabase.find(c => c.email === selectedClientEmail) : null;
+  const selectedClientProfile = selectedClientEmail
+    ? clients.find((c) => c.email?.toLowerCase() === selectedClientEmail.toLowerCase())
+    : null;
+
+  const clientMatches = useMemo(() => {
+    const term = bookingForm.clientName?.trim().toLowerCase();
+    if (!term || term.length < 2) return [];
+    return clients
+      .filter((c) => {
+        const fullName = `${c.firstName} ${c.lastName}`.trim().toLowerCase();
+        return (
+          fullName.includes(term) ||
+          c.email.toLowerCase().includes(term) ||
+          (c.phone && c.phone.toLowerCase().includes(term))
+        );
+      })
+      .slice(0, 5);
+  }, [bookingForm.clientName, clients]);
+
+  const lookupClientId = useCallback(
+    async (email?: string, phone?: string) => {
+      if (selectedClient?.userId) return selectedClient.userId;
+      if (selectedClientProfile?.id) return selectedClientProfile.id;
+      const normalizePhone = (p?: string) => (p || '').replace(/\D/g, '');
+      const normalizedPhone = normalizePhone(phone || selectedClientProfile?.phone || selectedClient?.phone);
+      const trimmedEmail = (email || selectedClientEmail || selectedClient?.email || '').trim();
+      const lowerEmail = trimmedEmail.toLowerCase();
+
+      const findId = (list: Client[]) =>
+        list.find(
+          (c) =>
+            (c.email?.trim().toLowerCase() === lowerEmail && lowerEmail) ||
+            (normalizedPhone && normalizePhone(c.phone) === normalizedPhone)
+        )?.id;
+
+      let clientId = findId(clients);
+      if (clientId) return clientId;
+
+      if (trimmedEmail) {
+        const foundExact = await getClientByEmail(trimmedEmail);
+        if (foundExact?.id) return foundExact.id;
+        if (lowerEmail !== trimmedEmail) {
+          const foundLower = await getClientByEmail(lowerEmail);
+          if (foundLower?.id) return foundLower.id;
+        }
+      }
+
+      // As a final fallback refresh clients from Firestore and try again
+      const refreshed = await getClients();
+      setClients(refreshed);
+      clientId = findId(refreshed);
+      if (clientId) return clientId;
+
+      // If still not found but we have a trimmed email, try filtering refreshed list by includes
+      if (lowerEmail) {
+        const looseMatch = refreshed.find((c) => c.email?.trim().toLowerCase() === lowerEmail);
+        if (looseMatch?.id) return looseMatch.id;
+      }
+      return undefined;
+    },
+    [clients, selectedClientEmail, selectedClientProfile, selectedClient]
+  );
+
+  const deleteClientByEmailOrPhone = useCallback(
+    async (email?: string, phone?: string) => {
+      if (selectedClient?.userId) {
+        await deleteClient(selectedClient.userId);
+        setClients((prev) => prev.filter((c) => c.id !== selectedClient.userId));
+        return true;
+      }
+      const normalizedEmail = (email || selectedClientEmail || selectedClient?.email || '').trim().toLowerCase();
+      const normalizePhone = (p?: string) => (p || '').replace(/\D/g, '');
+      const normalizedPhone = normalizePhone(phone || selectedClientProfile?.phone || selectedClient?.phone);
+      const list = await getClients();
+      const matches = list.filter((c) => {
+        const e = c.email?.trim().toLowerCase();
+        const p = normalizePhone(c.phone);
+        return (normalizedEmail && e === normalizedEmail) || (normalizedPhone && p === normalizedPhone);
+      });
+      if (matches.length === 0) return false;
+      for (const m of matches) {
+        await deleteClient(m.id);
+      }
+      setClients(list.filter((c) => !matches.some((m) => m.id === c.id)));
+      return true;
+    },
+    [selectedClientEmail, selectedClientProfile, selectedClient]
+  );
+
+  const cleanupBookingsForContact = useCallback(
+    async (email?: string, phone?: string) => {
+      const normalizePhone = (p?: string) => (p || '').replace(/\D/g, '');
+      const targetEmail = (email || selectedClientEmail || selectedClient?.email || '').trim().toLowerCase();
+      const targetPhone = normalizePhone(phone || selectedClientProfile?.phone || selectedClient?.phone);
+      const bookingsToDelete = bookings.filter((b) => {
+        const bookingPhone = normalizePhone(b.clientPhone);
+        return (
+          (targetEmail && b.clientEmail.toLowerCase() === targetEmail) ||
+          (targetPhone && bookingPhone === targetPhone)
+        );
+      });
+      if (bookingsToDelete.length === 0) return;
+      for (const bk of bookingsToDelete) {
+        try {
+          await deleteBooking(bk.id);
+        } catch (err) {
+          console.error('Error deleting booking for client cleanup:', err);
+        }
+      }
+      setBookings((prev) => prev.filter((b) => !bookingsToDelete.some((del) => del.id === b.id)));
+    },
+    [bookings, selectedClientEmail, selectedClient, selectedClientProfile]
+  );
 
   if (loading) {
     return (
@@ -529,10 +815,6 @@ export default function DashboardPage() {
       </div>
     );
   }
-
-  const selectedEmployee = employees.find(e => e.id === selectedEmployeeId);
-  const selectedEmployeeStats = analytics.employeeStats.find(s => s.employee.id === selectedEmployeeId);
-  const selectedClient = selectedClientEmail ? clientDatabase.find(c => c.email === selectedClientEmail) : null;
 
   return (
     <div className="max-w-[1600px] mx-auto space-y-10 pb-12">
@@ -764,11 +1046,11 @@ export default function DashboardPage() {
         <div ref={clientSectionRef} className="space-y-10">
           {selectedClient ? (
             <div className="bg-white border border-neutral-100 rounded-[40px] p-12 shadow-sm space-y-12">
-              <div className="flex flex-wrap items-center justify-between gap-8">
-                <button
-                  onClick={() => setSelectedClientEmail(null)}
-                  className="px-8 py-4 rounded-2xl border-2 border-neutral-100 text-xs font-black text-neutral-400 hover:border-neutral-900 hover:text-neutral-900 transition-all uppercase tracking-[0.2em] flex items-center gap-3"
-                >
+                <div className="flex flex-wrap items-center justify-between gap-8">
+                  <button
+                    onClick={() => setSelectedClientEmail(null)}
+                    className="px-8 py-4 rounded-2xl border-2 border-neutral-100 text-xs font-black text-neutral-400 hover:border-neutral-900 hover:text-neutral-900 transition-all uppercase tracking-[0.2em] flex items-center gap-3"
+                  >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M15 19l-7-7 7-7" />
                   </svg>
@@ -780,6 +1062,52 @@ export default function DashboardPage() {
                 >
                   RESERVAR PARA ESTE CLIENTE
                 </button>
+                <button
+                  disabled={clientDeleting}
+                  onClick={async () => {
+                    const ok = window.confirm('¿Eliminar este cliente? Esta acción no se puede deshacer.');
+                    if (!ok) return;
+                    try {
+                      setClientDeleting(true);
+                      const directId = selectedClientProfile?.id || selectedClient?.userId;
+                      let resolved = false;
+                      if (directId) {
+                        await deleteClient(directId);
+                        setClients((prev) => prev.filter((c) => c.id !== directId));
+                        await cleanupBookingsForContact(selectedClientEmail, selectedClient?.phone);
+                        resolved = true;
+                      }
+                      if (!resolved) {
+                        const clientId = await lookupClientId(selectedClientEmail, selectedClient?.phone);
+                        if (clientId) {
+                          await deleteClient(clientId);
+                          setClients((prev) => prev.filter((c) => c.id !== clientId));
+                          await cleanupBookingsForContact(selectedClientEmail, selectedClient?.phone);
+                          resolved = true;
+                        }
+                      }
+                      if (!resolved) {
+                        const deleted = await deleteClientByEmailOrPhone(selectedClientEmail, selectedClient?.phone);
+                        if (!deleted) {
+                          const normalizePhone = (p?: string) => (p || '').replace(/\D/g, '');
+                          const targetEmail = (selectedClientEmail || selectedClient?.email || '').trim().toLowerCase();
+                          const targetPhone = normalizePhone(selectedClient?.phone);
+                          await cleanupBookingsForContact(targetEmail, targetPhone);
+                          resolved = true; // Even if none found, we attempted cleanup
+                        }
+                      }
+                      setSelectedClientEmail(null);
+                    } catch (error) {
+                      console.error('Error deleting client:', error);
+                      alert('No se pudo eliminar el cliente.');
+                    } finally {
+                      setClientDeleting(false);
+                    }
+                  }}
+                  className="px-10 py-5 text-sm font-black bg-accent-600 text-white rounded-[20px] hover:bg-accent-700 transition-all shadow-2xl uppercase tracking-[0.2em] disabled:opacity-50"
+                >
+                  {clientDeleting ? 'ELIMINANDO...' : 'ELIMINAR CLIENTE'}
+                </button>
               </div>
 
               <div className="flex flex-col md:flex-row items-center gap-10 pb-12 border-b border-neutral-100">
@@ -788,6 +1116,12 @@ export default function DashboardPage() {
                 </div>
                 <div className="text-center md:text-left space-y-3">
                   <h2 className="text-6xl font-black text-neutral-900 tracking-tighter uppercase leading-none">{selectedClient.name}</h2>
+                  {selectedClient.isNew && (
+                    <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-accent-50 text-accent-600 text-[10px] font-black uppercase tracking-[0.2em]">
+                      <span className="w-2 h-2 rounded-full bg-accent-500 animate-pulse" />
+                      Nuevo cliente
+                    </span>
+                  )}
                   <div className="flex flex-wrap justify-center md:justify-start gap-6 pt-2">
                     <div className="flex items-center gap-2">
                       <div className="w-1.5 h-1.5 rounded-full bg-accent-600" />
@@ -797,6 +1131,65 @@ export default function DashboardPage() {
                       <div className="w-1.5 h-1.5 rounded-full bg-neutral-300" />
                       <span className="text-sm font-black text-neutral-400 uppercase tracking-widest">{selectedClient.phone}</span>
                     </div>
+                    {selectedClientProfile?.city && (
+                      <div className="flex items-center gap-2">
+                        <div className="w-1.5 h-1.5 rounded-full bg-neutral-300" />
+                        <span className="text-sm font-black text-neutral-400 uppercase tracking-widest">
+                          {selectedClientProfile.city}
+                          {selectedClientProfile.address ? ` · ${selectedClientProfile.address}` : ''}
+                        </span>
+                      </div>
+                    )}
+                    {selectedClientProfile?.createdAt && (
+                      <div className="flex items-center gap-2">
+                        <div className="w-1.5 h-1.5 rounded-full bg-neutral-300" />
+                        <span className="text-sm font-black text-neutral-400 uppercase tracking-widest">
+                          Cliente desde: {new Date(selectedClientProfile.createdAt).toLocaleDateString()}
+                        </span>
+                      </div>
+                    )}
+                    {selectedClientProfile && (
+                      <div className="space-y-3 pt-4">
+                        <label className="block text-[10px] font-black text-neutral-400 uppercase tracking-[0.2em]">Color / Tinete usado</label>
+                        <div className="flex flex-col sm:flex-row gap-3">
+                          <textarea
+                            value={selectedClientProfile.hairColorNotes || ''}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              setClients((prev) =>
+                                prev.map((c) =>
+                                  c.id === selectedClientProfile.id ? { ...c, hairColorNotes: value } : c
+                                )
+                              );
+                            }}
+                            className="flex-1 w-full px-4 py-3 bg-neutral-50 border-2 border-neutral-100 rounded-[16px] text-neutral-900 font-medium focus:border-accent-500 transition-all outline-none"
+                            rows={3}
+                            placeholder="Ej. Wella Koleston 6/7 + 6% · Última aplicación 05/01/2026"
+                          />
+                          <button
+                            type="button"
+                            disabled={clientNotesSaving}
+                            onClick={async () => {
+                              if (!selectedClientProfile) return;
+                              try {
+                                setClientNotesSaving(true);
+                                await updateClient(selectedClientProfile.id, {
+                                  hairColorNotes: selectedClientProfile.hairColorNotes || '',
+                                });
+                              } catch (error) {
+                                console.error('Error guardando notas de color:', error);
+                                alert('No se pudieron guardar las notas de color.');
+                              } finally {
+                                setClientNotesSaving(false);
+                              }
+                            }}
+                            className="px-6 py-3 bg-neutral-900 text-white text-[10px] font-black uppercase tracking-[0.2em] rounded-[14px] hover:bg-accent-600 transition disabled:opacity-60"
+                          >
+                            {clientNotesSaving ? 'Guardando...' : 'Guardar Color'}
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -813,10 +1206,6 @@ export default function DashboardPage() {
                 <div className="bg-neutral-50 rounded-[32px] p-10 border border-neutral-100 group hover:bg-white hover:shadow-xl transition-all">
                   <p className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em] mb-2">Canceladas</p>
                   <p className="text-5xl font-black text-neutral-900 tracking-tighter">{selectedClient.cancelledBookings}</p>
-                </div>
-                <div className="bg-neutral-900 rounded-[32px] p-10 shadow-2xl group hover:bg-accent-600 transition-all">
-                  <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em] mb-2">Loyalty Points</p>
-                  <p className="text-5xl font-black text-white tracking-tighter">1,250</p>
                 </div>
               </div>
 
@@ -905,15 +1294,22 @@ export default function DashboardPage() {
                           <tr key={client.email} className="hover:bg-neutral-50 transition-all group">
                             <td className="px-10 py-10">
                               <div className="flex items-center gap-6">
-                                <div className="w-16 h-16 rounded-[24px] bg-neutral-900 flex items-center justify-center text-white text-2xl font-black uppercase group-hover:scale-110 transition-transform">
-                                  {client.name[0]}
-                                </div>
-                                <div>
-                                  <div className="text-2xl font-black text-neutral-900 uppercase tracking-tighter">{client.name}</div>
-                                  <div className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.2em] mt-1">{client.phone}</div>
-                                </div>
+                              <div className="w-16 h-16 rounded-[24px] bg-neutral-900 flex items-center justify-center text-white text-2xl font-black uppercase group-hover:scale-110 transition-transform">
+                                {client.name[0]}
                               </div>
-                            </td>
+                              <div>
+                                <div className="flex items-center gap-3 flex-wrap">
+                                  <div className="text-2xl font-black text-neutral-900 uppercase tracking-tighter">{client.name}</div>
+                                  {client.isNew && (
+                                    <span className="px-3 py-1 rounded-full bg-accent-50 text-accent-600 text-[10px] font-black uppercase tracking-[0.2em]">
+                                      Nuevo
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.2em] mt-1">{client.phone || '—'}</div>
+                              </div>
+                            </div>
+                          </td>
                             <td className="px-10 py-10 text-center">
                               <div className="text-3xl font-black text-neutral-900 tracking-tighter">{client.totalBookings}</div>
                               <div className="text-[10px] font-black text-accent-600 uppercase tracking-[0.3em] mt-1">HISTÓRICO</div>
@@ -1181,13 +1577,49 @@ export default function DashboardPage() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 <div className="space-y-2">
                   <label className="block text-xs font-black text-neutral-400 uppercase tracking-widest">Nombre</label>
-                  <input
-                    type="text"
-                    value={bookingForm.clientName}
-                    onChange={(e) => setBookingForm((prev) => ({ ...prev, clientName: e.target.value }))}
-                    className="w-full px-6 py-5 bg-neutral-50 border-2 border-neutral-100 rounded-2xl text-neutral-900 font-bold focus:border-accent-500 transition-all outline-none"
-                    placeholder="CLIENTE"
-                  />
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={bookingForm.clientName}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setBookingForm((prev) => ({ ...prev, clientName: value }));
+                        setClientSuggestionsOpen(true);
+                      }}
+                      onFocus={() => setClientSuggestionsOpen(true)}
+                      onBlur={() => setTimeout(() => setClientSuggestionsOpen(false), 120)}
+                      className="w-full px-6 py-5 bg-neutral-50 border-2 border-neutral-100 rounded-2xl text-neutral-900 font-bold focus:border-accent-500 transition-all outline-none"
+                      placeholder="CLIENTE"
+                    />
+                    {clientSuggestionsOpen && clientMatches.length > 0 && (
+                      <div className="absolute z-10 mt-2 w-full bg-white border border-neutral-100 rounded-2xl shadow-xl overflow-hidden">
+                        {clientMatches.map((c) => {
+                          const fullName = `${c.firstName} ${c.lastName}`.trim() || c.email;
+                          return (
+                            <button
+                              key={c.id}
+                              type="button"
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => {
+                                setBookingForm((prev) => ({
+                                  ...prev,
+                                  clientName: fullName,
+                                  clientEmail: c.email,
+                                  clientPhone: c.phone || '',
+                                }));
+                                setClientSuggestionsOpen(false);
+                              }}
+                              className="w-full text-left px-4 py-3 hover:bg-neutral-50 transition flex flex-col"
+                            >
+                              <span className="text-sm font-semibold text-neutral-900">{fullName}</span>
+                              <span className="text-xs text-neutral-500">{c.email}</span>
+                              {c.phone && <span className="text-xs text-neutral-500">{c.phone}</span>}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <label className="block text-xs font-black text-neutral-400 uppercase tracking-widest">Email</label>
@@ -1352,6 +1784,35 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
+
+      <PaymentMethodModal
+        isOpen={showPaymentMethodModal}
+        onClose={() => {
+          setShowPaymentMethodModal(false);
+          setBookingToMarkPaid(null);
+          setNewBookingNeedsPayment(false);
+        }}
+        onConfirm={handleConfirmNewBookingPayment}
+        amount={(() => {
+          const service = services.find(s => s.id === bookingForm.serviceId);
+          return (service?.price || 0) * 0.5;
+        })()}
+        mode="deposit"
+        isProcessing={processingPayment || bookingSaving}
+      />
+
+      <ClosingSaleModal
+        isOpen={showClosingSaleModal}
+        onClose={() => {
+          setShowClosingSaleModal(false);
+          setBookingToMarkPaid(null);
+        }}
+        booking={bookingToMarkPaid}
+        services={services}
+        employees={employees}
+        onConfirm={handleConfirmFinalPayment}
+        isProcessing={processingPayment}
+      />
     </div>
   );
 }

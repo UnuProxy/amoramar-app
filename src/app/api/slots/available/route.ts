@@ -12,6 +12,8 @@ export async function GET(request: NextRequest) {
     const employeeId = searchParams.get('employeeId');
     const serviceId = searchParams.get('serviceId');
     const date = searchParams.get('date');
+    const isConsultation = searchParams.get('isConsultation') === 'true';
+    const customDuration = searchParams.get('duration');
 
     if (!employeeId || !serviceId || !date) {
       return NextResponse.json<ApiResponse<null>>(
@@ -45,6 +47,9 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Use custom duration for consultations, otherwise use service duration
+    const slotDuration = customDuration ? parseInt(customDuration, 10) : service.duration;
+
     // Get employee availability for the day of week
     const dateObj = new Date(`${date}T12:00:00`);
     const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
@@ -54,6 +59,9 @@ export async function GET(request: NextRequest) {
       availabilityList = await getAvailability(employeeId);
     }
 
+    console.log(`[Slots API] Date: ${date}, DayOfWeek: ${dayOfWeek}, EmployeeId: ${employeeId}, ServiceId: ${serviceId}`);
+    console.log(`[Slots API] Found ${availabilityList.length} availability records`);
+
     const dayAvailabilities = availabilityList.filter((a) => {
       if (a.dayOfWeek !== dayOfWeek || !a.isAvailable) return false;
       if (a.startDate && date < a.startDate) return false;
@@ -61,7 +69,13 @@ export async function GET(request: NextRequest) {
       return true;
     });
 
+    console.log(`[Slots API] ${dayAvailabilities.length} availabilities match ${dayOfWeek}`);
+    dayAvailabilities.forEach(a => {
+      console.log(`[Slots API]   - ${a.startTime} to ${a.endTime}`);
+    });
+
     if (dayAvailabilities.length === 0) {
+      console.log(`[Slots API] No availability found for ${dayOfWeek}`);
       return NextResponse.json<ApiResponse<AvailableSlotsResponse>>({
         success: true,
         data: {
@@ -74,11 +88,12 @@ export async function GET(request: NextRequest) {
     // Generate time slots for all windows, dedupe and sort
     const slotSet = new Set<string>();
     dayAvailabilities.forEach((avail) => {
-      generateTimeSlots(avail.startTime, avail.endTime, service.duration).forEach((slot) =>
+      generateTimeSlots(avail.startTime, avail.endTime, slotDuration).forEach((slot) =>
         slotSet.add(slot)
       );
     });
     const allSlots = Array.from(slotSet).sort();
+    console.log(`[Slots API] Generated ${allSlots.length} time slots:`, allSlots);
 
     const [bookings, blockedSlots] = await Promise.all([
       // Existing bookings for the day
@@ -115,11 +130,15 @@ export async function GET(request: NextRequest) {
     const currentMinutes = now.getHours() * 60 + now.getMinutes();
     // Add buffer time - slots must be at least MIN_BOOKING_BUFFER_MINUTES in the future
     const minimumSlotTime = currentMinutes + MIN_BOOKING_BUFFER_MINUTES;
+    
+    if (isToday) {
+      console.log(`[Slots API] Is today - Current time: ${now.toLocaleTimeString()}, Current minutes: ${currentMinutes}, Min slot time: ${minimumSlotTime}`);
+    }
 
     // Filter out booked slots, blocked slots, and past slots
     const availableSlots: TimeSlot[] = allSlots.map((slot) => {
       const slotTime = toMinutes(slot);
-      const slotEndTime = slotTime + service.duration;
+      const slotEndTime = slotTime + slotDuration;
 
       // Check if slot is in the past (for today only)
       const isPastSlot = isToday && slotTime < minimumSlotTime;
@@ -127,7 +146,7 @@ export async function GET(request: NextRequest) {
       const isBooked = bookedSlots.some((bookedTime) => {
         // Check if this slot conflicts with any booking
         const bookedTimeMinutes = toMinutes(bookedTime);
-        const bookedEndTime = bookedTimeMinutes + service.duration;
+        const bookedEndTime = bookedTimeMinutes + slotDuration;
 
         return (
           (slotTime >= bookedTimeMinutes &&
@@ -140,7 +159,7 @@ export async function GET(request: NextRequest) {
         const blockStart = toMinutes(blocked.startTime);
         const blockEnd = blocked.endTime
           ? toMinutes(blocked.endTime)
-          : toMinutes(addMinutesToTime(blocked.startTime, service.duration));
+          : toMinutes(addMinutesToTime(blocked.startTime, slotDuration));
 
         return (
           (slotTime >= blockStart && slotTime < blockEnd) ||
@@ -148,11 +167,20 @@ export async function GET(request: NextRequest) {
         );
       });
 
+      const isAvailable = !isPastSlot && !isBooked && !isBlocked;
+      
+      if (!isAvailable && slot === '22:00') {
+        console.log(`[Slots API] 22:00 filtered out - isPast: ${isPastSlot}, isBooked: ${isBooked}, isBlocked: ${isBlocked}`);
+      }
+      
       return {
         time: slot,
-        available: !isPastSlot && !isBooked && !isBlocked,
+        available: isAvailable,
       };
     });
+
+    const availableCount = availableSlots.filter(s => s.available).length;
+    console.log(`[Slots API] Returning ${availableCount} available slots out of ${availableSlots.length} total`);
 
     return NextResponse.json<ApiResponse<AvailableSlotsResponse>>({
       success: true,

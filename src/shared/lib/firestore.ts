@@ -92,7 +92,7 @@ export const createUser = async (
   if (!coll) throw new Error('Firebase not configured');
   const docRef = userId ? doc(coll, userId) : doc(coll);
   await setDoc(docRef, {
-    ...userData,
+    ...filterUndefined(userData as any),
     mustChangePassword: userData.mustChangePassword ?? false,
     createdAt: Timestamp.now(),
     updatedAt: Timestamp.now(),
@@ -137,29 +137,53 @@ export const getEmployee = async (employeeId: string): Promise<Employee | null> 
 export const getEmployees = async (salonId?: string): Promise<Employee[]> => {
   const database = checkDb();
   if (!database) return [];
+  const coll = employeesCollection();
+  if (!coll) return [];
+
   const constraints: QueryConstraint[] = [];
   if (salonId) {
     constraints.push(where('salonId', '==', salonId));
   }
-  const coll = employeesCollection();
-  if (!coll) return [];
-  const q = query(coll, ...constraints, orderBy('createdAt', 'desc'));
-  const querySnapshot = await getDocs(q);
-  return querySnapshot.docs.map((doc) => {
-    const data = doc.data() as Record<string, any>;
-    return {
-      id: doc.id,
-      ...data,
-      createdAt: timestampToDate(data.createdAt),
-      updatedAt: timestampToDate(data.updatedAt),
-    } as Employee;
-  });
+  
+  try {
+    const q = query(coll, ...constraints);
+    const querySnapshot = await getDocs(q);
+    const results = querySnapshot.docs.map((doc) => {
+      const data = doc.data() as Record<string, any>;
+      return {
+        id: doc.id,
+        ...data,
+        createdAt: timestampToDate(data.createdAt || 0),
+        updatedAt: timestampToDate(data.updatedAt || 0),
+      } as Employee;
+    });
+
+    return results.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  } catch (error) {
+    console.error('Error fetching employees:', error);
+    // Fallback: fetch all and filter in code
+    const querySnapshot = await getDocs(coll);
+    let results = querySnapshot.docs.map((doc) => {
+      const data = doc.data() as Record<string, any>;
+      return {
+        id: doc.id,
+        ...data,
+        createdAt: timestampToDate(data.createdAt || 0),
+        updatedAt: timestampToDate(data.updatedAt || 0),
+      } as Employee;
+    });
+
+    if (salonId) {
+      results = results.filter(r => r.salonId === salonId);
+    }
+    return results.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
 };
 
 export const createEmployee = async (employeeData: Omit<Employee, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> => {
   const docRef = doc(employeesCollection());
   await setDoc(docRef, {
-    ...employeeData,
+    ...filterUndefined(employeeData as any),
     createdAt: Timestamp.now(),
     updatedAt: Timestamp.now(),
   });
@@ -169,13 +193,10 @@ export const createEmployee = async (employeeData: Omit<Employee, 'id' | 'create
 export const updateEmployee = async (employeeId: string, updates: Partial<Employee>): Promise<void> => {
   const docRef = doc(checkDb(), 'employees', employeeId);
   
-  // Filter out undefined values - Firestore doesn't accept them
-  const cleanUpdates: Record<string, any> = { updatedAt: Timestamp.now() };
-  for (const [key, value] of Object.entries(updates)) {
-    if (value !== undefined) {
-      cleanUpdates[key] = value;
-    }
-  }
+  const cleanUpdates = {
+    ...filterUndefined(updates as any),
+    updatedAt: Timestamp.now(),
+  };
   
   await updateDoc(docRef, cleanUpdates);
 };
@@ -190,18 +211,35 @@ export async function getEmployeeByUserId(userId: string): Promise<Employee | nu
   if (!database) return null;
   const coll = employeesCollection();
   if (!coll) return null;
-  const q = query(coll, where('userId', '==', userId), limit(1));
-  const snap = await getDocs(q);
-  const docSnap = snap.docs[0];
-  if (!docSnap || !docSnap.exists()) return null;
-  const data = docSnap.data() as any;
-  if (!data) return null;
-  return {
-    id: docSnap.id,
-    ...data,
-    createdAt: timestampToDate(data.createdAt),
-    updatedAt: timestampToDate(data.updatedAt),
-  } as Employee;
+  
+  try {
+    const q = query(coll, where('userId', '==', userId), limit(1));
+    const snap = await getDocs(q);
+    const docSnap = snap.docs[0];
+    if (!docSnap || !docSnap.exists()) return null;
+    const data = docSnap.data() as any;
+    if (!data) return null;
+    return {
+      id: docSnap.id,
+      ...data,
+      createdAt: timestampToDate(data.createdAt || 0),
+      updatedAt: timestampToDate(data.updatedAt || 0),
+    } as Employee;
+  } catch (error) {
+    console.error('Error fetching employee by userId:', error);
+    // Fallback: fetch all and find in code
+    const querySnapshot = await getDocs(coll);
+    const foundDoc = querySnapshot.docs.find(doc => (doc.data() as any).userId === userId);
+    if (!foundDoc) return null;
+    const data = foundDoc.id ? foundDoc.data() as any : null;
+    if (!data) return null;
+    return {
+      id: foundDoc.id,
+      ...data,
+      createdAt: timestampToDate(data.createdAt || 0),
+      updatedAt: timestampToDate(data.updatedAt || 0),
+    } as Employee;
+  }
 }
 
 // Services Collection
@@ -229,29 +267,53 @@ export const getService = async (serviceId: string): Promise<Service | null> => 
 export const getServices = async (salonId?: string): Promise<Service[]> => {
   const database = checkDb();
   if (!database) return [];
+  const coll = servicesCollection();
+  if (!coll) return [];
+
   const constraints: QueryConstraint[] = [];
   if (salonId) {
     constraints.push(where('salonId', '==', salonId));
   }
-  const coll = servicesCollection();
-  if (!coll) return [];
-  const q = query(coll, ...constraints, orderBy('createdAt', 'desc'));
-  const querySnapshot = await getDocs(q);
-  return querySnapshot.docs.map((doc) => {
-    const data = doc.data() as Record<string, any>;
-    return {
-      id: doc.id,
-      ...data,
-      createdAt: timestampToDate(data.createdAt),
-      updatedAt: timestampToDate(data.updatedAt),
-    } as Service;
-  });
+  
+  try {
+    const q = query(coll, ...constraints);
+    const querySnapshot = await getDocs(q);
+    const results = querySnapshot.docs.map((doc) => {
+      const data = doc.data() as Record<string, any>;
+      return {
+        id: doc.id,
+        ...data,
+        createdAt: timestampToDate(data.createdAt || 0),
+        updatedAt: timestampToDate(data.updatedAt || 0),
+      } as Service;
+    });
+
+    return results.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  } catch (error) {
+    console.error('Error fetching services:', error);
+    // Fallback: fetch all and filter in code
+    const querySnapshot = await getDocs(coll);
+    let results = querySnapshot.docs.map((doc) => {
+      const data = doc.data() as Record<string, any>;
+      return {
+        id: doc.id,
+        ...data,
+        createdAt: timestampToDate(data.createdAt || 0),
+        updatedAt: timestampToDate(data.updatedAt || 0),
+      } as Service;
+    });
+
+    if (salonId) {
+      results = results.filter(r => r.salonId === salonId);
+    }
+    return results.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
 };
 
 export const createService = async (serviceData: Omit<Service, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> => {
   const docRef = doc(servicesCollection());
   await setDoc(docRef, {
-    ...serviceData,
+    ...filterUndefined(serviceData as any),
     createdAt: Timestamp.now(),
     updatedAt: Timestamp.now(),
   });
@@ -261,7 +323,7 @@ export const createService = async (serviceData: Omit<Service, 'id' | 'createdAt
 export const updateService = async (serviceId: string, updates: Partial<Service>): Promise<void> => {
   const docRef = doc(checkDb(), 'services', serviceId);
   await updateDoc(docRef, {
-    ...updates,
+    ...filterUndefined(updates as any),
     updatedAt: Timestamp.now(),
   });
 };
@@ -363,13 +425,7 @@ export const getBookings = async (filters?: {
 export const createBooking = async (bookingData: Omit<Booking, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> => {
   const docRef = doc(bookingsCollection());
   
-  // Filter out undefined values - Firestore doesn't accept them
-  const cleanData: Record<string, any> = {};
-  for (const [key, value] of Object.entries(bookingData)) {
-    if (value !== undefined) {
-      cleanData[key] = value;
-    }
-  }
+  const cleanData = filterUndefined(bookingData as any);
   
   await setDoc(docRef, {
     ...cleanData,
@@ -383,13 +439,10 @@ export const createBooking = async (bookingData: Omit<Booking, 'id' | 'createdAt
 export const updateBooking = async (bookingId: string, updates: Partial<Booking>): Promise<void> => {
   const docRef = doc(checkDb(), 'bookings', bookingId);
   
-  // Filter out undefined values - Firestore doesn't accept them
-  const cleanUpdates: Record<string, any> = { updatedAt: Timestamp.now() };
-  for (const [key, value] of Object.entries(updates)) {
-    if (value !== undefined) {
-      cleanUpdates[key] = value;
-    }
-  }
+  const cleanUpdates: Record<string, any> = {
+    ...filterUndefined(updates as any),
+    updatedAt: Timestamp.now(),
+  };
   
   if (updates.cancelledAt) {
     cleanUpdates.cancelledAt = dateToTimestamp(updates.cancelledAt);
@@ -485,13 +538,10 @@ export const updateBlockedSlot = async (
 ): Promise<void> => {
   const docRef = doc(checkDb(), 'blockedSlots', blockedSlotId);
   
-  // Filter out undefined values - Firestore doesn't accept them
-  const cleanUpdates: Record<string, any> = { updatedAt: Timestamp.now() };
-  for (const [key, value] of Object.entries(updates)) {
-    if (value !== undefined) {
-      cleanUpdates[key] = value;
-    }
-  }
+  const cleanUpdates = {
+    ...filterUndefined(updates as any),
+    updatedAt: Timestamp.now(),
+  };
   
   await updateDoc(docRef, cleanUpdates);
 };
@@ -558,13 +608,10 @@ export const createAvailability = async (availabilityData: Omit<Availability, 'i
 export const updateAvailability = async (availabilityId: string, updates: Partial<Availability>): Promise<void> => {
   const docRef = doc(checkDb(), 'availability', availabilityId);
   
-  // Filter out undefined values - Firestore doesn't accept them
-  const cleanUpdates: Record<string, any> = { updatedAt: Timestamp.now() };
-  for (const [key, value] of Object.entries(updates)) {
-    if (value !== undefined) {
-      cleanUpdates[key] = value;
-    }
-  }
+  const cleanUpdates = {
+    ...filterUndefined(updates as any),
+    updatedAt: Timestamp.now(),
+  };
   
   await updateDoc(docRef, cleanUpdates);
 };
@@ -582,6 +629,11 @@ export const employeeServicesCollection = () => {
 };
 
 export const getEmployeeServices = async (employeeId?: string, serviceId?: string): Promise<EmployeeService[]> => {
+  const database = checkDb();
+  if (!database) return [];
+  const coll = employeeServicesCollection();
+  if (!coll) return [];
+
   const constraints: QueryConstraint[] = [];
   if (employeeId) {
     constraints.push(where('employeeId', '==', employeeId));
@@ -589,22 +641,45 @@ export const getEmployeeServices = async (employeeId?: string, serviceId?: strin
   if (serviceId) {
     constraints.push(where('serviceId', '==', serviceId));
   }
-  const q = query(employeeServicesCollection(), ...constraints);
-  const querySnapshot = await getDocs(q);
-  return querySnapshot.docs.map((doc) => {
-    const data = doc.data() as Record<string, any>;
-    return {
-      id: doc.id,
-      ...data,
-      createdAt: timestampToDate(data.createdAt),
-    } as EmployeeService;
-  });
+  
+  try {
+    const q = query(coll, ...constraints);
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map((doc) => {
+      const data = doc.data() as Record<string, any>;
+      return {
+        id: doc.id,
+        ...data,
+        createdAt: timestampToDate(data.createdAt || 0),
+      } as EmployeeService;
+    });
+  } catch (error) {
+    console.error('Error fetching employee services:', error);
+    // Fallback: fetch all and filter in code if query fails
+    const querySnapshot = await getDocs(coll);
+    let results = querySnapshot.docs.map((doc) => {
+      const data = doc.data() as Record<string, any>;
+      return {
+        id: doc.id,
+        ...data,
+        createdAt: timestampToDate(data.createdAt || 0),
+      } as EmployeeService;
+    });
+
+    if (employeeId) {
+      results = results.filter(r => r.employeeId === employeeId);
+    }
+    if (serviceId) {
+      results = results.filter(r => r.serviceId === serviceId);
+    }
+    return results;
+  }
 };
 
 export const createEmployeeService = async (data: Omit<EmployeeService, 'id' | 'createdAt'>): Promise<string> => {
   const docRef = doc(employeeServicesCollection());
   await setDoc(docRef, {
-    ...data,
+    ...filterUndefined(data as any),
     createdAt: Timestamp.now(),
   });
   return docRef.id;
@@ -663,17 +738,18 @@ const clientsCollection = () => {
   return collection(database, 'clients');
 };
 
-export const createClient = async (id: string, data: Omit<Client, 'id'>): Promise<void> => {
-  const docRef = doc(clientsCollection(), id);
+export const createClient = async (id: string | null, data: Omit<Client, 'id'>): Promise<string> => {
+  const docRef = id ? doc(clientsCollection(), id) : doc(clientsCollection());
   // Filter out undefined values
   const cleanData = Object.fromEntries(
     Object.entries(data).filter(([_, v]) => v !== undefined)
   );
   await setDoc(docRef, {
     ...cleanData,
-    createdAt: Timestamp.now(),
+    createdAt: cleanData.createdAt ? dateToTimestamp(cleanData.createdAt as any) : Timestamp.now(),
     updatedAt: Timestamp.now(),
   });
+  return docRef.id;
 };
 
 export const getClient = async (id: string): Promise<Client | null> => {
@@ -730,6 +806,11 @@ export const getClients = async (): Promise<Client[]> => {
       updatedAt: timestampToDate(data.updatedAt),
     } as Client;
   });
+};
+
+export const deleteClient = async (id: string): Promise<void> => {
+  const docRef = doc(clientsCollection(), id);
+  await deleteDoc(docRef);
 };
 
 // ============================================

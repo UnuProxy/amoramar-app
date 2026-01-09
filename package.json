@@ -7,8 +7,8 @@
     "clean:web": "lsof -ti:3001 2>/dev/null | xargs -r kill -9 2>/dev/null; rm -rf .next-web 2>/dev/null; echo '✅ Puerto 3001 limpiado'",
     "clean:backoffice": "lsof -ti:3000 2>/dev/null | xargs -r kill -9 2>/dev/null; rm -rf .next-backoffice 2>/dev/null; echo '✅ Puerto 3000 limpiado'",
     "dev": "next dev",
-    "dev:web": "npm run clean:web && sleep 1 && NEXT_DIST_DIR=.next-web NEXT_PUBLIC_APP_MODE=web next dev -p 3001",
-    "dev:backoffice": "npm run clean:backoffice && sleep 1 && NEXT_DIST_DIR=.next-backoffice NEXT_PUBLIC_APP_MODE=backoffice next dev -p 3000",
+    "dev:web": "npm run clean:web && sleep 1 && NEXT_DIST_DIR=.next-web NEXT_PUBLIC_APP_MODE=web next dev -p 3001 -H localhost",
+    "dev:backoffice": "npm run clean:backoffice && sleep 1 && NEXT_DIST_DIR=.next-backoffice NEXT_PUBLIC_APP_MODE=backoffice next dev -p 3000 -H localhost",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"

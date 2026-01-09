@@ -16,24 +16,25 @@ export default function ServicesPage() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [copiedGeneral, setCopiedGeneral] = useState(false);
 
-  useEffect(() => {
-    const fetchServices = async () => {
-      try {
-        const [servicesData, employeesData, employeeServicesData] = await Promise.all([
-          getServices(),
-          getEmployees(),
-          getEmployeeServices(),
-        ]);
-        setServices(servicesData);
-        setEmployees(employeesData);
-        setEmployeeServices(employeeServicesData);
-      } catch (error) {
-        console.error('Error fetching services:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const fetchServices = async () => {
+    setLoading(true);
+    try {
+      const [servicesData, employeesData, employeeServicesData] = await Promise.all([
+        getServices(),
+        getEmployees(),
+        getEmployeeServices(),
+      ]);
+      setServices(servicesData);
+      setEmployees(employeesData);
+      setEmployeeServices(employeeServicesData);
+    } catch (error) {
+      console.error('Error fetching services:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchServices();
   }, []);
 
@@ -133,6 +134,15 @@ export default function ServicesPage() {
           </p>
         </div>
         <div className="flex flex-col sm:flex-row gap-4">
+          <button
+            onClick={fetchServices}
+            className="px-6 py-5 rounded-[20px] bg-white border-2 border-neutral-200 text-neutral-600 hover:bg-neutral-50 transition-all flex items-center justify-center"
+            title="Refrescar lista"
+          >
+            <svg className={cn("w-5 h-5", loading && "animate-spin")} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+          </button>
           <button
             onClick={copyGeneralBookingLink}
             className={cn(

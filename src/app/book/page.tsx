@@ -11,6 +11,7 @@ import { loadStripe, type Stripe, type StripeCardElement, type StripeElements } 
 import Link from 'next/link';
 import Image from 'next/image';
 import { getClient, getClientByEmail } from '@/shared/lib/firestore';
+import { AvailabilityCalendar } from '@/shared/components/AvailabilityCalendar';
 
 type Step = 1 | 2 | 3 | 4;
 
@@ -52,6 +53,13 @@ function formatCategory(category: string): string {
 }
 
 const clampStep = (n: number): Step => Math.min(4, Math.max(1, n)) as Step;
+
+// Format date from yyyy-mm-dd to dd-mm-yyyy
+const formatDisplayDate = (dateStr: string): string => {
+  if (!dateStr) return '';
+  const [year, month, day] = dateStr.split('-');
+  return `${day}-${month}-${year}`;
+};
 
 export default function BookAllServicesPage() {
   const router = useRouter();
@@ -955,19 +963,24 @@ export default function BookAllServicesPage() {
               {bookingStep === 3 && selectedService && (
                 <div className="max-w-2xl mx-auto space-y-8">
                   <div className="text-center mb-8">
-                    <h2 className="text-2xl font-black text-neutral-800 uppercase tracking-tight mb-2">Fecha y Hora</h2>
-                    <p className="text-neutral-500 font-medium">Elige el momento perfecto para tu cita</p>
+                    <h2 className="text-2xl font-black text-neutral-800 uppercase tracking-tight">Fecha y Hora</h2>
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-black text-neutral-400 uppercase tracking-widest mb-3">Selecciona Fecha</label>
-                    <input 
-                      type="date" 
-                      value={formData.date} 
-                      onChange={(e) => setFormData({ ...formData, date: e.target.value, time: '' })} 
-                      min={new Date().toISOString().split('T')[0]}
-                      className="w-full px-6 py-4 bg-neutral-50 border-2 border-neutral-100 rounded-2xl text-neutral-800 font-bold focus:border-rose-500 transition-all outline-none"
-                    />
+                    {formData.employeeId && selectedService?.id ? (
+                      <AvailabilityCalendar
+                        selectedDate={formData.date}
+                        onDateSelect={(date) => setFormData({ ...formData, date, time: '' })}
+                        employeeId={formData.employeeId}
+                        serviceId={selectedService.id}
+                        minDate={new Date().toISOString().split('T')[0]}
+                        isConsultation={false}
+                      />
+                    ) : (
+                      <div className="p-8 bg-neutral-50 rounded-2xl text-center border-2 border-dashed border-neutral-200">
+                        <p className="text-neutral-400 font-bold">Selecciona un empleado primero</p>
+                      </div>
+                    )}
                   </div>
 
                   <div>
@@ -1042,7 +1055,7 @@ export default function BookAllServicesPage() {
                           </div>
                           <div>
                             <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest mb-1">Fecha</p>
-                            <p className="font-bold text-neutral-800">{formData.date}</p>
+                            <p className="font-bold text-neutral-800">{formatDisplayDate(formData.date)}</p>
                           </div>
                           <div>
                             <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest mb-1">Hora</p>
@@ -1136,7 +1149,7 @@ export default function BookAllServicesPage() {
                         </div>
                         <div className="flex justify-between items-center pb-4 border-b border-neutral-200">
                           <span className="text-neutral-600 font-medium">Fecha</span>
-                          <span className="font-bold text-neutral-800">{formData.date}</span>
+                          <span className="font-bold text-neutral-800">{formatDisplayDate(formData.date)}</span>
                         </div>
                         <div className="flex justify-between items-center pb-4 border-b border-neutral-200">
                           <span className="text-neutral-600 font-medium">Hora</span>

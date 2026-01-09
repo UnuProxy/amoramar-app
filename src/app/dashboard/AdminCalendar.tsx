@@ -553,12 +553,30 @@ export function AdminCalendar({
   weekEnd.setDate(weekEnd.getDate() + 6);
   const weekRangeLabel = `${weekStart.toLocaleDateString('es-ES', { month: 'long', day: 'numeric' })} - ${weekEnd.toLocaleDateString('es-ES', { month: 'long', day: 'numeric', year: 'numeric' })}`;
 
+  const hasPastUnpaidBooking = (date: string) => {
+    const today = new Date().toISOString().split('T')[0];
+    const now = new Date();
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+    return bookings.some(b => {
+      if (b.bookingDate !== date) return false;
+      if (b.status === 'cancelled' || b.paymentStatus === 'paid') return false;
+
+      const [hours, minutes] = b.bookingTime.split(':').map(Number);
+      const bookingMinutes = hours * 60 + minutes;
+
+      const isPast = b.bookingDate < today || (b.bookingDate === today && bookingMinutes < currentMinutes);
+      return isPast;
+    });
+  };
+
   const calendarDays = Array.from({ length: 7 }, (_, index) => {
     const date = new Date(`${calendarStartDate}T12:00:00`);
     date.setDate(date.getDate() + index);
     const dateStr = toInputDate(date);
     const isToday = dateStr === toInputDate(new Date());
     const isPast = isDayInPast(dateStr);
+    const hasUnpaid = hasPastUnpaidBooking(dateStr);
     return {
       date: dateStr,
       label: date.toLocaleDateString('es-ES', { weekday: 'long' }),
@@ -567,6 +585,7 @@ export function AdminCalendar({
       monthShort: date.toLocaleDateString('es-ES', { month: 'short' }),
       isToday,
       isPast,
+      hasUnpaid,
     };
   });
 
@@ -685,10 +704,13 @@ export function AdminCalendar({
                 <div
                   key={day.date}
                   className={cn(
-                    "px-4 py-8 text-center border-b border-r border-neutral-100 last:border-r-0 transition-colors",
+                    "px-4 py-8 text-center border-b border-r border-neutral-100 last:border-r-0 transition-colors relative",
                     day.isToday ? 'bg-accent-50/30' : day.isPast ? 'bg-neutral-50/50' : 'bg-white'
                   )}
                 >
+                  {day.hasUnpaid && (
+                    <div className="absolute top-4 right-4 w-3 h-3 bg-rose-500 rounded-sm shadow-sm animate-pulse" title="Pendiente de cobro" />
+                  )}
                   <p className={cn(
                     "text-[10px] font-black uppercase tracking-[0.3em] mb-2",
                     day.isToday ? 'text-accent-600' : 'text-neutral-400'
@@ -741,20 +763,31 @@ export function AdminCalendar({
                           const pastClass = isPast ? 'opacity-50' : '';
 
                           if (booking) {
+                            const isConsultation = booking.isConsultation === true;
                             return (
                               <button
                                 key={slot}
                                 type="button"
                                 className={cn(
-                                  "w-full text-left px-4 py-4 rounded-2xl bg-info-500 text-white shadow-lg shadow-info-500/25 transition-all cursor-pointer group",
+                                  "w-full text-left px-4 py-4 rounded-2xl text-white shadow-lg transition-all cursor-pointer group",
                                   "hover:-translate-y-0.5 hover:shadow-xl",
+                                  isConsultation 
+                                    ? "bg-emerald-500 shadow-emerald-500/25" 
+                                    : "bg-info-500 shadow-info-500/25",
                                   pastClass
                                 )}
                                 onClick={() => openBookingModal(booking)}
                               >
                                 <div className="flex items-center justify-between mb-1">
                                   <span className="text-xs font-black tabular-nums tracking-tight">{slot}</span>
-                                  <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                                  <div className="flex items-center gap-1">
+                                    {isConsultation && (
+                                      <span className="text-[8px] font-black uppercase bg-white/20 px-1.5 py-0.5 rounded">
+                                        Consulta
+                                      </span>
+                                    )}
+                                    <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                                  </div>
                                 </div>
                                 <p className="text-[10px] font-black uppercase truncate tracking-tight opacity-90 group-hover:opacity-100">
                                   {booking.clientName}

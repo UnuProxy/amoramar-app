@@ -9,7 +9,7 @@ import { createEmployee, updateEmployee, createUser } from '@/shared/lib/firesto
 import { uploadEmployeeProfileImage, deleteEmployeeProfileImage } from '@/shared/lib/storage';
 import { createUserWithEmailAndPassword, signOut } from 'firebase/auth';
 import { getSecondaryAuth } from '@/shared/lib/firebase';
-import type { Employee, EmployeeFormData } from '@/shared/lib/types';
+import type { Employee, EmployeeFormData, EmploymentType } from '@/shared/lib/types';
 
 interface EmployeeFormProps {
   employee?: Employee;
@@ -38,11 +38,11 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
           bio: employee.bio || '',
           nationalId: employee.nationalId || '',
           position: employee.position || '',
+          employmentType: employee.employmentType || 'employee',
           addressLine1: employee.addressLine1 || '',
           city: employee.city || '',
           province: employee.province || '',
           postalCode: employee.postalCode || '',
-          commission: employee.commission || 0,
         }
       : {
           firstName: '',
@@ -52,11 +52,11 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
           bio: '',
           nationalId: '',
           position: '',
+          employmentType: 'employee' as EmploymentType,
           addressLine1: '',
           city: '',
           province: '',
           postalCode: '',
-          commission: 50, // Default to 50%
         },
   });
 
@@ -101,23 +101,23 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
         } else if (profileImagePreview === undefined && employee.profileImage) {
           // Image was removed
           await deleteEmployeeProfileImage(employee.profileImage).catch(console.error);
-          profileImageUrl = undefined;
+          profileImageUrl = null;
         }
 
         // Update existing employee
         await updateEmployee(employee.id, {
           firstName: data.firstName,
           lastName: data.lastName,
-          bio: data.bio || undefined,
-          profileImage: profileImageUrl || undefined,
+          bio: data.bio || null,
+          profileImage: profileImageUrl,
           phone: data.phone,
           nationalId: data.nationalId,
           position: data.position,
+          employmentType: data.employmentType,
           addressLine1: data.addressLine1,
           city: data.city,
           province: data.province,
           postalCode: data.postalCode,
-          commission: Number(data.commission),
         });
       } else {
         // Create new employee with user account
@@ -157,16 +157,16 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
           lastName: data.lastName,
           email: data.email,
           phone: data.phone,
-          bio: data.bio || undefined,
-          profileImage: undefined, // Will update after upload if image exists
+          bio: data.bio || null,
+          profileImage: null, // Will update after upload if image exists
           nationalId: data.nationalId,
           position: data.position,
+          employmentType: data.employmentType,
           addressLine1: data.addressLine1,
           city: data.city,
           province: data.province,
           postalCode: data.postalCode,
           status: 'active',
-          commission: Number(data.commission),
         });
 
         // Upload profile image if selected
@@ -300,29 +300,24 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
           )}
         </div>
 
-        <div className="space-y-2">
-          <label className="block text-xs font-light tracking-wide text-primary-600 uppercase">
-            Comisión (%)
+        <div>
+          <label className="block text-xs font-light tracking-wide text-primary-600 uppercase mb-2">
+            Tipo de Contrato
           </label>
-          <div className="flex items-center gap-3">
-            <input
-              type="number"
-              min="0"
-              max="100"
-              {...register('commission', { 
-                required: 'La comisión es obligatoria',
-                min: { value: 0, message: 'Mínimo 0%' },
-                max: { value: 100, message: 'Máximo 100%' }
-              })}
-              className="w-24 px-4 py-3 border border-primary-300 rounded-sm focus:outline-none focus:ring-1 focus:ring-accent-500 bg-white text-primary-900 font-light"
-            />
-            <span className="text-sm font-light text-primary-400 uppercase tracking-widest">
-              Porcentaje sobre cada servicio
-            </span>
-          </div>
-          {errors.commission?.message && (
-            <p className="mt-1 text-xs text-red-600 font-light">{errors.commission.message}</p>
+          <select
+            {...register('employmentType', { required: 'El tipo de contrato es obligatorio' })}
+            className="w-full px-4 py-3 border border-primary-300 rounded-sm focus:outline-none focus:ring-1 focus:ring-accent-500 bg-white text-primary-900 font-light"
+            defaultValue={employee?.employmentType || 'employee'}
+          >
+            <option value="employee">Empleado Regular</option>
+            <option value="self-employed">Autónomo</option>
+          </select>
+          {errors.employmentType?.message && (
+            <p className="mt-2 text-xs text-red-600 font-light">{errors.employmentType.message}</p>
           )}
+          <p className="mt-2 text-xs text-primary-400 italic">
+            Autónomos gestionan su propia agenda y pagos (solo depósito 50%)
+          </p>
         </div>
       </div>
 

@@ -85,8 +85,13 @@ export const ServiceForm: React.FC<ServiceFormProps> = ({ service }) => {
           duration: service.duration,
           price: service.price,
           category: service.category,
+          offersConsultation: service.offersConsultation || false,
+          consultationDuration: service.consultationDuration || 20,
         }
-      : undefined,
+      : {
+          offersConsultation: false,
+          consultationDuration: 20,
+        },
   });
 
   const onSubmit = async (data: ServiceFormData) => {
@@ -111,6 +116,8 @@ export const ServiceForm: React.FC<ServiceFormProps> = ({ service }) => {
           duration: data.duration,
           price: data.price,
           category: data.category,
+          offersConsultation: data.offersConsultation || false,
+          consultationDuration: data.consultationDuration || 20,
         });
 
         // Update employee assignments
@@ -143,6 +150,8 @@ export const ServiceForm: React.FC<ServiceFormProps> = ({ service }) => {
           duration: data.duration,
           price: data.price,
           category: data.category,
+          offersConsultation: data.offersConsultation || false,
+          consultationDuration: data.consultationDuration || 20,
           isActive: true,
         });
 
@@ -241,6 +250,35 @@ export const ServiceForm: React.FC<ServiceFormProps> = ({ service }) => {
         {errors.category && (
           <p className="mt-1 text-sm text-red-600">{errors.category.message}</p>
         )}
+      </div>
+
+      {/* Free Consultation Options */}
+      <div className="p-4 rounded-lg bg-blue-50 border border-blue-200 space-y-3">
+        <div className="flex items-center gap-3">
+          <input
+            type="checkbox"
+            {...register('offersConsultation')}
+            id="offersConsultation"
+            className="w-4 h-4 text-accent-600 border-primary-300 rounded focus:ring-accent-500"
+          />
+          <label htmlFor="offersConsultation" className="text-sm font-medium text-primary-900">
+            Ofrecer Consultas Gratuitas
+          </label>
+        </div>
+        <p className="text-xs text-primary-600 italic">
+          Para servicios complejos como Balayage o Air Touch, permite a los clientes reservar consultas gratuitas de 15-30 minutos
+        </p>
+        <Input
+          label="Duración de Consulta (minutos)"
+          type="number"
+          {...register('consultationDuration', {
+            valueAsNumber: true,
+            min: { value: 15, message: 'Mínimo 15 minutos' },
+            max: { value: 30, message: 'Máximo 30 minutos' },
+          })}
+          placeholder="20"
+          error={errors.consultationDuration?.message}
+        />
       </div>
 
       <div>

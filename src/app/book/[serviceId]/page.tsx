@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { Loading } from '@/shared/components/Loading';
 import { ClientAuthModal } from '@/shared/components/ClientAuthModal';
+import { AvailabilityCalendar } from '@/shared/components/AvailabilityCalendar';
 import { formatCurrency, cn } from '@/shared/lib/utils';
 import type { Service, Employee, BookingFormData, Client } from '@/shared/lib/types';
 import { loadStripe, type Stripe, type StripeCardElement, type StripeElements } from '@stripe/stripe-js';
@@ -21,6 +22,7 @@ type FormData = {
   date: string;
   time: string;
   employeeId: string;
+  isConsultation: boolean;
 };
 
 type TimeSlot = {
@@ -29,6 +31,13 @@ type TimeSlot = {
 };
 
 const clampStep = (n: number): Step => Math.min(3, Math.max(1, n)) as Step;
+
+// Format date from yyyy-mm-dd to dd-mm-yyyy
+const formatDisplayDate = (dateStr: string): string => {
+  if (!dateStr) return '';
+  const [year, month, day] = dateStr.split('-');
+  return `${day}-${month}-${year}`;
+};
 
 export default function DirectBookingPage() {
   const params = useParams();
@@ -55,7 +64,7 @@ export default function DirectBookingPage() {
   const [pendingClientDataRefresh, setPendingClientDataRefresh] = useState<boolean>(false);
   const [bookingStep, setBookingStep] = useState<Step>(1);
   const [formData, setFormData] = useState<FormData>({
-    name: '', email: '', phone: '', date: '', time: '', employeeId: '',
+    name: '', email: '', phone: '', date: '', time: '', employeeId: '', isConsultation: false,
   });
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [slotsError, setSlotsError] = useState<string | null>(null);
@@ -191,8 +200,13 @@ export default function DirectBookingPage() {
         setLoadingSlots(true);
         setSlotsError(null);
         try {
+          // If it's a consultation, use the consultation duration, otherwise use service duration
+          const duration = formData.isConsultation && service.consultationDuration 
+            ? service.consultationDuration 
+            : service.duration;
+          
           const response = await fetch(
-            `/api/slots/available?employeeId=${formData.employeeId}&serviceId=${service.id}&date=${formData.date}`
+            `/api/slots/available?employeeId=${formData.employeeId}&serviceId=${service.id}&date=${formData.date}&duration=${duration}&isConsultation=${formData.isConsultation}`
           );
           const data = await response.json();
           if (data.success) {
@@ -219,7 +233,7 @@ export default function DirectBookingPage() {
       setSlotsError(null);
       setLoadingSlots(false);
     }
-  }, [formData.date, service?.id, formData.employeeId]);
+  }, [formData.date, service?.id, formData.employeeId, formData.isConsultation]);
 
   // Load Stripe
   useEffect(() => {
@@ -294,7 +308,14 @@ export default function DirectBookingPage() {
     setShowLoginModal(true);
   };
 
-  const next = () => setBookingStep((s) => clampStep(s + 1));
+  const next = () => {
+    // For consultations, skip payment step (step 3) and go straight to confirmation
+    if (formData.isConsultation && bookingStep === 2) {
+      handleSubmitBooking();
+    } else {
+      setBookingStep((s) => clampStep(s + 1));
+    }
+  };
   const back = () => setBookingStep((s) => clampStep(s - 1));
 
   const stepValid = useMemo<boolean>(() => {
@@ -338,6 +359,47 @@ export default function DirectBookingPage() {
 
   const handleSubmitBooking = async () => {
     if (!service || !formData.employeeId) return;
+    
+    // If it's a consultation, skip payment and create booking directly
+    if (formData.isConsultation) {
+      setSubmitting(true);
+      setPaymentError(null);
+      
+      try {
+        const bookingData: BookingFormData = {
+          serviceId: service.id,
+          employeeId: formData.employeeId,
+          bookingDate: formData.date,
+          bookingTime: formData.time,
+          clientName: formData.name,
+          clientEmail: formData.email,
+          clientPhone: formData.phone,
+          isConsultation: true,
+          consultationDuration: service.consultationDuration,
+        };
+
+        const response = await fetch('/api/bookings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(bookingData),
+        });
+
+        const result = await response.json();
+        if (!result.success) {
+          throw new Error(result.error || 'No se pudo crear la reserva');
+        }
+
+        setBookingSuccess(true);
+      } catch (err: any) {
+        console.error('Error creating consultation booking:', err);
+        setPaymentError(err.message || 'No se pudo crear la consulta. Inténtalo de nuevo.');
+      } finally {
+        setSubmitting(false);
+      }
+      return;
+    }
+
+    // Regular booking with payment
     if (!stripePublicKey) {
       alert('La pasarela de pago no está configurada. Contacta con soporte.');
       return;
@@ -456,7 +518,7 @@ export default function DirectBookingPage() {
     );
   }
 
-  const selectedPriceValue = service.price;
+  const selectedPriceValue = formData.isConsultation ? 0 : service.price;
   const estimatedDepositValue = selectedPriceValue * 0.5;
   const depositDisplay = depositAmount
     ? formatCurrency(depositAmount / 100)
@@ -549,16 +611,62 @@ export default function DirectBookingPage() {
               </div>
             </div>
 
+            {/* Consultation Toggle - Only show if service offers consultations */}
+            {service.offersConsultation && (
+              <div className="px-8 sm:px-12 pb-8 sm:pb-12 border-b border-neutral-100">
+                <div className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-[24px] p-6 border-2 border-emerald-200">
+                  <div className="flex items-start gap-4">
+                    <div className="flex-shrink-0 w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center">
+                      <svg className="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <h3 className="text-lg font-black text-neutral-800 uppercase tracking-tight">Consulta Gratuita Disponible</h3>
+                        <span className="px-3 py-1 bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest rounded-full">Gratis</span>
+                      </div>
+                      <p className="text-sm text-neutral-600 font-medium mb-4">
+                        ¿No estás seguro? Reserva una consulta gratuita de {service.consultationDuration || 15-30} minutos con nuestro especialista antes de comprometerte con el servicio completo.
+                      </p>
+                      <button
+                        onClick={() => setFormData(prev => ({ ...prev, isConsultation: !prev.isConsultation, date: '', time: '' }))}
+                        className={cn(
+                          "w-full sm:w-auto px-6 py-3 rounded-xl font-black text-sm uppercase tracking-widest transition-all flex items-center justify-center gap-2",
+                          formData.isConsultation
+                            ? "bg-emerald-600 text-white hover:bg-emerald-700"
+                            : "bg-white text-emerald-600 border-2 border-emerald-600 hover:bg-emerald-50"
+                        )}
+                      >
+                        {formData.isConsultation ? (
+                          <>
+                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                            Consulta Seleccionada ({service.consultationDuration || '15-30'} min)
+                          </>
+                        ) : (
+                          <>
+                            Reservar Consulta Gratuita
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Booking Flow */}
             <div className="p-8 sm:p-12">
               {/* Progress Indicator */}
               <div className="flex items-center justify-center gap-4 mb-12">
-                {[1, 2, 3].map((step) => (
+                {(formData.isConsultation ? [1, 2] : [1, 2, 3]).map((step) => (
                   <div key={step} className="flex items-center gap-4">
                     <div className={cn(
                       "w-10 h-10 rounded-full flex items-center justify-center font-black text-sm transition-all",
                       bookingStep >= step 
-                        ? "bg-rose-600 text-white" 
+                        ? formData.isConsultation ? "bg-emerald-600 text-white" : "bg-rose-600 text-white" 
                         : "bg-neutral-100 text-neutral-400"
                     )}>
                       {bookingStep > step ? (
@@ -567,10 +675,12 @@ export default function DirectBookingPage() {
                         </svg>
                       ) : step}
                     </div>
-                    {step < 3 && (
+                    {step < (formData.isConsultation ? 2 : 3) && (
                       <div className={cn(
                         "w-16 h-1 rounded-full transition-all",
-                        bookingStep > step ? "bg-rose-600" : "bg-neutral-100"
+                        bookingStep > step 
+                          ? formData.isConsultation ? "bg-emerald-600" : "bg-rose-600" 
+                          : "bg-neutral-100"
                       )} />
                     )}
                   </div>
@@ -831,19 +941,25 @@ export default function DirectBookingPage() {
               {bookingStep === 2 && (
                 <div className="max-w-2xl mx-auto space-y-8">
                   <div className="text-center mb-8">
-                    <h2 className="text-2xl font-black text-neutral-800 uppercase tracking-tight mb-2">Fecha y Hora</h2>
-                    <p className="text-neutral-500 font-medium">Elige el momento perfecto para tu cita</p>
+                    <h2 className="text-2xl font-black text-neutral-800 uppercase tracking-tight">Fecha y Hora</h2>
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-black text-neutral-400 uppercase tracking-widest mb-3">Selecciona Fecha</label>
-                    <input 
-                      type="date" 
-                      value={formData.date} 
-                      onChange={(e) => setFormData({ ...formData, date: e.target.value, time: '' })} 
-                      min={new Date().toISOString().split('T')[0]}
-                      className="w-full px-6 py-4 bg-neutral-50 border-2 border-neutral-100 rounded-2xl text-neutral-800 font-bold focus:border-rose-500 transition-all outline-none"
-                    />
+                    {formData.employeeId && service?.id ? (
+                      <AvailabilityCalendar
+                        selectedDate={formData.date}
+                        onDateSelect={(date) => setFormData({ ...formData, date, time: '' })}
+                        employeeId={formData.employeeId}
+                        serviceId={service.id}
+                        minDate={new Date().toISOString().split('T')[0]}
+                        isConsultation={formData.isConsultation}
+                        consultationDuration={formData.isConsultation ? service.consultationDuration : undefined}
+                      />
+                    ) : (
+                      <div className="p-8 bg-neutral-50 rounded-2xl text-center border-2 border-dashed border-neutral-200">
+                        <p className="text-neutral-400 font-bold">Selecciona un empleado primero</p>
+                      </div>
+                    )}
                   </div>
 
                   <div>
@@ -918,7 +1034,7 @@ export default function DirectBookingPage() {
                           </div>
                           <div>
                             <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest mb-1">Fecha</p>
-                            <p className="font-bold text-neutral-800">{formData.date}</p>
+                            <p className="font-bold text-neutral-800">{formatDisplayDate(formData.date)}</p>
                           </div>
                           <div>
                             <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest mb-1">Hora</p>
@@ -973,7 +1089,7 @@ export default function DirectBookingPage() {
                         </div>
                         <div className="flex justify-between items-center pb-4 border-b border-neutral-200">
                           <span className="text-neutral-600 font-medium">Fecha</span>
-                          <span className="font-bold text-neutral-800">{formData.date}</span>
+                          <span className="font-bold text-neutral-800">{formatDisplayDate(formData.date)}</span>
                         </div>
                         <div className="flex justify-between items-center pb-4 border-b border-neutral-200">
                           <span className="text-neutral-600 font-medium">Hora</span>
@@ -1046,16 +1162,21 @@ export default function DirectBookingPage() {
                   <button
                     onClick={bookingStep === 3 ? handleSubmitBooking : next}
                     disabled={!stepValid || submitting || paymentLoading}
-                    className="flex-1 py-4 sm:py-5 bg-rose-600 text-white font-bold uppercase tracking-wider sm:tracking-widest rounded-xl sm:rounded-2xl hover:bg-neutral-800 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 sm:gap-3 text-sm sm:text-base"
+                    className={cn(
+                      "flex-1 py-4 sm:py-5 text-white font-bold uppercase tracking-wider sm:tracking-widest rounded-xl sm:rounded-2xl hover:bg-neutral-800 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 sm:gap-3 text-sm sm:text-base",
+                      formData.isConsultation ? "bg-emerald-600 hover:bg-emerald-700" : "bg-rose-600"
+                    )}
                   >
                     {(submitting || paymentLoading) && (
                       <div className="w-3 h-3 rounded-full bg-white animate-ping" />
                     )}
                     {submitting || paymentLoading
                       ? 'Procesando...'
-                      : bookingStep === 3
-                        ? `Pagar ${depositDisplay}`
-                        : 'Continuar'}
+                      : formData.isConsultation && bookingStep === 2
+                        ? 'Confirmar Consulta Gratuita'
+                        : bookingStep === 3
+                          ? `Pagar ${depositDisplay}`
+                          : 'Continuar'}
                   </button>
                 </div>
               )}

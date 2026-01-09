@@ -141,6 +141,7 @@ interface MiniCalendarProps {
   selectedDate: Date;
   onSelectDate: (date: Date) => void;
   bookingCounts: Record<string, number>;
+  pastUnpaidDates: Set<string>; // New prop
   currentMonth: Date;
   onMonthChange: (date: Date) => void;
 }
@@ -149,6 +150,7 @@ const MiniCalendar: React.FC<MiniCalendarProps> = ({
   selectedDate,
   onSelectDate,
   bookingCounts,
+  pastUnpaidDates, // New prop
   currentMonth,
   onMonthChange,
 }) => {
@@ -215,6 +217,7 @@ const MiniCalendar: React.FC<MiniCalendarProps> = ({
           const count = bookingCounts[dateKey] || 0;
           const isSelected = isSameDay(day, selectedDate);
           const isTodayDate = isToday(day);
+          const hasPastUnpaid = pastUnpaidDates.has(dateKey);
 
           return (
             <button
@@ -229,12 +232,16 @@ const MiniCalendar: React.FC<MiniCalendarProps> = ({
                   ? 'ring-2 ring-amber-400 ring-offset-1 bg-amber-50 text-amber-700'
                   : count > 0
                   ? getBookingIntensity(count)
-                  : 'text-stone-600 hover:bg-stone-50 active:bg-stone-100'
+                  : 'text-stone-600 hover:bg-stone-50 active:bg-stone-100',
+                hasPastUnpaid && !isSelected && 'ring-2 ring-rose-500 ring-offset-1'
               )}
             >
               {day.getDate()}
               {count > 0 && !isSelected && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 bg-stone-900 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
+                <span className={cn(
+                  "absolute -top-1 -right-1 w-4 h-4 text-white text-[9px] font-bold rounded-full flex items-center justify-center",
+                  hasPastUnpaid ? "bg-rose-600" : "bg-stone-900"
+                )}>
                   {count > 9 ? '9+' : count}
                 </span>
               )}
@@ -244,7 +251,7 @@ const MiniCalendar: React.FC<MiniCalendarProps> = ({
       </div>
 
       {/* Legend */}
-      <div className="mt-4 pt-4 border-t border-stone-100">
+      <div className="mt-4 pt-4 border-t border-stone-100 space-y-3">
         <div className="flex items-center justify-between text-[10px] text-stone-500">
           <div className="flex items-center gap-1">
             <div className="w-3 h-3 rounded bg-emerald-100" />
@@ -263,6 +270,10 @@ const MiniCalendar: React.FC<MiniCalendarProps> = ({
             <span>10+</span>
           </div>
         </div>
+        <div className="flex items-center gap-2 text-[10px] font-bold text-rose-600 uppercase tracking-wider">
+          <div className="w-3 h-3 rounded-sm bg-rose-500 shadow-sm" />
+          <span>Cobros pendientes</span>
+        </div>
       </div>
     </div>
   );
@@ -276,6 +287,7 @@ interface MobileWeekStripProps {
   selectedDate: Date;
   onSelectDate: (date: Date) => void;
   bookingCounts: Record<string, number>;
+  pastUnpaidDates: Set<string>; // New prop
   onPrevWeek: () => void;
   onNextWeek: () => void;
 }
@@ -284,6 +296,7 @@ const MobileWeekStrip: React.FC<MobileWeekStripProps> = ({
   selectedDate,
   onSelectDate,
   bookingCounts,
+  pastUnpaidDates, // New prop
   onPrevWeek,
   onNextWeek,
 }) => {
@@ -305,6 +318,7 @@ const MobileWeekStrip: React.FC<MobileWeekStripProps> = ({
             const count = bookingCounts[dateKey] || 0;
             const isSelected = isSameDay(day, selectedDate);
             const isTodayDate = isToday(day);
+            const hasPastUnpaid = pastUnpaidDates.has(dateKey);
 
             return (
               <button
@@ -317,6 +331,8 @@ const MobileWeekStrip: React.FC<MobileWeekStripProps> = ({
                     ? 'bg-stone-900 text-white border-stone-900 shadow-lg'
                     : isTodayDate
                     ? 'bg-amber-50 border-amber-300 text-amber-700'
+                    : hasPastUnpaid
+                    ? 'bg-rose-50 border-rose-300 text-rose-700'
                     : 'bg-white border-stone-200 text-stone-600 active:border-stone-400'
                 )}
               >
@@ -337,6 +353,8 @@ const MobileWeekStrip: React.FC<MobileWeekStripProps> = ({
                     'text-[9px] font-bold px-1.5 py-0.5 rounded-full',
                     isSelected
                       ? 'bg-white/20 text-white'
+                      : hasPastUnpaid
+                      ? 'bg-rose-600 text-white'
                       : 'bg-emerald-100 text-emerald-700'
                   )}>
                     {count}
@@ -366,6 +384,7 @@ interface DesktopWeekStripProps {
   selectedDate: Date;
   onSelectDate: (date: Date) => void;
   bookingCounts: Record<string, number>;
+  pastUnpaidDates: Set<string>; // New prop
   onPrevWeek: () => void;
   onNextWeek: () => void;
 }
@@ -374,6 +393,7 @@ const DesktopWeekStrip: React.FC<DesktopWeekStripProps> = ({
   selectedDate,
   onSelectDate,
   bookingCounts,
+  pastUnpaidDates, // New prop
   onPrevWeek,
   onNextWeek,
 }) => {
@@ -394,6 +414,7 @@ const DesktopWeekStrip: React.FC<DesktopWeekStripProps> = ({
           const count = bookingCounts[dateKey] || 0;
           const isSelected = isSameDay(day, selectedDate);
           const isTodayDate = isToday(day);
+          const hasPastUnpaid = pastUnpaidDates.has(dateKey);
 
           return (
             <button
@@ -406,6 +427,8 @@ const DesktopWeekStrip: React.FC<DesktopWeekStripProps> = ({
                   ? 'bg-stone-900 text-white border-stone-900 shadow-lg'
                   : isTodayDate
                   ? 'bg-amber-50 border-amber-300 text-amber-700'
+                  : hasPastUnpaid
+                  ? 'bg-rose-50 border-rose-300 text-rose-700'
                   : 'bg-white border-stone-200 hover:border-stone-400 text-stone-600'
               )}
             >
@@ -426,6 +449,8 @@ const DesktopWeekStrip: React.FC<DesktopWeekStripProps> = ({
                   'text-[10px] font-bold mt-1 px-2 py-0.5 rounded-full',
                   isSelected
                     ? 'bg-white/20 text-white'
+                    : hasPastUnpaid
+                    ? 'bg-rose-600 text-white'
                     : 'bg-emerald-100 text-emerald-700'
                 )}>
                   {count} cita{count !== 1 ? 's' : ''}
@@ -896,6 +921,28 @@ export default function BookingsPage() {
     }, {});
   }, [bookings]);
 
+  // Identify dates with past unpaid bookings
+  const pastUnpaidDates = useMemo(() => {
+    const now = new Date();
+    const todayStr = toDateKey(now);
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+
+    const dates = new Set<string>();
+    bookings.forEach(b => {
+      if (b.status === 'cancelled' || b.paymentStatus === 'paid') return;
+
+      const [hours, minutes] = b.bookingTime.split(':').map(Number);
+      const bookingMinutes = hours * 60 + minutes;
+
+      const isPast = b.bookingDate < todayStr || (b.bookingDate === todayStr && bookingMinutes < nowMinutes);
+      
+      if (isPast) {
+        dates.add(b.bookingDate);
+      }
+    });
+    return dates;
+  }, [bookings]);
+
   // Filtered bookings
   const filteredBookings = useMemo(() => {
     const selectedDateKey = toDateKey(selectedDate);
@@ -1165,6 +1212,7 @@ export default function BookingsPage() {
               selectedDate={selectedDate}
               onSelectDate={handleDateSelect}
               bookingCounts={bookingCounts}
+              pastUnpaidDates={pastUnpaidDates}
               onPrevWeek={goToPrevWeek}
               onNextWeek={goToNextWeek}
             />
@@ -1175,6 +1223,7 @@ export default function BookingsPage() {
               selectedDate={selectedDate}
               onSelectDate={handleDateSelect}
               bookingCounts={bookingCounts}
+              pastUnpaidDates={pastUnpaidDates}
               onPrevWeek={goToPrevWeek}
               onNextWeek={goToNextWeek}
             />
@@ -1195,6 +1244,7 @@ export default function BookingsPage() {
               selectedDate={selectedDate}
               onSelectDate={handleDateSelect}
               bookingCounts={bookingCounts}
+              pastUnpaidDates={pastUnpaidDates}
               currentMonth={calendarMonth}
               onMonthChange={setCalendarMonth}
             />
@@ -1448,6 +1498,7 @@ export default function BookingsPage() {
             selectedDate={selectedDate}
             onSelectDate={handleDateSelect}
             bookingCounts={bookingCounts}
+            pastUnpaidDates={pastUnpaidDates}
             currentMonth={calendarMonth}
             onMonthChange={setCalendarMonth}
           />

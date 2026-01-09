@@ -2,6 +2,7 @@
 
 import React, { useMemo } from 'react';
 import { addMinutesToTime, formatTime, formatCurrency, cn } from '@/shared/lib/utils';
+import { calculateBookingTotals } from '@/shared/lib/booking-utils';
 import type { Booking, Employee, Service } from '@/shared/lib/types';
 
 type CurrentBookingPanelProps = {
@@ -94,7 +95,7 @@ export function CurrentBookingPanel({
 
   const targetBooking = useMemo(() => {
     const todays: BookingWithMeta[] = bookings
-      .filter((b) => b.status !== 'cancelled' && b.bookingDate === today)
+      .filter((b) => b.status !== 'cancelled' && b.paymentStatus !== 'paid' && b.bookingDate === today)
       .map((booking) => {
         const service = services.find((s) => s.id === booking.serviceId);
         const employee = employees.find((e) => e.id === booking.employeeId);
@@ -105,9 +106,15 @@ export function CurrentBookingPanel({
       })
       .sort((a, b) => a.startMinutes - b.startMinutes);
 
+    // 1. PRIORITIZE: Bookings that are well past their end time but NOT completed
+    const pastPending = todays.find((t) => t.endMinutes <= nowMinutes && t.booking.status !== 'completed');
+    if (pastPending) return { ...pastPending, state: 'past_pending' as const };
+
+    // 2. SECONDARY: Booking currently in progress
     const active = todays.find((t) => nowMinutes >= t.startMinutes && nowMinutes < t.endMinutes);
     if (active) return { ...active, state: 'active' as const };
 
+    // 3. TERTIARY: Next upcoming booking
     const upcoming = todays.find((t) => t.startMinutes >= nowMinutes);
     if (upcoming) return { ...upcoming, state: 'upcoming' as const };
 
@@ -120,112 +127,119 @@ export function CurrentBookingPanel({
   const duration = service?.duration || 60;
   const startTime = booking.bookingTime;
   const endTime = addMinutesToTime(startTime, duration);
-  const price = getPrice(service);
-  const isPaid = booking.paymentStatus === 'paid';
-  const depositValue =
-    isPaid
-      ? price
-      : booking.depositAmount
-        ? booking.depositAmount / 100
-        : booking.depositPaid
-          ? price * 0.5
-          : 0;
-  const remaining = Math.max(price - depositValue, 0);
+  
+  // Use shared utility for precise calculations
+  const { totalPrice, outstanding, isFullyPaid } = calculateBookingTotals(booking, service);
+
   const totalWindow = Math.max(endMinutes - startMinutes, 1);
   const progress = Math.min(100, Math.max(0, Math.round(((nowMinutes - startMinutes) / totalWindow) * 100)));
-  const statusLabel = state === 'active' ? 'En curso' : 'Siguiente';
+  // Dynamic labels based on state for better UX
+  const statusLabel = state === 'past_pending' ? 'POR CERRAR' : state === 'active' ? 'EN CURSO' : 'SIGUIENTE';
+  const headerTitle = state === 'past_pending' ? '⚠️ PENDIENTE DE COBRO' : title;
 
   return (
-    <div className="bg-white border-2 border-neutral-100 rounded-[32px] p-6 sm:p-8 shadow-sm overflow-hidden relative group">
+    <div className={cn(
+      "bg-white border-2 rounded-[24px] md:rounded-[32px] p-5 md:p-8 shadow-sm overflow-hidden relative group transition-all",
+      state === 'past_pending' ? "border-amber-400 bg-amber-50/50" : "border-neutral-100"
+    )}>
       {/* Subtle Background Decor */}
-      <div className="absolute top-0 right-0 w-64 h-64 bg-rose-50 rounded-full -mr-20 -mt-20 blur-3xl group-hover:bg-rose-100/50 transition-all duration-700" />
+      <div className={cn(
+        "absolute top-0 right-0 w-64 h-64 rounded-full -mr-20 -mt-20 blur-3xl transition-all duration-700 opacity-50",
+        state === 'past_pending' ? "bg-amber-200" : "bg-rose-50"
+      )} />
       
-      <div className="relative flex flex-col lg:flex-row lg:items-center justify-between gap-8">
-        <div className="flex-1 space-y-4">
+      <div className="relative flex flex-col lg:flex-row lg:items-center justify-between gap-6 md:gap-8">
+        <div className="flex-1 space-y-4 md:space-y-5">
           <div className="flex items-center gap-3">
-            <span className={`px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] rounded-full ${
-              state === 'active' ? 'bg-rose-600 text-white' : 'bg-neutral-100 text-neutral-500'
-            }`}>
+            <span className={cn(
+              "px-3 py-1 text-[8px] md:text-[10px] font-black uppercase tracking-[0.2em] rounded-full",
+              state === 'past_pending' ? "bg-amber-600 text-white animate-pulse" :
+              state === 'active' ? "bg-rose-600 text-white" : 
+              "bg-neutral-100 text-neutral-500"
+            )}>
               {statusLabel}
             </span>
-            <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">{title}</span>
+            <span className={cn(
+              "text-[9px] md:text-[10px] font-black uppercase tracking-widest",
+              state === 'past_pending' ? "text-amber-700" : "text-neutral-400"
+            )}>
+              {headerTitle}
+            </span>
           </div>
 
           <div>
-            <h3 className="text-3xl sm:text-4xl font-black text-neutral-800 tracking-tighter leading-none mb-3">
-              {service?.serviceName?.toUpperCase() || 'RESERVA'}
+            <h3 className="text-2xl md:text-4xl font-black text-neutral-900 tracking-tighter leading-tight mb-2 md:mb-3 uppercase italic">
+              {service?.serviceName || 'RESERVA'}
             </h3>
-            <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+            <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-6">
               <div className="flex items-center gap-2">
-                <div className="w-1 h-1 rounded-full bg-accent-500" />
-                <span className="text-xl font-black text-accent-500 tabular-nums">
+                <div className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                <span className="text-lg md:text-xl font-black text-neutral-800 tabular-nums">
                   {formatTime(startTime)} — {formatTime(endTime)}
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-1 h-1 rounded-full bg-primary-200" />
-                <span className="text-xl font-bold text-primary-900 uppercase tracking-tight">
+                <span className="text-lg md:text-xl font-bold text-neutral-500 uppercase tracking-tight">
                   {booking.clientName}
                 </span>
               </div>
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-3">
-            <div className="px-3 py-1.5 rounded-lg bg-neutral-50 text-primary-600 text-[10px] font-bold uppercase tracking-[0.15em] border border-neutral-100">
+          <div className="flex flex-wrap gap-2 md:gap-3">
+            <div className="px-2.5 py-1.5 rounded-lg bg-neutral-50 text-neutral-500 text-[9px] md:text-[10px] font-bold uppercase tracking-[0.1em] border border-neutral-100">
               {duration} MIN
             </div>
             {context === 'admin' && employee && (
-              <div className="px-3 py-1.5 rounded-lg bg-neutral-50 text-primary-600 text-[10px] font-bold uppercase tracking-[0.15em] flex items-center gap-2 border border-neutral-100">
-                <div className="w-1.5 h-1.5 rounded-full bg-accent-400" />
+              <div className="px-2.5 py-1.5 rounded-lg bg-neutral-50 text-neutral-500 text-[9px] md:text-[10px] font-bold uppercase tracking-[0.1em] flex items-center gap-2 border border-neutral-100">
+                <div className="w-1.5 h-1.5 rounded-full bg-amber-400" />
                 {employee.firstName}
               </div>
             )}
-            <div className="px-3 py-1.5 rounded-lg bg-neutral-50 text-primary-600 text-[10px] font-bold uppercase tracking-[0.15em] border border-neutral-100">
-              Creada por: {getCreatedByLabel(booking)}
-            </div>
-            <div className="px-3 py-1.5 rounded-lg bg-neutral-50 text-primary-600 text-[10px] font-bold uppercase tracking-[0.15em] border border-neutral-100 flex items-center gap-2">
+            <div className="px-2.5 py-1.5 rounded-lg bg-neutral-50 text-neutral-500 text-[9px] md:text-[10px] font-bold uppercase tracking-[0.1em] border border-neutral-100 flex items-center gap-2">
               Pago:
-              <span className={cn("px-2 py-1 rounded-full text-[10px] font-black uppercase tracking-[0.15em]", getPaymentBadgeClass(booking))}>
+              <span className={cn("px-1.5 py-0.5 rounded-full text-[8px] md:text-[9px] font-black uppercase", getPaymentBadgeClass(booking))}>
                 {getPaymentLabel(booking)}
               </span>
             </div>
           </div>
         </div>
 
-        <div className="lg:w-72 space-y-3">
-          <div className="bg-neutral-50 rounded-2xl p-5 border border-neutral-100">
-            <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-1">Saldo pendiente</p>
-            <p className="text-3xl font-black text-neutral-800 mb-4">
-              {price === 0 ? '—' : formatCurrency(remaining)}
-            </p>
+        <div className="lg:w-72 flex flex-col gap-3">
+          <div className="bg-neutral-50 rounded-2xl p-4 md:p-5 border border-neutral-100 flex md:block items-center justify-between gap-4">
+            <div className="md:mb-3">
+              <p className="text-[9px] md:text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-0.5">Pendiente</p>
+              <p className="text-xl md:text-3xl font-black text-neutral-900 leading-none italic">
+                {totalPrice === 0 ? '—' : formatCurrency(outstanding)}
+              </p>
+            </div>
             
-            <div className="space-y-2">
-              {price > 0 && !isPaid && (
+            <div className="flex-1 md:flex-none flex md:flex-col gap-2">
+              {totalPrice > 0 && !isFullyPaid && (
                 <button
                   onClick={() => onMarkPaid?.(booking)}
-                  className="w-full py-3 text-xs font-black bg-rose-600 text-white rounded-xl hover:bg-rose-700 transition-all shadow-md shadow-rose-200 uppercase tracking-widest"
+                  className="flex-1 md:w-full py-3 md:py-4 text-[10px] md:text-xs font-black bg-rose-600 text-white rounded-xl hover:bg-rose-700 transition-all shadow-lg shadow-rose-100 uppercase tracking-widest leading-none"
                 >
-                  PAGADO
+                  PAGAR
                 </button>
               )}
               {onComplete && booking.status !== 'completed' && (
                 <button
                   onClick={() => onComplete(booking)}
-                  className="w-full py-3 text-xs font-black bg-neutral-800 text-white rounded-xl hover:bg-neutral-700 transition-all uppercase tracking-widest"
+                  className="flex-1 md:w-full py-3 md:py-4 text-[10px] md:text-xs font-black bg-neutral-900 text-white rounded-xl hover:bg-neutral-800 transition-all uppercase tracking-widest leading-none"
                 >
-                  FINALIZAR
+                  CERRAR
                 </button>
               )}
             </div>
           </div>
           
-          {onCancel && booking.status !== 'cancelled' && (
+          {onCancel && booking.status !== 'cancelled' && !isFullyPaid && (
             <button
               onClick={() => onCancel(booking)}
-              className="w-full py-2 text-[10px] font-bold text-neutral-400 hover:text-neutral-600 transition-colors uppercase tracking-widest"
+              className="w-full py-2 text-[8px] md:text-[9px] font-bold text-neutral-400 hover:text-rose-600 transition-colors uppercase tracking-[0.2em]"
             >
-              CANCELAR CITA
+              Cancelar cita
             </button>
           )}
         </div>

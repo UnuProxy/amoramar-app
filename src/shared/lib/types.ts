@@ -23,11 +23,16 @@ export interface Client {
   email: string;
   phone?: string;
   profileImage?: string;
+  hairColorNotes?: string;
+  hairColorHistory?: {
+    note: string;
+    date: string; // ISO string
+    bookingId?: string;
+  }[];
   birthday?: string;
   address?: string;
   city?: string;
   postalCode?: string;
-  loyaltyPoints: number;
   totalSpent: number;
   totalBookings: number;
   favoriteServices: string[]; // Service IDs
@@ -76,29 +81,9 @@ export interface Expense {
   updatedAt: Date;
 }
 
-// Loyalty & Rewards
-export interface LoyaltyTransaction {
-  id: string;
-  clientId: string;
-  type: 'earned' | 'redeemed' | 'expired';
-  points: number;
-  bookingId?: string;
-  description: string;
-  createdAt: Date;
-}
-
-export interface Reward {
-  id: string;
-  name: string;
-  description: string;
-  pointsCost: number;
-  discount: number; // Percentage or fixed amount
-  isActive: boolean;
-  expiryDate?: Date;
-}
-
 // Employee Types
 export type EmployeeStatus = 'active' | 'inactive';
+export type EmploymentType = 'employee' | 'self-employed'; // employee = regular employee, self-employed = autónomo
 
 export interface Employee {
   id: string;
@@ -117,7 +102,7 @@ export interface Employee {
   province?: string;
   postalCode?: string;
   status: EmployeeStatus;
-  commission?: number; // percentage (0-100)
+  employmentType: EmploymentType; // Distinguishes regular employees from self-employed (autónomos)
   createdAt: Date;
   updatedAt: Date;
 }
@@ -150,6 +135,8 @@ export interface Service {
   price: number;
   category: ServiceCategory;
   isActive: boolean;
+  offersConsultation?: boolean; // If true, clients can book free consultations for this service
+  consultationDuration?: number; // Default consultation duration in minutes (15-30)
   employees?: { id: string; firstName: string; lastName: string }[];
   createdAt: Date;
   updatedAt: Date;
@@ -196,6 +183,19 @@ export type BookingStatus =
   | 'no-show'
   | 'pending';
 
+// Additional service item for bookings
+export interface AdditionalServiceItem {
+  id: string;
+  serviceId?: string; // Optional - null for custom items
+  serviceName: string;
+  price: number; // Price in euros
+  addedAt: Date;
+  addedBy?: string; // User ID who added it
+}
+
+// Payment method types
+export type PaymentMethod = 'cash' | 'pos' | 'online' | 'stripe';
+
 export interface Booking {
   id: string;
   salonId: string;
@@ -212,12 +212,29 @@ export interface Booking {
   createdByName?: string;
   createdByUserId?: string;
   notes?: string;
+  // Consultation booking (free, shorter duration)
+  isConsultation?: boolean; // If true, this is a free consultation booking
+  consultationDuration?: number; // Duration in minutes for consultation (15-30)
+  // Additional services added during appointment
+  additionalServices?: AdditionalServiceItem[];
   // Payment fields
   requiresDeposit?: boolean;
   depositAmount?: number; // Amount in cents
   depositPaid?: boolean;
   paymentIntentId?: string; // Stripe Payment Intent ID
   paymentStatus?: 'pending' | 'paid' | 'refunded' | 'failed';
+  paymentNotes?: string; // Notes about payment adjustments
+  // Final payment tracking (for regular employees only)
+  finalPaymentAmount?: number; // Remaining amount after deposit (in euros)
+  finalPaymentReceived?: boolean; // Whether the final payment has been collected
+  finalPaymentMethod?: PaymentMethod; // How the final payment was received (cash/pos)
+  finalPaymentReceivedAt?: Date; // When the final payment was collected
+  finalPaymentReceivedBy?: string; // User ID who marked it as received
+  finalPaymentReceivedByName?: string; // Name of user who collected final payment
+  // Completion tracking (who closed the sale)
+  completedBy?: string; // User ID who completed/closed the booking
+  completedByName?: string; // Name of user who completed/closed the booking
+  completedByRole?: UserRole; // Role of user who completed the booking
   // Timestamps
   createdAt: Date;
   updatedAt: Date;
@@ -273,13 +290,13 @@ export interface EmployeeFormData {
   phone: string;
   nationalId: string;
   position: string;
+  employmentType: EmploymentType;
   addressLine1: string;
   city: string;
   province: string;
   postalCode: string;
   bio?: string;
   profileImage?: string;
-  commission?: number;
 }
 
 export interface ServiceFormData {
@@ -288,6 +305,8 @@ export interface ServiceFormData {
   duration: number;
   price: number;
   category: ServiceCategory;
+  offersConsultation?: boolean;
+  consultationDuration?: number;
   employeeIds: string[];
 }
 

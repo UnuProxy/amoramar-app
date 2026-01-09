@@ -18,7 +18,10 @@ import {
 } from '@/shared/lib/firestore';
 import { sendEmployeeNotification } from '@/shared/lib/email';
 import { Loading } from '@/shared/components/Loading';
+import { PaymentMethodModal } from '@/shared/components/PaymentMethodModal';
 import { addMinutesToTime, generateTimeSlots, formatDate, formatTime, formatCurrency, cn } from '@/shared/lib/utils';
+import { ClosingSaleModal } from '@/shared/components/ClosingSaleModal';
+import { calculateBookingTotals } from '@/shared/lib/booking-utils';
 import type {
   Availability,
   BlockedSlot,
@@ -29,6 +32,7 @@ import type {
   Service,
   TimeSlot,
   BookingFormData,
+  PaymentMethod,
 } from '@/shared/lib/types';
 
 const dayNames: Record<string, string> = {
@@ -290,6 +294,11 @@ export default function EmployeeCalendarPage() {
   const [bookingSlots, setBookingSlots] = useState<TimeSlot[]>([]);
   const [loadingBookingSlots, setLoadingBookingSlots] = useState(false);
   const [clientSearchOpen, setClientSearchOpen] = useState(false);
+  const [showPaymentMethodModal, setShowPaymentMethodModal] = useState(false);
+  const [bookingToMarkPaid, setBookingToMarkPaid] = useState<Booking | null>(null);
+  const [processingPayment, setProcessingPayment] = useState(false);
+  const [newBookingNeedsPayment, setNewBookingNeedsPayment] = useState(false);
+  const [showClosingSaleModal, setShowClosingSaleModal] = useState(false);
 
   // Update current time every minute for accurate "past" calculations
   useEffect(() => {
@@ -377,14 +386,27 @@ export default function EmployeeCalendarPage() {
       return;
     }
 
+    // Show payment modal first
+    setNewBookingNeedsPayment(true);
+    setShowPaymentMethodModal(true);
+  };
+
+  const handleConfirmNewBookingPayment = async (paymentMethod: PaymentMethod, adjustedAmount?: number, notes?: string) => {
     setBookingSaving(true);
+    setProcessingPayment(true);
+    
     try {
+      const noPaymentCollected = adjustedAmount === 0;
+      
       const res = await fetch('/api/bookings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...bookingForm,
-          allowUnpaid: true,
+          allowUnpaid: noPaymentCollected,
+          depositPaid: !noPaymentCollected,
+          finalPaymentMethod: noPaymentCollected ? undefined : paymentMethod,
+          paymentNotes: notes || undefined,
           createdByRole: user?.role ?? 'employee',
           createdByName: employee ? `${employee.firstName} ${employee.lastName}` : 'Empleado',
           createdByUserId: user?.id,
@@ -418,6 +440,8 @@ export default function EmployeeCalendarPage() {
           });
         }
         setNewBookingOpen(false);
+        setShowPaymentMethodModal(false);
+        setNewBookingNeedsPayment(false);
       } else {
         alert(json.error || 'Error al crear la reserva');
       }
@@ -426,6 +450,7 @@ export default function EmployeeCalendarPage() {
       alert('Error al crear la reserva');
     } finally {
       setBookingSaving(false);
+      setProcessingPayment(false);
     }
   };
 
@@ -566,6 +591,7 @@ export default function EmployeeCalendarPage() {
       (booking) =>
         booking.bookingDate === date &&
         booking.status !== 'cancelled' &&
+        booking.paymentStatus !== 'paid' && // Hide paid bookings from calendar slots
         hasOverlap(
           slotStart,
           slotEnd,
@@ -705,30 +731,190 @@ export default function EmployeeCalendarPage() {
   };
 
   const handleMarkPaid = async (booking: Booking) => {
+    // Show high-end closing sale modal
+    setBookingToMarkPaid(booking);
+    setShowClosingSaleModal(true);
+  };
+
+  const handleConfirmFinalPayment = async (paymentMethod: PaymentMethod, finalAmount: number, notes: string) => {
+    if (!bookingToMarkPaid || !user) return;
+
+    try {
+      setProcessingPayment(true);
+      
+      const isFullPayment = employee?.employmentType === 'employee';
+      
+      // Get the name of the person closing the sale
+      const closedByName = employee 
+        ? `${employee.firstName} ${employee.lastName}`.trim()
+        : user.email?.split('@')[0] || 'Staff';
+      
+      if (isFullPayment) {
+        await updateBookingWithGuard(bookingToMarkPaid, {
+          status: 'completed',
+          paymentStatus: 'paid',
+          depositPaid: true,
+          finalPaymentReceived: true,
+          finalPaymentAmount: finalAmount,
+          finalPaymentMethod: paymentMethod,
+          finalPaymentReceivedAt: new Date(),
+          finalPaymentReceivedBy: user.id,
+          finalPaymentReceivedByName: closedByName,
+          completedBy: user.id,
+          completedByName: closedByName,
+          completedByRole: user.role,
+          completedAt: new Date(),
+          paymentNotes: notes || undefined,
+        });
+        setBookings((prev) => prev.map((b) => 
+          b.id === bookingToMarkPaid.id 
+            ? { 
+                ...b, 
+                status: 'completed',
+                paymentStatus: 'paid',
+                depositPaid: true,
+                finalPaymentReceived: true,
+                finalPaymentAmount: finalAmount, 
+                finalPaymentMethod: paymentMethod,
+                completedByName: closedByName,
+                paymentNotes: notes || undefined,
+              } 
+            : b
+        ));
+      } else {
+        await updateBookingWithGuard(bookingToMarkPaid, {
+          status: 'completed',
+          paymentStatus: 'paid',
+          depositPaid: true,
+          finalPaymentMethod: paymentMethod,
+          finalPaymentReceivedAt: new Date(),
+          finalPaymentReceivedBy: user.id,
+          finalPaymentReceivedByName: closedByName,
+          completedBy: user.id,
+          completedByName: closedByName,
+          completedByRole: user.role,
+          completedAt: new Date(),
+          paymentNotes: notes || undefined,
+        });
+        setBookings((prev) => prev.map((b) => 
+          b.id === bookingToMarkPaid.id 
+            ? { 
+                ...b, 
+                status: 'completed',
+                paymentStatus: 'paid', 
+                depositPaid: true, 
+                finalPaymentMethod: paymentMethod,
+                completedByName: closedByName,
+                paymentNotes: notes || undefined 
+              } 
+            : b
+        ));
+      }
+      
+      setShowClosingSaleModal(false);
+      setBookingToMarkPaid(null);
+    } catch (error) {
+      console.error('Error closing sale:', error);
+      alert('No se pudo cerrar la venta');
+    } finally {
+      setProcessingPayment(false);
+    }
+  };
+
+  const handleConfirmPayment = async (paymentMethod: PaymentMethod, adjustedAmount?: number, notes?: string) => {
+    if (!bookingToMarkPaid || !user) return;
+
     setBookingModal((prev) => (prev ? { ...prev, saving: true } : prev));
     try {
-      await updateBookingWithGuard(booking, {
-        paymentStatus: 'paid',
-        depositPaid: true,
-      });
-      setBookings((prev) =>
-        prev.map((b) =>
-          b.id === booking.id ? { ...b, paymentStatus: 'paid', depositPaid: true } : b
-        )
-      );
-      setBookingModal((prev) =>
-        prev
-          ? {
-              ...prev,
-              saving: false,
-              booking: { ...prev.booking, paymentStatus: 'paid', depositPaid: true },
-            }
-          : prev
-      );
+      setProcessingPayment(true);
+      
+      // Calculate total price
+      const selectedService = services.find(s => s.id === bookingToMarkPaid.serviceId);
+      const basePrice = selectedService?.price || 0;
+      const additionalTotal = (bookingToMarkPaid.additionalServices || []).reduce((sum, item) => sum + item.price, 0);
+      const calculatedTotal = basePrice + additionalTotal;
+      
+      // Use adjusted amount if provided, otherwise use calculated total
+      const finalAmount = adjustedAmount !== undefined ? adjustedAmount : calculatedTotal;
+      
+      // Check employee type
+      const isFullPayment = employee?.employmentType === 'employee';
+      const noPaymentCollected = adjustedAmount === 0;
+      
+      if (isFullPayment) {
+        await updateBookingWithGuard(bookingToMarkPaid, {
+          paymentStatus: noPaymentCollected ? 'pending' : 'paid',
+          depositPaid: !noPaymentCollected,
+          finalPaymentReceived: !noPaymentCollected,
+          finalPaymentAmount: finalAmount,
+          finalPaymentMethod: noPaymentCollected ? undefined : paymentMethod,
+          finalPaymentReceivedAt: noPaymentCollected ? undefined : new Date(),
+          finalPaymentReceivedBy: noPaymentCollected ? undefined : user.id,
+          paymentNotes: notes || undefined,
+        });
+        setBookings((prev) =>
+          prev.map((b) =>
+            b.id === bookingToMarkPaid.id 
+              ? { 
+                  ...b, 
+                  paymentStatus: noPaymentCollected ? 'pending' : 'paid', 
+                  depositPaid: !noPaymentCollected, 
+                  finalPaymentReceived: !noPaymentCollected, 
+                  finalPaymentAmount: finalAmount, 
+                  finalPaymentMethod: noPaymentCollected ? undefined : paymentMethod,
+                  paymentNotes: notes || undefined,
+                } 
+              : b
+          )
+        );
+        setBookingModal((prev) =>
+          prev
+            ? {
+                ...prev,
+                saving: false,
+                booking: { 
+                  ...prev.booking, 
+                  paymentStatus: noPaymentCollected ? 'pending' : 'paid', 
+                  depositPaid: !noPaymentCollected, 
+                  finalPaymentReceived: !noPaymentCollected, 
+                  finalPaymentAmount: finalAmount, 
+                  finalPaymentMethod: noPaymentCollected ? undefined : paymentMethod,
+                  paymentNotes: notes || undefined,
+                },
+              }
+            : prev
+        );
+      } else {
+        await updateBookingWithGuard(bookingToMarkPaid, {
+          paymentStatus: noPaymentCollected ? 'pending' : 'paid',
+          depositPaid: !noPaymentCollected,
+          finalPaymentMethod: noPaymentCollected ? undefined : paymentMethod,
+          paymentNotes: notes || undefined,
+        });
+        setBookings((prev) =>
+          prev.map((b) =>
+            b.id === bookingToMarkPaid.id ? { ...b, paymentStatus: noPaymentCollected ? 'pending' : 'paid', depositPaid: !noPaymentCollected, finalPaymentMethod: noPaymentCollected ? undefined : paymentMethod, paymentNotes: notes || undefined } : b
+          )
+        );
+        setBookingModal((prev) =>
+          prev
+            ? {
+                ...prev,
+                saving: false,
+                booking: { ...prev.booking, paymentStatus: noPaymentCollected ? 'pending' : 'paid', depositPaid: !noPaymentCollected, finalPaymentMethod: noPaymentCollected ? undefined : paymentMethod, paymentNotes: notes || undefined },
+              }
+            : prev
+        );
+      }
+      
+      setShowPaymentMethodModal(false);
+      setBookingToMarkPaid(null);
     } catch (error: any) {
       console.error('Error marking paid:', error);
       alert(error?.message || 'No se pudo marcar como pagado.');
       setBookingModal((prev) => (prev ? { ...prev, saving: false } : prev));
+    } finally {
+      setProcessingPayment(false);
     }
   };
 
@@ -1158,20 +1344,31 @@ export default function EmployeeCalendarPage() {
                           const pastClass = isPast ? 'opacity-50' : '';
 
                           if (booking) {
+                            const isConsultation = booking.isConsultation === true;
                             return (
                               <button
                                 key={slot}
                                 type="button"
                                 className={cn(
-                                  "w-full text-left px-4 py-4 rounded-2xl bg-info-500 text-white shadow-lg shadow-info-500/25 transition-all cursor-pointer group",
+                                  "w-full text-left px-4 py-4 rounded-2xl text-white shadow-lg transition-all cursor-pointer group",
                                   "hover:-translate-y-0.5 hover:shadow-xl",
+                                  isConsultation 
+                                    ? "bg-emerald-500 shadow-emerald-500/25" 
+                                    : "bg-info-500 shadow-info-500/25",
                                   pastClass
                                 )}
                                 onClick={() => openBookingModal(booking)}
                               >
                                 <div className="flex items-center justify-between mb-1">
                                   <span className="text-xs font-black tabular-nums tracking-tight">{slot}</span>
-                                  <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                                  <div className="flex items-center gap-1">
+                                    {isConsultation && (
+                                      <span className="text-[8px] font-black uppercase bg-white/20 px-1.5 py-0.5 rounded">
+                                        Consulta
+                                      </span>
+                                    )}
+                                    <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                                  </div>
                                 </div>
                                 <p className="text-[10px] font-black uppercase truncate tracking-tight opacity-90 group-hover:opacity-100">
                                   {booking.clientName}
@@ -1733,6 +1930,35 @@ export default function EmployeeCalendarPage() {
           </div>
         </div>
       )}
+
+      <PaymentMethodModal
+        isOpen={showPaymentMethodModal}
+        onClose={() => {
+          setShowPaymentMethodModal(false);
+          setBookingToMarkPaid(null);
+          setNewBookingNeedsPayment(false);
+        }}
+        onConfirm={newBookingNeedsPayment ? handleConfirmNewBookingPayment : handleConfirmPayment}
+        amount={newBookingNeedsPayment ? (() => {
+          const service = services.find(s => s.id === bookingForm.serviceId);
+          return (service?.price || 0) * 0.5;
+        })() : 0}
+        mode={newBookingNeedsPayment ? 'deposit' : 'final'}
+        isProcessing={processingPayment || bookingSaving}
+        isSelfEmployed={employee?.employmentType === 'self-employed'}
+      />
+
+      <ClosingSaleModal
+        isOpen={showClosingSaleModal}
+        onClose={() => {
+          setShowClosingSaleModal(false);
+          setBookingToMarkPaid(null);
+        }}
+        booking={bookingToMarkPaid}
+        services={services}
+        onConfirm={handleConfirmFinalPayment}
+        isProcessing={processingPayment}
+      />
     </div>
   );
 }
