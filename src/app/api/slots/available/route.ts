@@ -51,6 +51,7 @@ export async function GET(request: NextRequest) {
 
     // Use custom duration for consultations, otherwise use service duration
     const slotDuration = customDuration ? parseInt(customDuration, 10) : service.duration;
+    console.log(`[Slots API] Service: ${service.serviceName}, Duration: ${slotDuration} minutes`);
 
     // Get employee availability for the day of week
     const dateObj = new Date(`${date}T12:00:00`);
@@ -88,9 +89,22 @@ export async function GET(request: NextRequest) {
     }
 
     // Generate time slots for all windows, dedupe and sort
+    // Always generate slots every 30 minutes for flexibility
+    const SLOT_INTERVAL = 30;
     const slotSet = new Set<string>();
     dayAvailabilities.forEach((avail) => {
-      generateTimeSlots(avail.startTime, avail.endTime, slotDuration).forEach((slot) =>
+      // Calculate the latest time a service can START and still finish at or before closing
+      const [endHour, endMin] = avail.endTime.split(':').map(Number);
+      const endTimeMinutes = endHour * 60 + endMin;
+      const latestStartMinutes = endTimeMinutes - slotDuration;
+      const latestStartHour = Math.floor(latestStartMinutes / 60);
+      const latestStartMin = latestStartMinutes % 60;
+      // This is the last valid slot time (inclusive)
+      const adjustedEndTime = `${String(latestStartHour).padStart(2, '0')}:${String(latestStartMin).padStart(2, '0')}`;
+      
+      console.log(`[Slots API]   Slot generation: ${avail.startTime} to ${adjustedEndTime} (closing: ${avail.endTime}, service: ${slotDuration}min)`);
+      
+      generateTimeSlots(avail.startTime, adjustedEndTime, SLOT_INTERVAL).forEach((slot) =>
         slotSet.add(slot)
       );
     });

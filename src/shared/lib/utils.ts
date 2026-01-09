@@ -53,7 +53,7 @@ export const formatDateTime = (date: string, time: string): string => {
   return `${formatDate(date)} at ${formatTime(time)}`;
 };
 
-// Generate time slots
+// Generate time slots at regular intervals between start and end time
 export const generateTimeSlots = (startTime: string, endTime: string, intervalMinutes: number = 30): string[] => {
   const slots: string[] = [];
   const [startHour, startMin] = startTime.split(':').map(Number);
@@ -64,14 +64,14 @@ export const generateTimeSlots = (startTime: string, endTime: string, intervalMi
   
   while (
     currentHour < endHour ||
-    (currentHour === endHour && currentMin < endMin)
+    (currentHour === endHour && currentMin <= endMin)
   ) {
     const timeStr = `${String(currentHour).padStart(2, '0')}:${String(currentMin).padStart(2, '0')}`;
     slots.push(timeStr);
     
     currentMin += intervalMinutes;
     if (currentMin >= 60) {
-      currentMin = 0;
+      currentMin -= 60;
       currentHour += 1;
     }
   }
