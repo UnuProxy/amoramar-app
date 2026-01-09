@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { getBookings, getEmployees, getServices, updateBooking, getClientByEmail, updateClient, createClient, getClients } from '@/shared/lib/firestore';
 import { Loading } from '@/shared/components/Loading';
@@ -560,11 +561,22 @@ export default function EmployeeBookingsPage() {
             Gestión de citas y servicios diarios
           </p>
         </div>
-        <div className="text-right">
-          <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest mb-1">Hoy es</p>
-          <p className="text-xl font-black text-neutral-800 uppercase tracking-tight">
-            {new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
-          </p>
+        <div className="flex flex-col sm:flex-row items-end gap-4">
+          <Link
+            href="/employee/calendar"
+            className="px-6 py-3 bg-gradient-to-r from-rose-600 to-rose-700 text-white font-black uppercase tracking-widest text-xs rounded-xl hover:from-rose-700 hover:to-rose-800 transition-all shadow-lg hover:shadow-xl active:scale-95 flex items-center justify-center gap-2"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Nueva Reserva
+          </Link>
+          <div className="text-right">
+            <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest mb-1">Hoy es</p>
+            <p className="text-xl font-black text-neutral-800 uppercase tracking-tight">
+              {new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
+            </p>
+          </div>
         </div>
       </div>
 
