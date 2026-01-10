@@ -223,7 +223,7 @@ export function CurrentBookingPanel({
                   PAGAR
                 </button>
               )}
-              {onComplete && booking.status !== 'completed' && (
+              {onComplete && booking.status !== 'completed' && (totalPrice === 0 || isFullyPaid) && (
                 <button
                   onClick={() => onComplete(booking)}
                   className="flex-1 md:w-full py-3 md:py-4 text-[10px] md:text-xs font-black bg-neutral-900 text-white rounded-xl hover:bg-neutral-800 transition-all uppercase tracking-widest leading-none"
