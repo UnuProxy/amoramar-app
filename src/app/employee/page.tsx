@@ -190,7 +190,7 @@ export default function EmployeeBookingsPage() {
     setShowClosingSaleModal(true);
   };
 
-  const handleConfirmFinalPayment = async (paymentMethod: PaymentMethod, finalAmount: number, notes: string) => {
+  const handleConfirmFinalPayment = async (paymentMethod: PaymentMethod, finalAmount: number, notes: string, currentUserId?: string) => {
     if (!bookingToMarkPaid || !user) return;
 
     try {
@@ -1332,6 +1332,7 @@ export default function EmployeeBookingsPage() {
         }}
         booking={bookingToMarkPaid}
         services={services}
+        currentUserId={user?.id}
         onConfirm={handleConfirmFinalPayment}
         isProcessing={processingPayment}
       />

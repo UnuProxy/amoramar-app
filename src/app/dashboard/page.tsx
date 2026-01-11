@@ -582,7 +582,7 @@ export default function DashboardPage() {
     setShowClosingSaleModal(true);
   };
 
-  const handleConfirmFinalPayment = async (paymentMethod: PaymentMethod, finalAmount: number, notes: string, closedByEmployeeId?: string) => {
+  const handleConfirmFinalPayment = async (paymentMethod: PaymentMethod, finalAmount: number, notes: string, currentUserId?: string) => {
     if (!bookingToMarkPaid || !user) return;
 
     try {
@@ -591,32 +591,13 @@ export default function DashboardPage() {
       const bookingEmployee = employees.find(e => e.id === bookingToMarkPaid.employeeId);
       const isFullPayment = bookingEmployee?.employmentType === 'employee';
       
-      // Determine who closed the sale
-      let closedByUserId = user.id;
-      let closedByName: string;
-      let closedByRole = user.role;
-      
-      if (closedByEmployeeId) {
-        // Admin specified which employee closed the sale
-        const specifiedEmployee = employees.find(e => e.id === closedByEmployeeId);
-        if (specifiedEmployee && specifiedEmployee.userId) {
-          closedByUserId = specifiedEmployee.userId;
-          closedByName = `${specifiedEmployee.firstName} ${specifiedEmployee.lastName}`.trim();
-          closedByRole = 'employee';
-        } else {
-          // Fallback to admin
-          const closingEmployee = employees.find(e => e.userId === user.id);
-          closedByName = closingEmployee 
-            ? `${closingEmployee.firstName} ${closingEmployee.lastName}`.trim()
-            : user.email?.split('@')[0] || 'Admin';
-        }
-      } else {
-        // Default: the current user closed it
-        const closingEmployee = employees.find(e => e.userId === user.id);
-        closedByName = closingEmployee 
-          ? `${closingEmployee.firstName} ${closingEmployee.lastName}`.trim()
-          : user.email?.split('@')[0] || 'Admin';
-      }
+      // Automatically use the currently logged-in user
+      const closedByUserId = user.id;
+      const closingEmployee = employees.find(e => e.userId === user.id);
+      const closedByName = closingEmployee 
+        ? `${closingEmployee.firstName} ${closingEmployee.lastName}`.trim()
+        : user.email?.split('@')[0] || 'Admin';
+      const closedByRole = user.role;
       
       if (isFullPayment) {
         await updateBooking(bookingToMarkPaid.id, {
@@ -1809,7 +1790,7 @@ export default function DashboardPage() {
         }}
         booking={bookingToMarkPaid}
         services={services}
-        employees={employees}
+        currentUserId={user?.id}
         onConfirm={handleConfirmFinalPayment}
         isProcessing={processingPayment}
       />

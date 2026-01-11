@@ -11,8 +11,8 @@ interface ClosingSaleModalProps {
   onClose: () => void;
   booking: Booking | null;
   services: Service[];
-  employees?: Employee[]; // Optional: only shown in admin mode
-  onConfirm: (method: PaymentMethod, amount: number, notes: string, closedByEmployeeId?: string) => void;
+  currentUserId?: string; // ID of the currently logged-in user (auto-populated)
+  onConfirm: (method: PaymentMethod, amount: number, notes: string, currentUserId?: string) => void;
   isProcessing?: boolean;
 }
 
@@ -21,14 +21,13 @@ export function ClosingSaleModal({
   onClose,
   booking,
   services,
-  employees = [],
+  currentUserId,
   onConfirm,
   isProcessing = false
 }: ClosingSaleModalProps) {
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>('cash');
   const [finalAmount, setFinalAmount] = useState<string>('0.00');
   const [notes, setNotes] = useState('');
-  const [closedByEmployeeId, setClosedByEmployeeId] = useState<string>('auto');
 
   const service = booking ? services.find(s => s.id === booking.serviceId) : null;
   
@@ -48,16 +47,13 @@ export function ClosingSaleModal({
       setFinalAmount(outstanding.toFixed(2));
       setNotes(booking.paymentNotes || '');
       setSelectedMethod('cash');
-      // Default to the employee assigned to this booking
-      setClosedByEmployeeId(booking.employeeId || 'auto');
     }
   }, [isOpen, booking, outstanding]);
 
   if (!isOpen || !booking) return null;
 
   const handleConfirm = () => {
-    const employeeId = closedByEmployeeId === 'auto' ? undefined : closedByEmployeeId;
-    onConfirm(selectedMethod, parseFloat(finalAmount), notes, employeeId);
+    onConfirm(selectedMethod, parseFloat(finalAmount), notes, currentUserId);
   };
 
   const isAdjusted = Math.abs(parseFloat(finalAmount) - outstanding) > 0.01;
@@ -161,33 +157,6 @@ export function ClosingSaleModal({
                   )}
                 />
               </div>
-
-              {/* Who Closed This Sale (Admin Only) */}
-              {employees.length > 0 && (
-                <div className="space-y-2">
-                  <label className="block text-[9px] font-black text-rose-600 uppercase tracking-[0.2em] flex items-center gap-2">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                    </svg>
-                    ¿Quién cerró esta venta?
-                  </label>
-                  <select
-                    value={closedByEmployeeId}
-                    onChange={(e) => setClosedByEmployeeId(e.target.value)}
-                    className="w-full px-4 py-4 bg-white border-2 border-neutral-200 rounded-xl text-sm font-black uppercase focus:border-rose-600 focus:outline-none transition-all cursor-pointer"
-                  >
-                    <option value="auto">Yo mismo (Admin)</option>
-                    {employees.map((emp) => (
-                      <option key={emp.id} value={emp.id}>
-                        {emp.firstName} {emp.lastName}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="text-[8px] font-bold text-neutral-400 uppercase tracking-wider italic">
-                    Selecciona quién atendió y cobró al cliente
-                  </p>
-                </div>
-              )}
 
               {/* Payment Methods */}
               <div className="space-y-3">
