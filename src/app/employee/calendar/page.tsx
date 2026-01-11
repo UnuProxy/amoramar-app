@@ -337,7 +337,13 @@ export default function EmployeeCalendarPage() {
 
   const clientMatches = useMemo(() => {
     const term = bookingForm.clientName.trim().toLowerCase();
-    if (term.length < 2) return [];
+    
+    // If no search term, show recent 10 clients
+    if (term.length === 0) {
+      return clientDirectory.slice(0, 10);
+    }
+    
+    // If search term is less than 2 chars, still show matches
     return clientDirectory
       .filter((client) => {
         const name = client.name.toLowerCase();
@@ -345,7 +351,7 @@ export default function EmployeeCalendarPage() {
         const phone = client.phone || '';
         return name.includes(term) || email.includes(term) || phone.includes(term);
       })
-      .slice(0, 6);
+      .slice(0, 10);
   }, [bookingForm.clientName, clientDirectory]);
 
   const handleSelectClient = (client: ClientSuggestion) => {
@@ -1798,18 +1804,27 @@ export default function EmployeeCalendarPage() {
                       className="w-full px-6 py-5 bg-neutral-50 border-2 border-neutral-100 rounded-2xl text-neutral-900 font-bold focus:border-accent-500 transition-all outline-none uppercase"
                       placeholder="CLIENTE"
                     />
-                    {clientSearchOpen && bookingForm.clientName.trim().length >= 2 && (
-                      <div className="absolute left-0 right-0 mt-2 rounded-2xl border border-neutral-200 bg-white shadow-xl z-20 overflow-hidden">
+                    {clientSearchOpen && (
+                      <div className="absolute left-0 right-0 mt-2 rounded-2xl border-2 border-blue-200 bg-white shadow-2xl z-20 overflow-hidden">
                         {loadingClients ? (
                           <div className="px-4 py-3 text-xs font-bold text-neutral-400 uppercase tracking-widest">
                             Cargando clientes...
                           </div>
                         ) : clientMatches.length === 0 ? (
-                          <div className="px-4 py-3 text-xs font-bold text-neutral-400 uppercase tracking-widest">
-                            Sin resultados
+                          <div className="px-4 py-4 text-center">
+                            <p className="text-sm font-bold text-neutral-600">No se encontraron clientes</p>
+                            <p className="text-xs text-neutral-400 mt-1">Escribe el nombre completo para crear uno nuevo</p>
                           </div>
                         ) : (
-                          clientMatches.map((client) => {
+                          <>
+                            {bookingForm.clientName.trim().length === 0 && (
+                              <div className="px-4 py-2 bg-blue-50 border-b border-blue-100">
+                                <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest">
+                                  ✨ Clientes Recientes
+                                </p>
+                              </div>
+                            )}
+                            {clientMatches.map((client) => {
                             return (
                               <button
                                 key={client.key}
@@ -1828,7 +1843,8 @@ export default function EmployeeCalendarPage() {
                                 </div>
                               </button>
                             );
-                          })
+                          })}
+                          </>
                         )}
                       </div>
                     )}

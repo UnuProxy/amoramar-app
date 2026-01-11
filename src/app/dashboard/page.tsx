@@ -681,7 +681,13 @@ export default function DashboardPage() {
 
   const clientMatches = useMemo(() => {
     const term = bookingForm.clientName?.trim().toLowerCase();
-    if (!term || term.length < 2) return [];
+    
+    // If no search term, show recent 10 clients
+    if (!term || term.length === 0) {
+      return clients.slice(0, 10);
+    }
+    
+    // Filter clients based on search term
     return clients
       .filter((c) => {
         const fullName = `${c.firstName} ${c.lastName}`.trim().toLowerCase();
@@ -691,7 +697,7 @@ export default function DashboardPage() {
           (c.phone && c.phone.toLowerCase().includes(term))
         );
       })
-      .slice(0, 5);
+      .slice(0, 10);
   }, [bookingForm.clientName, clients]);
 
   const lookupClientId = useCallback(
@@ -1573,32 +1579,51 @@ export default function DashboardPage() {
                       className="w-full px-6 py-5 bg-neutral-50 border-2 border-neutral-100 rounded-2xl text-neutral-900 font-bold focus:border-accent-500 transition-all outline-none"
                       placeholder="CLIENTE"
                     />
-                    {clientSuggestionsOpen && clientMatches.length > 0 && (
-                      <div className="absolute z-10 mt-2 w-full bg-white border border-neutral-100 rounded-2xl shadow-xl overflow-hidden">
-                        {clientMatches.map((c) => {
-                          const fullName = `${c.firstName} ${c.lastName}`.trim() || c.email;
-                          return (
-                            <button
-                              key={c.id}
-                              type="button"
-                              onMouseDown={(e) => e.preventDefault()}
-                              onClick={() => {
-                                setBookingForm((prev) => ({
-                                  ...prev,
-                                  clientName: fullName,
-                                  clientEmail: c.email,
-                                  clientPhone: c.phone || '',
-                                }));
-                                setClientSuggestionsOpen(false);
-                              }}
-                              className="w-full text-left px-4 py-3 hover:bg-neutral-50 transition flex flex-col"
-                            >
-                              <span className="text-sm font-semibold text-neutral-900">{fullName}</span>
-                              <span className="text-xs text-neutral-500">{c.email}</span>
-                              {c.phone && <span className="text-xs text-neutral-500">{c.phone}</span>}
-                            </button>
-                          );
-                        })}
+                    {clientSuggestionsOpen && (
+                      <div className="absolute z-10 mt-2 w-full bg-white border-2 border-blue-200 rounded-2xl shadow-2xl overflow-hidden">
+                        {clientMatches.length === 0 ? (
+                          <div className="px-4 py-4 text-center">
+                            <p className="text-sm font-bold text-neutral-600">No se encontraron clientes</p>
+                            <p className="text-xs text-neutral-400 mt-1">Escribe el nombre completo para crear uno nuevo</p>
+                          </div>
+                        ) : (
+                          <>
+                            {(!bookingForm.clientName || bookingForm.clientName.trim().length === 0) && (
+                              <div className="px-4 py-2 bg-blue-50 border-b border-blue-100">
+                                <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest">
+                                  ✨ Clientes Recientes
+                                </p>
+                              </div>
+                            )}
+                            {clientMatches.map((c) => {
+                              const fullName = `${c.firstName} ${c.lastName}`.trim() || c.email;
+                              return (
+                                <button
+                                  key={c.id}
+                                  type="button"
+                                  onMouseDown={(e) => e.preventDefault()}
+                                  onClick={() => {
+                                    setBookingForm((prev) => ({
+                                      ...prev,
+                                      clientName: fullName,
+                                      clientEmail: c.email,
+                                      clientPhone: c.phone || '',
+                                    }));
+                                    setClientSuggestionsOpen(false);
+                                  }}
+                                  className="w-full text-left px-4 py-3 hover:bg-neutral-50 transition-colors"
+                                >
+                                  <div className="text-sm font-black text-neutral-900 uppercase tracking-tight">
+                                    {fullName}
+                                  </div>
+                                  <div className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.2em] mt-1">
+                                    {c.email}{c.phone ? ` • ${c.phone}` : ''}
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </>
+                        )}
                       </div>
                     )}
                   </div>
