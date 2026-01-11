@@ -5,13 +5,17 @@ import { useParams } from 'next/navigation';
 import { getBooking, getEmployee, getService, updateBooking, getClientByEmail, updateClient, createClient, getClients, getServices } from '@/shared/lib/firestore';
 import { Loading } from '@/shared/components/Loading';
 import { Button } from '@/shared/components/Button';
+import { AuditTrailPanel } from '@/shared/components/AuditTrailPanel';
 import { formatDate, formatTime, formatCurrency, cn } from '@/shared/lib/utils';
+import { trackStatusChange, trackNoShow, addModificationToBooking } from '@/shared/lib/audit-trail';
 import type { Booking, Client, Employee, Service, AdditionalServiceItem } from '@/shared/lib/types';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/shared/hooks/useAuth';
 
 export default function BookingDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const { user } = useAuth();
   const bookingId = params.id as string;
   const [booking, setBooking] = useState<Booking | null>(null);
   const [employee, setEmployee] = useState<Employee | null>(null);
@@ -73,9 +77,16 @@ export default function BookingDetailPage() {
   }, [bookingId]);
 
   const handleStatusChange = async (newStatus: Booking['status']) => {
-    if (!booking) return;
+    if (!booking || !user) return;
     
     try {
+      // Create audit context
+      const auditContext = {
+        userId: user.id,
+        userName: user.email?.split('@')[0] || 'Admin',
+        userRole: user.role,
+      };
+
       if (newStatus === 'cancelled') {
         const response = await fetch(`/api/bookings/${booking.id}/cancel`, {
           method: 'POST',
@@ -86,7 +97,24 @@ export default function BookingDetailPage() {
         if (!result.success) {
           throw new Error(result.error || 'No se pudo cancelar la reserva');
         }
-        setBooking({ ...booking, status: 'cancelled', cancelledAt: new Date(), paymentStatus: result.data?.refundStatus === 'refunded' ? 'refunded' : booking.paymentStatus });
+        
+        // Track cancellation in audit trail
+        const modification = trackStatusChange(auditContext, booking.status, 'cancelled');
+        const updatedBooking = addModificationToBooking(booking, modification);
+        
+        await updateBooking(booking.id, { 
+          status: 'cancelled', 
+          cancelledAt: new Date(),
+          modifications: updatedBooking.modifications 
+        });
+        
+        setBooking({ 
+          ...booking, 
+          status: 'cancelled', 
+          cancelledAt: new Date(), 
+          paymentStatus: result.data?.refundStatus === 'refunded' ? 'refunded' : booking.paymentStatus,
+          modifications: updatedBooking.modifications 
+        });
         return;
       }
 
@@ -94,8 +122,22 @@ export default function BookingDetailPage() {
         status: newStatus,
       };
       
+      // Track status change in audit trail
+      const modification = newStatus === 'no-show' 
+        ? trackNoShow(auditContext)
+        : trackStatusChange(auditContext, booking.status, newStatus);
+      
+      const updatedBooking = addModificationToBooking(booking, modification);
+      updates.modifications = updatedBooking.modifications;
+      
       if (newStatus === 'completed') {
         updates.completedAt = new Date();
+      }
+      
+      if (newStatus === 'no-show') {
+        updates.noShowAt = new Date();
+        updates.noShowBy = user.id;
+        updates.noShowByName = user.email?.split('@')[0] || 'Admin';
       }
       
       await updateBooking(booking.id, updates);
@@ -435,10 +477,12 @@ export default function BookingDetailPage() {
                       ? 'bg-success-600 text-white'
                       : booking.status === 'pending'
                       ? 'bg-warning-500 text-primary-900'
+                      : booking.status === 'no-show'
+                      ? 'bg-amber-500 text-white'
                       : 'bg-accent-500 text-white'
                   )}
                 >
-                  {booking.status}
+                  {booking.status === 'no-show' ? 'No Presentado' : booking.status}
                 </span>
               </div>
               <div>
@@ -757,6 +801,71 @@ export default function BookingDetailPage() {
             )}
           </div>
         </details>
+      </div>
+
+      {/* Status Actions - No-Show Option */}
+      {booking?.status !== 'completed' && booking?.status !== 'cancelled' && booking?.status !== 'no-show' && (
+        <div className="bg-white border border-neutral-100 rounded-3xl shadow-md p-6">
+          <h2 className="text-xl font-black text-neutral-900 tracking-tight mb-4">Acciones Rápidas</h2>
+          <div className="flex flex-wrap gap-3">
+            {booking.status !== 'confirmed' && (
+              <Button
+                variant="primary"
+                onClick={() => handleStatusChange('confirmed')}
+                className="text-sm"
+              >
+                ✓ Confirmar Reserva
+              </Button>
+            )}
+            {booking.status === 'confirmed' && (
+              <Button
+                variant="primary"
+                onClick={() => handleStatusChange('completed')}
+                className="text-sm"
+              >
+                ✓ Marcar Completada
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (confirm('¿Marcar esta reserva como "No Presentado"? El cliente no asistió a la cita.')) {
+                  handleStatusChange('no-show');
+                }
+              }}
+              className="text-sm border-amber-200 text-amber-700 hover:bg-amber-50"
+            >
+              ⚠️ No Presentado
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (confirm('¿Cancelar esta reserva?')) {
+                  handleStatusChange('cancelled');
+                }
+              }}
+              className="text-sm border-red-200 text-red-700 hover:bg-red-50"
+            >
+              ✕ Cancelar Cita
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Audit Trail */}
+      <div className="bg-white border border-neutral-100 rounded-3xl shadow-md p-6">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center">
+            <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+            </svg>
+          </div>
+          <div>
+            <h2 className="text-xl font-black text-neutral-900 tracking-tight">Historial de Modificaciones</h2>
+            <p className="text-xs text-neutral-500 mt-1">Registro completo de cambios en esta reserva</p>
+          </div>
+        </div>
+        <AuditTrailPanel modifications={booking?.modifications || []} />
       </div>
     </div>
   );

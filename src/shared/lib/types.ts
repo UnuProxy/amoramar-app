@@ -193,6 +193,20 @@ export interface AdditionalServiceItem {
   addedBy?: string; // User ID who added it
 }
 
+// Booking modification history for audit trail
+export interface BookingModification {
+  id: string;
+  timestamp: Date;
+  userId: string; // Who made the change
+  userName: string; // Name of person who made the change
+  userRole: UserRole; // Role of person who made the change
+  action: 'created' | 'updated' | 'status_changed' | 'payment_received' | 'cancelled' | 'completed' | 'rescheduled';
+  field?: string; // What field was changed (e.g., 'bookingDate', 'bookingTime', 'status')
+  oldValue?: string; // Previous value
+  newValue?: string; // New value
+  description: string; // Human-readable description of the change
+}
+
 // Payment method types
 export type PaymentMethod = 'cash' | 'pos' | 'online' | 'stripe';
 
@@ -235,6 +249,12 @@ export interface Booking {
   completedBy?: string; // User ID who completed/closed the booking
   completedByName?: string; // Name of user who completed/closed the booking
   completedByRole?: UserRole; // Role of user who completed the booking
+  // No-show tracking
+  noShowAt?: Date; // When booking was marked as no-show
+  noShowBy?: string; // User ID who marked as no-show
+  noShowByName?: string; // Name of user who marked as no-show
+  // Audit trail - modification history
+  modifications?: BookingModification[]; // History of all changes made to this booking
   // Timestamps
   createdAt: Date;
   updatedAt: Date;

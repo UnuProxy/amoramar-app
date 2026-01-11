@@ -949,6 +949,7 @@ export default function DashboardPage() {
                     <option value="confirmed" className="bg-neutral-800">CONFIRMADA</option>
                     <option value="completed" className="bg-neutral-800">LISTA</option>
                     <option value="pending" className="bg-neutral-800">PENDIENTE</option>
+                    <option value="no-show" className="bg-neutral-800">NO PRESENTADO</option>
                     <option value="cancelled" className="bg-neutral-800">BAJA</option>
                   </select>
                 </div>
