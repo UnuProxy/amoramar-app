@@ -189,7 +189,7 @@ export function CurrentBookingPanel({
                 </div>
               </div>
               <Link
-                href={`/dashboard/bookings/${booking.id}`}
+                href={context === 'admin' ? `/dashboard/bookings/${booking.id}` : `/employee/bookings/${booking.id}`}
                 className="shrink-0 px-4 py-2 md:px-6 md:py-3 rounded-xl border-2 border-neutral-200 text-[10px] md:text-xs font-black text-neutral-600 hover:border-blue-500 hover:text-blue-600 hover:bg-blue-50 transition-all uppercase tracking-widest"
               >
                 Ver Detalles →
