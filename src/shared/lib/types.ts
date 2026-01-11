@@ -345,6 +345,7 @@ export interface BookingFormData {
   paymentIntentId?: string;
   allowUnpaid?: boolean;
   isConsultation?: boolean;
+  consultationDuration?: number;
 }
 
 export interface AvailabilityFormData {
