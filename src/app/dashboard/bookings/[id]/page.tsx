@@ -760,8 +760,8 @@ export default function BookingDetailPage() {
                           createdAt: new Date(),
                           updatedAt: new Date(),
                         });
-                      } else {
-                        const history = clientProfile?.hairColorHistory || [];
+                      } else if (clientProfile) {
+                        const history = clientProfile.hairColorHistory || [];
                         const newEntry = { note: noteToSave, date: new Date().toISOString(), bookingId: booking.id };
                         await updateClient(profileId, { hairColorNotes: noteToSave, hairColorHistory: [...history, newEntry] });
                         setClientProfile({ ...clientProfile, hairColorNotes: noteToSave, hairColorHistory: [...history, newEntry] });

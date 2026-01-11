@@ -31,6 +31,8 @@ interface ClientData {
   userId?: string;
   createdAt?: Date;
   isNew?: boolean;
+  hairColorNotes?: string;
+  hairColorHistory?: Array<{ note: string; date: string; bookingId?: string }>;
 }
 
 export default function DashboardPage() {
@@ -729,11 +731,10 @@ export default function DashboardPage() {
       .slice(0, 10);
   }, [bookingForm.clientName, allClientSuggestions]);
 
-  const lookupClientId = useCallback(
-    async (email?: string, phone?: string) => {
-      if (selectedClient?.userId) return selectedClient.userId;
-      if (selectedClientProfile?.id) return selectedClientProfile.id;
-      const normalizePhone = (p?: string) => (p || '').replace(/\D/g, '');
+  const lookupClientIdImpl = async (email?: string, phone?: string | null) => {
+    if (selectedClient?.userId) return selectedClient.userId;
+    if (selectedClientProfile?.id) return selectedClientProfile.id;
+    const normalizePhone = (p?: string | null) => (p || '').replace(/\D/g, '');
       const normalizedPhone = normalizePhone(phone || selectedClientProfile?.phone || selectedClient?.phone);
       const trimmedEmail = (email || selectedClientEmail || selectedClient?.email || '').trim();
       const lowerEmail = trimmedEmail.toLowerCase();
@@ -769,9 +770,9 @@ export default function DashboardPage() {
         if (looseMatch?.id) return looseMatch.id;
       }
       return undefined;
-    },
-    [clients, selectedClientEmail, selectedClientProfile, selectedClient]
-  );
+  };
+
+  const lookupClientId = lookupClientIdImpl;
 
   const deleteClientByEmailOrPhone = useCallback(
     async (email?: string, phone?: string) => {
@@ -799,9 +800,8 @@ export default function DashboardPage() {
     [selectedClientEmail, selectedClientProfile, selectedClient]
   );
 
-  const cleanupBookingsForContact = useCallback(
-    async (email?: string, phone?: string) => {
-      const normalizePhone = (p?: string) => (p || '').replace(/\D/g, '');
+  const cleanupBookingsForContactImpl = async (email?: string, phone?: string | null) => {
+    const normalizePhone = (p?: string | null) => (p || '').replace(/\D/g, '');
       const targetEmail = (email || selectedClientEmail || selectedClient?.email || '').trim().toLowerCase();
       const targetPhone = normalizePhone(phone || selectedClientProfile?.phone || selectedClient?.phone);
       const bookingsToDelete = bookings.filter((b) => {
@@ -820,9 +820,9 @@ export default function DashboardPage() {
         }
       }
       setBookings((prev) => prev.filter((b) => !bookingsToDelete.some((del) => del.id === b.id)));
-    },
-    [bookings, selectedClientEmail, selectedClient, selectedClientProfile]
-  );
+  };
+
+  const cleanupBookingsForContact = cleanupBookingsForContactImpl;
 
   if (loading) {
     return (

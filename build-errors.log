@@ -1,0 +1,11 @@
+
+> amor-amar-app@0.1.0 build
+> next build
+
+unhandledRejection Error: EPERM: operation not permitted, open '/Users/Julian/amoramar-app/node_modules/next/dist/client/components/router-reducer/create-href-from-url.js'
+    at ignore-listed frames {
+  errno: -1,
+  code: 'EPERM',
+  syscall: 'open',
+  path: '/Users/Julian/amoramar-app/node_modules/next/dist/client/components/router-reducer/create-href-from-url.js'
+}
