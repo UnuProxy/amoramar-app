@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useMemo } from 'react';
+import Link from 'next/link';
 import { addMinutesToTime, formatTime, formatCurrency, cn } from '@/shared/lib/utils';
 import { calculateBookingTotals } from '@/shared/lib/booking-utils';
 import type { Booking, Employee, Service } from '@/shared/lib/types';
@@ -167,22 +168,32 @@ export function CurrentBookingPanel({
             </span>
           </div>
 
-          <div>
-            <h3 className="text-2xl md:text-4xl font-black text-neutral-900 tracking-tighter leading-tight mb-2 md:mb-3 uppercase italic">
-              {service?.serviceName || 'RESERVA'}
-            </h3>
-            <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-6">
-              <div className="flex items-center gap-2">
-                <div className="w-1.5 h-1.5 rounded-full bg-rose-500" />
-                <span className="text-lg md:text-xl font-black text-neutral-800 tabular-nums">
-                  {formatTime(startTime)} — {formatTime(endTime)}
-                </span>
+          <div className="flex-1">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1">
+                <h3 className="text-2xl md:text-4xl font-black text-neutral-900 tracking-tighter leading-tight mb-2 md:mb-3 uppercase italic">
+                  {service?.serviceName || 'RESERVA'}
+                </h3>
+                <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-6">
+                  <div className="flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                    <span className="text-lg md:text-xl font-black text-neutral-800 tabular-nums">
+                      {formatTime(startTime)} — {formatTime(endTime)}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg md:text-xl font-bold text-neutral-500 uppercase tracking-tight">
+                      {booking.clientName}
+                    </span>
+                  </div>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-lg md:text-xl font-bold text-neutral-500 uppercase tracking-tight">
-                  {booking.clientName}
-                </span>
-              </div>
+              <Link
+                href={`/dashboard/bookings/${booking.id}`}
+                className="shrink-0 px-4 py-2 md:px-6 md:py-3 rounded-xl border-2 border-neutral-200 text-[10px] md:text-xs font-black text-neutral-600 hover:border-blue-500 hover:text-blue-600 hover:bg-blue-50 transition-all uppercase tracking-widest"
+              >
+                Ver Detalles →
+              </Link>
             </div>
           </div>
 
