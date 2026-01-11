@@ -40,6 +40,7 @@ export async function POST(request: NextRequest) {
       bio: data.bio,
       profileImage: data.profileImage,
       status: 'active',
+      employmentType: data.employmentType,
     });
 
     return NextResponse.json<ApiResponse<{ id: string }>>({
