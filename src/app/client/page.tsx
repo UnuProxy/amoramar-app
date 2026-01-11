@@ -77,7 +77,7 @@ export default function ClientDashboard() {
       </div>
 
       {/* Quick Stats - Luxury Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <div className="group relative bg-white border border-neutral-100 rounded-[40px] p-8 shadow-sm hover:shadow-xl transition-all overflow-hidden min-h-[220px] flex items-center justify-center">
           <div className="absolute top-0 right-0 w-32 h-32 bg-rose-50 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-700 opacity-50" />
           <div className="relative text-center w-full px-4">
@@ -89,35 +89,23 @@ export default function ClientDashboard() {
           </div>
         </div>
 
-        <div className="group relative bg-white border border-neutral-100 rounded-[40px] p-8 shadow-sm hover:shadow-xl transition-all overflow-hidden min-h-[220px] flex items-center justify-center">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-neutral-50 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-700 opacity-50" />
-          <div className="relative text-center w-full px-4">
-            <p className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em] mb-4">Tratamientos</p>
-            <div className="flex items-baseline justify-center gap-3">
-              <p className="text-6xl font-black text-neutral-800 tracking-tight leading-none whitespace-nowrap">{pastBookings}</p>
-              <p className="text-sm font-bold text-neutral-400 uppercase tracking-widest">Realizados</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="group relative bg-neutral-800 rounded-[40px] p-8 shadow-2xl hover:bg-rose-600 transition-all duration-500 overflow-hidden min-h-[220px] flex items-center justify-center">
+        <div className="group relative bg-neutral-900 rounded-[40px] p-8 shadow-2xl hover:bg-rose-600 transition-all duration-500 overflow-hidden min-h-[220px] flex items-center justify-center">
           <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-700" />
           <div className="relative text-center w-full px-4">
-            <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em] mb-4">Puntos Amor</p>
+            <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em] mb-4">Tratamientos</p>
             <div className="flex items-baseline justify-center gap-3 text-white">
-              <p className="text-6xl font-black tracking-tight leading-none whitespace-nowrap">150</p>
-              <p className="text-sm font-bold uppercase tracking-widest opacity-60">Puntos</p>
+              <p className="text-6xl font-black tracking-tight leading-none whitespace-nowrap">{pastBookings}</p>
+              <p className="text-sm font-bold uppercase tracking-widest opacity-60">Realizados</p>
             </div>
           </div>
         </div>
       </div>
 
       {/* Quick Actions - Modern Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
         {[
           { name: 'Reservar', href: '/book', icon: 'M12 4v16m8-8H4', color: 'rose' },
           { name: 'Mis Citas', href: '/client/bookings', icon: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z', color: 'neutral' },
-          { name: 'Favoritos', href: '/client/favorites', icon: 'M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z', color: 'neutral' },
           { name: 'Perfil', href: '/client/profile', icon: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z', color: 'neutral' },
         ].map((action) => (
           <Link

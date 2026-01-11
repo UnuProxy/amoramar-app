@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
+import Link from 'next/link';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { getBookings } from '@/shared/lib/firestore';
 import { Loading } from '@/shared/components/Loading';
@@ -186,9 +187,12 @@ export default function ClientHistoryPage() {
             <p className="text-[10px] font-black text-rose-400 uppercase tracking-[0.4em] mb-2">Tratamiento Estrella</p>
             <h3 className="text-4xl font-black text-white uppercase tracking-tighter">{stats.favoriteService}</h3>
           </div>
-          <button className="px-10 py-5 bg-white text-black text-xs font-black uppercase tracking-[0.3em] rounded-2xl hover:bg-rose-600 hover:text-white transition-all">
+          <Link
+            href={stats.favoriteService ? `/book` : '/book'}
+            className="px-10 py-5 bg-white text-black text-xs font-black uppercase tracking-[0.3em] rounded-2xl hover:bg-rose-600 hover:text-white transition-all inline-block"
+          >
             Reservar de Nuevo
-          </button>
+          </Link>
         </div>
       )}
 
@@ -266,9 +270,12 @@ export default function ClientHistoryPage() {
                 </div>
 
                 <div className="flex items-center gap-6">
-                  <button className="px-8 py-4 rounded-2xl bg-rose-600 text-white text-[10px] font-black uppercase tracking-[0.2em] hover:bg-neutral-900 transition-all shadow-lg">
+                  <Link
+                    href="/book"
+                    className="px-8 py-4 rounded-2xl bg-rose-600 text-white text-[10px] font-black uppercase tracking-[0.2em] hover:bg-neutral-900 transition-all shadow-lg inline-block"
+                  >
                     Reservar de Nuevo
-                  </button>
+                  </Link>
                 </div>
               </div>
             );
@@ -285,9 +292,12 @@ export default function ClientHistoryPage() {
           <p className="text-neutral-400 font-bold uppercase tracking-widest text-xs mb-12 max-w-xs mx-auto leading-relaxed">
             Tu viaje de cuidado personal en Amor & Amar comienza con tu primera reserva.
           </p>
-          <button className="px-12 py-6 bg-rose-600 text-white text-xs font-black uppercase tracking-[0.3em] rounded-[24px] hover:bg-neutral-900 transition-all shadow-2xl shadow-rose-200">
+          <Link
+            href="/book"
+            className="inline-block px-12 py-6 bg-rose-600 text-white text-xs font-black uppercase tracking-[0.3em] rounded-[24px] hover:bg-neutral-900 transition-all shadow-2xl shadow-rose-200"
+          >
             Comenzar Ahora
-          </button>
+          </Link>
         </div>
       )}
     </div>
