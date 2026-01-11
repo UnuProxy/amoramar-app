@@ -101,14 +101,14 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
         } else if (profileImagePreview === undefined && employee.profileImage) {
           // Image was removed
           await deleteEmployeeProfileImage(employee.profileImage).catch(console.error);
-          profileImageUrl = null;
+          profileImageUrl = undefined;
         }
 
         // Update existing employee
         await updateEmployee(employee.id, {
           firstName: data.firstName,
           lastName: data.lastName,
-          bio: data.bio || null,
+          bio: data.bio || undefined,
           profileImage: profileImageUrl,
           phone: data.phone,
           nationalId: data.nationalId,
@@ -157,8 +157,8 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
           lastName: data.lastName,
           email: data.email,
           phone: data.phone,
-          bio: data.bio || null,
-          profileImage: null, // Will update after upload if image exists
+          bio: data.bio || undefined,
+          profileImage: undefined, // Will update after upload if image exists
           nationalId: data.nationalId,
           position: data.position,
           employmentType: data.employmentType,

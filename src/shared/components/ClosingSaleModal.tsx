@@ -38,7 +38,7 @@ export function ClosingSaleModal({
     totalPrice, 
     depositPaidValue, 
     outstanding 
-  } = calculateBookingTotals(booking || ({} as Booking), service);
+  } = calculateBookingTotals(booking || ({} as Booking), service || undefined);
 
   const extras = booking?.additionalServices || [];
 

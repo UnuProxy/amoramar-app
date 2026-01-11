@@ -1164,7 +1164,7 @@ export default function EmployeeBookingsPage() {
                     <div>
                       <p className="text-[10px] font-black text-neutral-500 uppercase tracking-[0.2em]">Total</p>
                       <p className="text-xs text-neutral-500 mt-1">
-                        1 servicio{(selectedBooking.additionalServices?.length || 0) > 0 ? ` + ${selectedBooking.additionalServices.length}` : ''}
+                        1 servicio{(selectedBooking.additionalServices?.length || 0) > 0 ? ` + ${selectedBooking.additionalServices?.length}` : ''}
                       </p>
                     </div>
                     <div className="text-2xl font-black text-neutral-900">
