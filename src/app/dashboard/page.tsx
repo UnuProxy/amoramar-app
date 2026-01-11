@@ -679,26 +679,55 @@ export default function DashboardPage() {
     ? clients.find((c) => c.email?.toLowerCase() === selectedClientEmail.toLowerCase())
     : null;
 
+  // Build complete client directory from both Client profiles AND booking records
+  const allClientSuggestions = useMemo(() => {
+    const clientMap = new Map<string, { name: string; email: string; phone: string; id?: string }>();
+    
+    // Add clients from Client profiles (registered users)
+    clients.forEach((c) => {
+      const name = `${c.firstName} ${c.lastName}`.trim();
+      const email = c.email.toLowerCase();
+      const phone = c.phone || '';
+      const key = email || `${name}|${phone}`;
+      
+      if (key) {
+        clientMap.set(key, { id: c.id, name, email, phone });
+      }
+    });
+    
+    // Add clients from booking records (walk-ins added by staff)
+    bookings.forEach((b) => {
+      const name = b.clientName?.trim() || '';
+      const email = b.clientEmail?.trim().toLowerCase() || '';
+      const phone = b.clientPhone?.trim() || '';
+      const key = email || `${name}|${phone}`;
+      
+      if (key && name && !clientMap.has(key)) {
+        clientMap.set(key, { name, email, phone });
+      }
+    });
+    
+    return Array.from(clientMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [clients, bookings]);
+
   const clientMatches = useMemo(() => {
     const term = bookingForm.clientName?.trim().toLowerCase();
     
     // If no search term, show recent 10 clients
     if (!term || term.length === 0) {
-      return clients.slice(0, 10);
+      return allClientSuggestions.slice(0, 10);
     }
     
     // Filter clients based on search term
-    return clients
+    return allClientSuggestions
       .filter((c) => {
-        const fullName = `${c.firstName} ${c.lastName}`.trim().toLowerCase();
-        return (
-          fullName.includes(term) ||
-          c.email.toLowerCase().includes(term) ||
-          (c.phone && c.phone.toLowerCase().includes(term))
-        );
+        const name = c.name.toLowerCase();
+        const email = c.email.toLowerCase();
+        const phone = c.phone || '';
+        return name.includes(term) || email.includes(term) || phone.includes(term);
       })
       .slice(0, 10);
-  }, [bookingForm.clientName, clients]);
+  }, [bookingForm.clientName, allClientSuggestions]);
 
   const lookupClientId = useCallback(
     async (email?: string, phone?: string) => {
@@ -1595,17 +1624,17 @@ export default function DashboardPage() {
                                 </p>
                               </div>
                             )}
-                            {clientMatches.map((c) => {
-                              const fullName = `${c.firstName} ${c.lastName}`.trim() || c.email;
+                            {clientMatches.map((c, idx) => {
+                              const displayName = c.name || c.email;
                               return (
                                 <button
-                                  key={c.id}
+                                  key={c.id || `${c.email}-${idx}`}
                                   type="button"
                                   onMouseDown={(e) => e.preventDefault()}
                                   onClick={() => {
                                     setBookingForm((prev) => ({
                                       ...prev,
-                                      clientName: fullName,
+                                      clientName: displayName,
                                       clientEmail: c.email,
                                       clientPhone: c.phone || '',
                                     }));
@@ -1614,7 +1643,7 @@ export default function DashboardPage() {
                                   className="w-full text-left px-4 py-3 hover:bg-neutral-50 transition-colors"
                                 >
                                   <div className="text-sm font-black text-neutral-900 uppercase tracking-tight">
-                                    {fullName}
+                                    {displayName}
                                   </div>
                                   <div className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.2em] mt-1">
                                     {c.email}{c.phone ? ` • ${c.phone}` : ''}
