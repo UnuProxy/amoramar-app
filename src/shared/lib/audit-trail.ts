@@ -17,18 +17,22 @@ export function createModification(
   oldValue?: string,
   newValue?: string
 ): BookingModification {
-  return {
+  const modification: BookingModification = {
     id: `mod_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
     timestamp: new Date(),
     userId: context.userId,
     userName: context.userName,
     userRole: context.userRole,
     action,
-    field,
-    oldValue,
-    newValue,
     description,
   };
+
+  // Only include field, oldValue, newValue if they are defined
+  if (field !== undefined) modification.field = field;
+  if (oldValue !== undefined) modification.oldValue = oldValue;
+  if (newValue !== undefined) modification.newValue = newValue;
+
+  return modification;
 }
 
 /**
@@ -191,7 +195,7 @@ export function trackNoShow(context: AuditContext): BookingModification {
     'status_changed',
     `Marcada como "No Presentado" por ${context.userName}`,
     'status',
-    undefined,
+    '',  // Empty string instead of undefined
     'no-show'
   );
 }
