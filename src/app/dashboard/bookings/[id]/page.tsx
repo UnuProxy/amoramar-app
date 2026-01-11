@@ -659,7 +659,7 @@ export default function BookingDetailPage() {
             <div>
               <p className="text-[10px] font-black text-neutral-500 uppercase tracking-[0.2em]">Total</p>
               <p className="text-xs text-neutral-500 mt-1">
-                {service ? 1 : 0} servicio{(booking?.additionalServices?.length || 0) > 0 ? ` + ${booking.additionalServices.length} adicional${booking.additionalServices.length > 1 ? 'es' : ''}` : ''}
+                {service ? 1 : 0} servicio{(booking?.additionalServices?.length || 0) > 0 ? ` + ${booking?.additionalServices?.length} adicional${(booking?.additionalServices?.length || 0) > 1 ? 'es' : ''}` : ''}
               </p>
             </div>
             <div className="text-3xl font-black text-neutral-900">
