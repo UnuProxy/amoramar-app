@@ -67,7 +67,7 @@ export default function EmployeeClientsPage() {
   };
 
   const getServiceName = (serviceId: string) => {
-    return services.find((s) => s.id === serviceId)?.name || 'Servicio Desconocido';
+    return services.find((s) => s.id === serviceId)?.name || 'Unknown Service';
   };
 
   const getEmployeeName = (employeeId: string) => {
@@ -107,10 +107,10 @@ export default function EmployeeClientsPage() {
       );
 
       setNewHairNote('');
-      alert('Nota guardada correctamente');
+      alert('Note saved successfully');
     } catch (error) {
       console.error('Error saving hair note:', error);
-      alert('Error al guardar la nota');
+      alert('Error saving note');
     } finally {
       setSavingNotes(false);
     }
@@ -123,7 +123,7 @@ export default function EmployeeClientsPage() {
   if (!user) {
     return (
       <div className="max-w-md mx-auto mt-20 text-center">
-        <p className="text-neutral-600">Debes iniciar sesión para acceder a esta página.</p>
+        <p className="text-neutral-600">You must log in to access this page.</p>
       </div>
     );
   }
@@ -134,10 +134,10 @@ export default function EmployeeClientsPage() {
       <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6">
         <div>
           <h1 className="text-5xl font-black text-neutral-800 tracking-tighter uppercase leading-none">
-            Clientes
+            Clients
           </h1>
           <p className="text-neutral-500 text-sm font-black uppercase tracking-[0.3em] mt-3">
-            Buscar historial y notas de clientes
+            Search client history and notes
           </p>
         </div>
         <Link
@@ -147,7 +147,7 @@ export default function EmployeeClientsPage() {
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
           </svg>
-          Volver al Panel
+          Back to Dashboard
         </Link>
       </div>
 
@@ -157,8 +157,8 @@ export default function EmployeeClientsPage() {
           type="text"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          placeholder="Buscar por nombre, email o teléfono..."
-          className="w-full px-6 py-4 pl-14 bg-white border-2 border-neutral-200 rounded-2xl text-neutral-900 font-medium focus:border-rose-500 transition-all outline-none"
+          placeholder="Search by name, email or phone..."
+          className="w-full px-6 py-4 pl-14 bg-white border-2 border-neutral-200 rounded-2xl text-neutral-900 font-medium focus:border-accent-500 transition-all outline-none"
         />
         <svg
           className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400"
@@ -174,13 +174,13 @@ export default function EmployeeClientsPage() {
         {/* Client List */}
         <div className="space-y-4">
           <h2 className="text-xl font-black text-neutral-800 uppercase tracking-tight">
-            {searchTerm ? `Resultados (${filteredClients.length})` : `Todos los Clientes (${clients.length})`}
+            {searchTerm ? `Results (${filteredClients.length})` : `All Clients (${clients.length})`}
           </h2>
           <div className="space-y-3 max-h-[800px] overflow-y-auto pr-2">
             {filteredClients.length === 0 ? (
               <div className="py-16 text-center bg-neutral-50 rounded-2xl border border-neutral-100">
                 <p className="text-neutral-400 text-sm font-black uppercase tracking-widest">
-                  {searchTerm ? 'No se encontraron clientes' : 'No hay clientes registrados'}
+                  {searchTerm ? 'No clients found' : 'No registered clients'}
                 </p>
               </div>
             ) : (
@@ -199,7 +199,7 @@ export default function EmployeeClientsPage() {
                     className={cn(
                       'w-full text-left p-5 rounded-2xl border-2 transition-all',
                       isSelected
-                        ? 'bg-rose-50 border-rose-500'
+                        ? 'bg-accent-50 border-accent-500'
                         : 'bg-white border-neutral-200 hover:border-neutral-300'
                     )}
                   >
@@ -215,11 +215,11 @@ export default function EmployeeClientsPage() {
                       </div>
                       <div className="text-right">
                         <div className="px-3 py-1 bg-neutral-100 rounded-full">
-                          <p className="text-xs font-black text-neutral-800">{clientBookings.length} Citas</p>
+                          <p className="text-xs font-black text-neutral-800">{clientBookings.length} Bookings</p>
                         </div>
                         {lastBooking && (
                           <p className="text-[10px] text-neutral-400 font-bold uppercase mt-2">
-                            Última: {formatDate(lastBooking.bookingDate)}
+                            Last: {formatDate(lastBooking.bookingDate)}
                           </p>
                         )}
                       </div>
@@ -249,19 +249,19 @@ export default function EmployeeClientsPage() {
                 />
               </svg>
               <p className="text-neutral-400 text-sm font-black uppercase tracking-widest">
-                Selecciona un cliente
+                Select a client
               </p>
             </div>
           ) : (
             <div className="bg-white rounded-2xl border-2 border-neutral-200 overflow-hidden">
               {/* Header */}
-              <div className="bg-gradient-to-r from-rose-600 to-rose-700 p-6">
+              <div className="bg-gradient-to-r from-accent-600 to-accent-700 p-6">
                 <h2 className="text-2xl font-black text-white uppercase tracking-tight">
                   {selectedClient.firstName} {selectedClient.lastName}
                 </h2>
-                <p className="text-rose-100 text-sm font-medium mt-1">{selectedClient.email}</p>
+                <p className="text-accent-100 text-sm font-medium mt-1">{selectedClient.email}</p>
                 {selectedClient.phone && (
-                  <p className="text-rose-100 text-sm font-medium">{selectedClient.phone}</p>
+                  <p className="text-accent-100 text-sm font-medium">{selectedClient.phone}</p>
                 )}
               </div>
 
@@ -273,7 +273,7 @@ export default function EmployeeClientsPage() {
                       {getClientBookings(selectedClient.email).length}
                     </p>
                     <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest mt-1">
-                      Total Citas
+                      Total Visits
                     </p>
                   </div>
                   <div className="p-4 bg-neutral-50 rounded-xl text-center">
@@ -284,7 +284,7 @@ export default function EmployeeClientsPage() {
                       }
                     </p>
                     <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest mt-1">
-                      Completadas
+                      Completed
                     </p>
                   </div>
                 </div>
@@ -297,16 +297,16 @@ export default function EmployeeClientsPage() {
                   <textarea
                     value={newHairNote}
                     onChange={(e) => setNewHairNote(e.target.value)}
-                    placeholder="Ej: Balayage rubio ceniza, L'Oréal Majirel 9.1..."
-                    className="w-full px-4 py-3 bg-neutral-50 border-2 border-neutral-200 rounded-xl text-neutral-900 font-medium focus:border-rose-500 transition-all outline-none resize-none"
+                    placeholder="E.g.: Ash blonde balayage, L'Oréal Majirel 9.1..."
+                    className="w-full px-4 py-3 bg-neutral-50 border-2 border-neutral-200 rounded-xl text-neutral-900 font-medium focus:border-accent-500 transition-all outline-none resize-none"
                     rows={3}
                   />
                   <button
                     onClick={handleSaveHairNote}
                     disabled={savingNotes || !newHairNote.trim()}
-                    className="w-full px-4 py-3 bg-rose-600 text-white font-black uppercase tracking-widest text-xs rounded-xl hover:bg-rose-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full px-4 py-3 bg-accent-600 text-white font-black uppercase tracking-widest text-xs rounded-xl hover:bg-accent-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {savingNotes ? 'Guardando...' : 'Guardar Nota'}
+                    {savingNotes ? 'Saving...' : 'Save Note'}
                   </button>
                 </div>
 
@@ -337,11 +337,11 @@ export default function EmployeeClientsPage() {
                 {/* Recent Bookings */}
                 <div className="space-y-3">
                   <label className="block text-xs font-black text-neutral-600 uppercase tracking-widest">
-                    Últimas Citas
+                    Recent Bookings
                   </label>
                   <div className="space-y-2 max-h-80 overflow-y-auto">
                     {getClientBookings(selectedClient.email).slice(0, 10).length === 0 ? (
-                      <p className="text-sm text-neutral-400 text-center py-8">No hay citas registradas</p>
+                      <p className="text-sm text-neutral-400 text-center py-8">No bookings registered</p>
                     ) : (
                       getClientBookings(selectedClient.email)
                         .slice(0, 10)
@@ -382,12 +382,12 @@ export default function EmployeeClientsPage() {
                                 )}
                               >
                                 {booking.status === 'completed'
-                                  ? 'Completada'
+                                  ? 'Completed'
                                   : booking.status === 'confirmed'
-                                  ? 'Confirmada'
+                                  ? 'Confirmed'
                                   : booking.status === 'cancelled'
-                                  ? 'Cancelada'
-                                  : 'Pendiente'}
+                                  ? 'Cancelled'
+                                  : 'Pending'}
                               </span>
                             </div>
                           </div>

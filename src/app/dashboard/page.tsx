@@ -1071,13 +1071,13 @@ export default function DashboardPage() {
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M15 19l-7-7 7-7" />
                   </svg>
-                  Volver
+                  Back
                 </button>
                 <button
                   onClick={() => openBookingModal(selectedClient)}
                   className="px-10 py-5 text-sm font-black bg-neutral-900 text-white rounded-[20px] hover:bg-accent-600 transition-all shadow-2xl uppercase tracking-[0.2em]"
                 >
-                  RESERVAR PARA ESTE CLIENTE
+                  Book for this Client
                 </button>
                 <button
                   disabled={clientDeleting}
@@ -1129,7 +1129,7 @@ export default function DashboardPage() {
                   }}
                   className="px-10 py-5 text-sm font-black bg-accent-600 text-white rounded-[20px] hover:bg-accent-700 transition-all shadow-2xl uppercase tracking-[0.2em] disabled:opacity-50"
                 >
-                  {clientDeleting ? 'ELIMINANDO...' : 'ELIMINAR CLIENTE'}
+                  {clientDeleting ? 'Deleting...' : 'Delete Client'}
                 </button>
               </div>
 
@@ -1167,13 +1167,13 @@ export default function DashboardPage() {
                       <div className="flex items-center gap-2">
                         <div className="w-1.5 h-1.5 rounded-full bg-neutral-300" />
                         <span className="text-sm font-black text-neutral-400 uppercase tracking-widest">
-                          Cliente desde: {new Date(selectedClientProfile.createdAt).toLocaleDateString()}
+                          Client since: {new Date(selectedClientProfile.createdAt).toLocaleDateString('en-US')}
                         </span>
                       </div>
                     )}
                     {selectedClientProfile && (
                       <div className="space-y-3 pt-4">
-                        <label className="block text-[10px] font-black text-neutral-400 uppercase tracking-[0.2em]">Color / Tinete usado</label>
+                        <label className="block text-[10px] font-black text-neutral-400 uppercase tracking-[0.2em]">Color / Dye Used</label>
                         <div className="flex flex-col sm:flex-row gap-3">
                           <textarea
                             value={selectedClientProfile.hairColorNotes || ''}
@@ -1200,7 +1200,7 @@ export default function DashboardPage() {
                                   hairColorNotes: selectedClientProfile.hairColorNotes || '',
                                 });
                               } catch (error) {
-                                console.error('Error guardando notas de color:', error);
+                                console.error('Error saving color notes:', error);
                                 alert('Could not save color notes.');
                               } finally {
                                 setClientNotesSaving(false);
@@ -1223,7 +1223,7 @@ export default function DashboardPage() {
                   <p className="text-5xl font-black text-neutral-900 tracking-tighter">{selectedClient.totalBookings}</p>
                 </div>
                 <div className="bg-neutral-50 rounded-[32px] p-10 border border-neutral-100 group hover:bg-white hover:shadow-xl transition-all">
-                  <p className="text-[10px] font-black text-accent-400 uppercase tracking-[0.3em] mb-2">Exitosas</p>
+                  <p className="text-[10px] font-black text-accent-400 uppercase tracking-[0.3em] mb-2">Successful</p>
                   <p className="text-5xl font-black text-accent-600 tracking-tighter">{selectedClient.confirmedBookings + selectedClient.completedBookings}</p>
                 </div>
                 <div className="bg-neutral-50 rounded-[32px] p-10 border border-neutral-100 group hover:bg-white hover:shadow-xl transition-all">
