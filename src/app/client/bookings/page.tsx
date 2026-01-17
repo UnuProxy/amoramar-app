@@ -685,7 +685,7 @@ export default function ClientBookingsPage() {
                         </div>
                         <div>
                           <h4 className="text-xl font-black text-neutral-900 uppercase tracking-tighter">{employee.firstName} {employee.lastName}</h4>
-                          <p className="text-[10px] font-black text-rose-600 uppercase tracking-[0.2em] mt-1">{employee.position || 'ESPECIALISTA'}</p>
+                          <p className="text-[10px] font-black text-rose-600 uppercase tracking-[0.2em] mt-1">{employee.position || 'SPECIALIST'}</p>
                         </div>
                       </button>
                     ))}

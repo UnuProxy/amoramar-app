@@ -655,7 +655,7 @@ const DatePickerModal: React.FC<DatePickerModalProps> = ({
       <div className="relative bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl w-full sm:max-w-md p-5 sm:p-6 animate-in slide-in-from-bottom sm:fade-in sm:zoom-in-95 duration-300 max-h-[85vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-5 sm:mb-6">
-          <h2 className="text-lg sm:text-xl font-bold text-stone-900">Seleccionar fecha</h2>
+          <h2 className="text-lg sm:text-xl font-bold text-stone-900">Select date</h2>
           <button
             onClick={onClose}
             className="p-2 hover:bg-stone-100 rounded-lg transition-colors"
@@ -831,7 +831,7 @@ const FiltersContent: React.FC<FiltersContentProps> = ({
 
       {/* Employee Filter */}
       <div className="space-y-2">
-        <label className="text-[10px] font-bold text-stone-500 uppercase tracking-wider">Especialista</label>
+        <label className="text-[10px] font-bold text-stone-500 uppercase tracking-wider">Employee</label>
         <select
           value={employeeFilter}
           onChange={(e) => setEmployeeFilter(e.target.value)}
@@ -1144,7 +1144,7 @@ export default function BookingsPage() {
                       : 'text-stone-500 hover:text-stone-700'
                   )}
                 >
-                  Día
+                  Day
                 </button>
                 <button
                   onClick={() => setViewMode('week')}
@@ -1155,14 +1155,14 @@ export default function BookingsPage() {
                       : 'text-stone-500 hover:text-stone-700'
                   )}
                 >
-                  Semana
+                  Week
                 </button>
               </div>
               <Link
                 href="/dashboard"
                 className="px-4 py-2.5 border border-stone-200 hover:border-stone-400 rounded-xl text-sm font-semibold text-stone-600 transition-colors"
               >
-                Panel
+                Dashboard
               </Link>
             </div>
           </div>
@@ -1269,17 +1269,17 @@ export default function BookingsPage() {
 
             {/* Keyboard Shortcuts */}
             <div className="bg-stone-100 rounded-2xl p-4 text-[11px] text-stone-500 space-y-1">
-              <div className="font-semibold text-stone-700 mb-2">Atajos de teclado</div>
+              <div className="font-semibold text-stone-700 mb-2">Keyboard shortcuts</div>
               <div className="flex justify-between">
-                <span>Día anterior/siguiente</span>
+                <span>Previous/Next day</span>
                 <span className="font-mono">← →</span>
               </div>
               <div className="flex justify-between">
-                <span>Semana anterior/siguiente</span>
+                <span>Previous/Next week</span>
                 <span className="font-mono">⇧← ⇧→</span>
               </div>
               <div className="flex justify-between">
-                <span>Ir a hoy</span>
+                <span>Go to today</span>
                 <span className="font-mono">T</span>
               </div>
             </div>
@@ -1472,7 +1472,7 @@ export default function BookingsPage() {
       <Drawer
         isOpen={showFiltersDrawer}
         onClose={() => setShowFiltersDrawer(false)}
-        title="Filtros"
+        title="Filters"
       >
         <FiltersContent
           searchTerm={searchTerm}
@@ -1491,7 +1491,7 @@ export default function BookingsPage() {
       <Drawer
         isOpen={showCalendarDrawer}
         onClose={() => setShowCalendarDrawer(false)}
-        title="Calendario"
+        title="Calendar"
       >
         <div className="space-y-4">
           <MiniCalendar
@@ -1510,13 +1510,13 @@ export default function BookingsPage() {
               }}
               className="flex-1 py-3 bg-amber-100 hover:bg-amber-200 active:bg-amber-300 rounded-xl text-sm font-semibold text-amber-700 transition-colors"
             >
-              Ir a hoy
+              Go to today
             </button>
             <button
               onClick={() => setShowDatePicker(true)}
               className="flex-1 py-3 bg-stone-100 hover:bg-stone-200 active:bg-stone-300 rounded-xl text-sm font-semibold text-stone-700 transition-colors"
             >
-              Seleccionar fecha
+              Select date
             </button>
           </div>
         </div>

@@ -623,11 +623,11 @@ export default function DirectBookingPage() {
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
-                        <h3 className="text-lg font-black text-neutral-800 uppercase tracking-tight">Consulta Gratuita Disponible</h3>
-                        <span className="px-3 py-1 bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest rounded-full">Gratis</span>
+                        <h3 className="text-lg font-black text-neutral-800 uppercase tracking-tight">Free Consultation Available</h3>
+                        <span className="px-3 py-1 bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest rounded-full">Free</span>
                       </div>
                       <p className="text-sm text-neutral-600 font-medium mb-4">
-                        ¿No estás seguro? Reserva una consulta gratuita de {service.consultationDuration || 15-30} minutos con nuestro especialista antes de comprometerte con el servicio completo.
+                        Not sure? Book a free consultation of {service.consultationDuration || 15-30} minutes with our specialist before committing to the full service.
                       </p>
                       <button
                         onClick={() => setFormData(prev => ({ ...prev, isConsultation: !prev.isConsultation, date: '', time: '' }))}
