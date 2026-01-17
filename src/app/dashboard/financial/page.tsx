@@ -245,7 +245,7 @@ export default function FinancialDashboard() {
     if (unknownServiceBookings.length > 0) {
       const unknownRevenue = unknownServiceBookings.reduce((sum, b) => sum + getBookingAmount(b), 0);
       revenueByService.push({
-        service: { id: 'unknown', serviceName: 'Servicio Desconocido / Eliminado', price: 0 } as any,
+        service: { id: 'unknown', serviceName: 'Unknown / Deleted Service', price: 0 } as any,
         revenue: unknownRevenue,
         bookingsCount: unknownServiceBookings.length,
         percentage: totalRevenue > 0 ? (unknownRevenue / totalRevenue) * 100 : 0,
@@ -593,7 +593,7 @@ export default function FinancialDashboard() {
       {/* Expenses by Category */}
       <div className="bg-white border border-neutral-100 rounded-[48px] overflow-hidden shadow-sm">
         <div className="px-10 py-8 border-b border-neutral-100 bg-neutral-50/30">
-          <h2 className="text-sm font-black text-neutral-800 tracking-[0.3em] uppercase text-center">Desglose de Gastos</h2>
+          <h2 className="text-sm font-black text-neutral-800 tracking-[0.3em] uppercase text-center">Expense Breakdown</h2>
         </div>
         
         <div className="p-10">
@@ -638,10 +638,10 @@ export default function FinancialDashboard() {
           <table className="w-full">
             <thead>
               <tr className="bg-neutral-50/50">
-                <th className="px-10 py-6 text-left text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em]">Fecha / Proveedor</th>
-                <th className="px-10 py-6 text-left text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em]">Concepto</th>
-                <th className="px-10 py-6 text-left text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em]">Categoría</th>
-                <th className="px-10 py-6 text-right text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em]">Importe</th>
+                <th className="px-10 py-6 text-left text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em]">Date / Vendor</th>
+                <th className="px-10 py-6 text-left text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em]">Description</th>
+                <th className="px-10 py-6 text-left text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em]">Category</th>
+                <th className="px-10 py-6 text-right text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em]">Amount</th>
                 <th className="px-10 py-6 text-right text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em]">Acción</th>
               </tr>
             </thead>
@@ -707,7 +707,7 @@ export default function FinancialDashboard() {
                       {payoutDetail.employee.firstName} {payoutDetail.employee.lastName}
                     </h3>
                     <p className="text-xs font-bold uppercase tracking-[0.2em] text-neutral-400 mt-1">
-                      {payoutDetail.bookings.length} {payoutDetail.bookings.length === 1 ? 'reserva' : 'reservas'}
+                      {payoutDetail.bookings.length} {payoutDetail.bookings.length === 1 ? 'booking' : 'bookings'}
                     </p>
                   </div>
                 </div>
@@ -726,21 +726,21 @@ export default function FinancialDashboard() {
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.25em] text-neutral-500">
                   {payoutDetail.employee.employmentType === 'self-employed' 
-                    ? 'Total Cobrado (Depósito 50%)' 
-                    : 'Total Generado (100%)'}
+                    ? 'Total Revenue (50% Deposit)' 
+                    : 'Total Revenue (100%)'}
                 </p>
                 <p className="text-3xl font-black text-rose-600">{formatCurrency(payoutDetail.totalRevenue)}</p>
               </div>
               <div className="text-right">
-                <p className="text-xs font-black uppercase tracking-[0.25em] text-neutral-500">Total Servicios</p>
-                <p className="text-xl font-black text-neutral-900">{payoutDetail.bookings.length} CITAS</p>
+                <p className="text-xs font-black uppercase tracking-[0.25em] text-neutral-500">Total Services</p>
+                <p className="text-xl font-black text-neutral-900">{payoutDetail.bookings.length} BOOKINGS</p>
               </div>
             </div>
 
             <div className="flex-1 min-h-0 overflow-y-auto px-6 sm:px-10 py-6 space-y-4">
               {payoutDetail.bookings.length === 0 ? (
                 <div className="text-center py-12 text-neutral-300 font-bold uppercase tracking-widest text-xs">
-                  No hay reservas en este mes.
+                  No bookings for this month.
                 </div>
               ) : (
                 payoutDetail.bookings.map((booking) => {
@@ -752,7 +752,7 @@ export default function FinancialDashboard() {
                     >
                       <div className="space-y-1">
                         <p className="text-sm font-black text-neutral-900 uppercase tracking-tight">
-                          {service?.serviceName || 'Servicio'}
+                          {service?.serviceName || 'Service'}
                         </p>
                         <p className="text-xs font-bold text-neutral-500 uppercase tracking-[0.2em]">
                           {new Date(booking.bookingDate + 'T00:00:00').toLocaleDateString('es-ES', {
@@ -768,7 +768,7 @@ export default function FinancialDashboard() {
                           {formatCurrency(getBookingAmount(booking))}
                         </p>
                         <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600">
-                          {booking.status === 'completed' ? 'Pagado' : booking.status}
+                          {booking.status === 'completed' ? 'Paid' : booking.status}
                         </p>
                       </div>
                     </div>
@@ -782,7 +782,7 @@ export default function FinancialDashboard() {
                 onClick={() => setPayoutDetail(null)}
                 className="px-8 py-3 text-sm font-black uppercase tracking-[0.2em] text-neutral-500 hover:text-neutral-900 transition-colors"
               >
-                Cerrar
+                Close
               </button>
             </div>
           </div>
@@ -795,8 +795,8 @@ export default function FinancialDashboard() {
           <div className="w-full max-w-2xl bg-white rounded-[32px] sm:rounded-[40px] shadow-2xl overflow-hidden border-2 border-white/20 max-h-[90vh] flex flex-col">
             <div className="px-6 sm:px-12 py-6 sm:py-10 flex items-center justify-between border-b border-neutral-100">
               <div>
-                <h2 className="text-3xl font-black text-neutral-800 tracking-tighter uppercase">Nuevo Gasto</h2>
-                <p className="text-neutral-500 font-bold uppercase tracking-widest text-xs mt-1">Operativa del Salón</p>
+                <h2 className="text-3xl font-black text-neutral-800 tracking-tighter uppercase">New Expense</h2>
+                <p className="text-neutral-500 font-bold uppercase tracking-widest text-xs mt-1">Salon Operations</p>
               </div>
               <button
                 onClick={() => setShowAddExpense(false)}
@@ -821,7 +821,7 @@ export default function FinancialDashboard() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="block text-xs font-black text-neutral-400 uppercase tracking-widest">Categoría</label>
+                  <label className="block text-xs font-black text-neutral-400 uppercase tracking-widest">Category</label>
                   <select
                     value={newExpense.category}
                     onChange={(e) => setNewExpense({ ...newExpense, category: e.target.value as ExpenseCategory })}
@@ -857,7 +857,7 @@ export default function FinancialDashboard() {
               </div>
 
               <div className="space-y-2">
-                <label className="block text-xs font-black text-neutral-400 uppercase tracking-widest">Proveedor (Opcional)</label>
+                <label className="block text-xs font-black text-neutral-400 uppercase tracking-widest">Vendor (Optional)</label>
                 <input
                   type="text"
                   value={newExpense.vendor}

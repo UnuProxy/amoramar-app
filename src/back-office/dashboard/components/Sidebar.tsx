@@ -6,7 +6,6 @@ import { usePathname } from 'next/navigation';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { getEmployees } from '@/shared/lib/firestore';
-import { Button } from '@/shared/components/Button';
 import { cn } from '@/shared/lib/utils';
 import type { Employee } from '@/shared/lib/types';
 
@@ -26,16 +25,15 @@ const LogoutButton = () => {
   return (
     <button
       onClick={handleLogout}
-      className="w-full px-4 py-3 text-primary-500 font-bold text-[10px] uppercase tracking-widest hover:text-primary-900 hover:bg-primary-50 transition-all duration-200 flex items-center justify-center gap-2 group rounded-xl border border-primary-100"
+      className="w-full px-4 py-2.5 text-sm font-medium text-neutral-700 hover:text-neutral-900 hover:bg-neutral-50 transition-all duration-150 flex items-center justify-center gap-2 rounded-lg border border-neutral-200"
     >
-      <svg className="w-4 h-4 text-primary-300 group-hover:text-primary-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
       </svg>
       Logout
     </button>
   );
 };
-
 
 const navigation = [
   {
@@ -61,7 +59,7 @@ const navigation = [
     href: '/dashboard/financial',
     icon: (
     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 11V3a1 1 0 112 0v8m-2 0H5a1 1 0 000 2h6m0-2h6a1 1 0 010 2h-6m0 0v8a1 1 0 102 0v-8" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
     </svg>
     ),
   },
@@ -109,7 +107,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Use external state if provided, otherwise use internal state
   const mobileMenuOpen = externalMobileMenuOpen !== undefined ? externalMobileMenuOpen : internalMobileMenuOpen;
 
   useEffect(() => {
@@ -120,7 +117,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
       }
 
       try {
-        // If user is an employee, fetch their employee data
         if (user.role === 'employee') {
           const employees = await getEmployees();
           const foundEmployee = employees.find((e) => e.userId === user.id);
@@ -138,7 +134,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
     fetchEmployeeData();
   }, [user]);
 
-  // Get display name
   const getDisplayName = () => {
     if (loading) return 'Loading...';
     if (!user) return 'User';
@@ -147,11 +142,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
       return `${employee.firstName} ${employee.lastName}`;
     }
     
-    // For owners, use email or a default name
     return user.email?.split('@')[0] || 'Owner';
   };
 
-  // Get display role
   const getDisplayRole = () => {
     if (!user) return 'Admin Panel';
     if (user.role === 'employee') return 'Employee';
@@ -160,11 +153,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <>
-
-      {/* Mobile overlay - appears when sidebar is open on mobile */}
+      {/* Mobile overlay */}
       <div
         className={cn(
-          'lg:hidden fixed inset-0 z-[45] bg-black/60 backdrop-blur-[1px] transition-opacity duration-200 ease-out',
+          'lg:hidden fixed inset-0 z-[45] bg-black/40 backdrop-blur-sm transition-opacity duration-200',
           mobileMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
         )}
         onClick={() => {
@@ -177,38 +169,38 @@ export const Sidebar: React.FC<SidebarProps> = ({
         aria-hidden="true"
       />
 
-      {/* Sidebar - Booksy Style */}
+      {/* Sidebar - Clean Booksy Style */}
       <div
         className={cn(
-          'bg-white h-screen border-r border-neutral-200 fixed lg:sticky lg:top-0 z-[50] flex flex-col w-64 shadow-sm transform transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] lg:translate-x-0 lg:opacity-100 lg:pointer-events-auto',
-          mobileMenuOpen ? 'translate-x-0 opacity-100 pointer-events-auto' : '-translate-x-full opacity-0 pointer-events-none lg:opacity-100'
+          'bg-white h-screen border-r border-neutral-200 fixed lg:sticky lg:top-0 z-[50] flex flex-col w-64 shadow-sm transform transition-all duration-200 lg:translate-x-0',
+          mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
         )}
         role="navigation"
         aria-label="Main navigation"
       >
         {/* Brand */}
-        <div className="px-6 py-6 border-b border-neutral-100">
+        <div className="px-6 py-5 border-b border-neutral-100">
           <Link href="/dashboard" className="block">
-            <h1 className="text-lg font-bold text-neutral-900">
+            <h1 className="text-xl font-bold text-neutral-900">
               Amor Amar
             </h1>
-            <p className="text-xs text-neutral-500 mt-0.5">Business Management</p>
+            <p className="text-xs text-neutral-500 mt-1">Business Management</p>
           </Link>
         </div>
 
-        {/* User Profile Summary */}
-        <div className="px-6 py-5 border-b border-neutral-100">
+        {/* User Profile */}
+        <div className="px-6 py-4 border-b border-neutral-100 bg-neutral-50/50">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-accent-500 flex items-center justify-center text-white text-sm font-semibold">
               {user && employee
                 ? `${employee.firstName[0]}${employee.lastName[0]}`.toUpperCase()
-                : user?.email?.[0].toUpperCase() || 'O'}
+                : user?.email?.[0].toUpperCase() || 'A'}
             </div>
-            <div className="min-w-0">
-              <p className="text-[11px] font-black text-primary-900 uppercase tracking-tight truncate">
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-neutral-900 truncate">
                 {getDisplayName()}
               </p>
-              <p className="text-[9px] font-bold text-primary-400 uppercase tracking-widest mt-0.5">
+              <p className="text-xs text-neutral-500">
                 {getDisplayRole()}
               </p>
             </div>
@@ -216,39 +208,41 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 px-4 py-8 overflow-y-auto space-y-1">
-          {navigation.map((item) => {
-            const isActive = pathname === item.href || pathname?.startsWith(item.href + '/');
-            return (
-              <Link
-                key={item.name}
-                href={item.href}
-                onClick={() => {
-                  if (onMobileClose) {
-                    onMobileClose();
-                  } else if (externalMobileMenuOpen === undefined) {
-                    setInternalMobileMenuOpen(false);
-                  }
-                }}
-                className={cn(
-                  'flex items-center gap-4 px-5 py-3 text-[10px] font-black uppercase tracking-[0.2em] transition-all duration-300',
-                  isActive
-                    ? 'text-accent-600 border-l-4 border-accent-500 pl-4'
-                    : 'text-primary-400 hover:text-primary-900 hover:pl-6'
-                )}
-              >
-                <span className={cn(
-                  'flex-shrink-0 transition-colors',
-                  isActive ? 'text-accent-500' : 'text-primary-300'
-                )}>{item.icon}</span>
-                <span>{item.name}</span>
-              </Link>
-            );
-          })}
+        <nav className="flex-1 px-3 py-4 overflow-y-auto">
+          <div className="space-y-1">
+            {navigation.map((item) => {
+              const isActive = pathname === item.href || pathname?.startsWith(item.href + '/');
+              return (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  onClick={() => {
+                    if (onMobileClose) {
+                      onMobileClose();
+                    } else if (externalMobileMenuOpen === undefined) {
+                      setInternalMobileMenuOpen(false);
+                    }
+                  }}
+                  className={cn(
+                    'flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-150',
+                    isActive
+                      ? 'text-accent-600 bg-accent-50'
+                      : 'text-neutral-700 hover:text-neutral-900 hover:bg-neutral-50'
+                  )}
+                >
+                  <span className={cn(
+                    'flex-shrink-0',
+                    isActive ? 'text-accent-600' : 'text-neutral-400'
+                  )}>{item.icon}</span>
+                  <span>{item.name}</span>
+                </Link>
+              );
+            })}
+          </div>
         </nav>
 
         {/* Logout */}
-        <div className="p-6 border-t border-primary-50">
+        <div className="p-4 border-t border-neutral-100">
           <LogoutButton />
         </div>
       </div>

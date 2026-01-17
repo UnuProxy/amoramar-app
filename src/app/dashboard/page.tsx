@@ -891,7 +891,7 @@ export default function DashboardPage() {
         employees={employees}
         now={currentTime}
         context="admin"
-        title="TURNO ACTUAL"
+        title="CURRENT APPOINTMENT"
         onMarkPaid={handleMarkPaid}
         onComplete={(booking) => handleBookingStatusChange(booking.id, 'completed')}
         onCancel={(booking) => handleBookingStatusChange(booking.id, 'cancelled')}
@@ -906,7 +906,7 @@ export default function DashboardPage() {
               <p className="text-[10px] font-black text-neutral-500 uppercase tracking-[0.2em] mb-4 group-hover:text-info-600 transition-colors">Today</p>
               <div className="flex items-baseline justify-center gap-3 w-full px-4">
                 <p className="text-6xl font-black text-neutral-800 tracking-tight leading-none whitespace-nowrap">{analytics.todayBookings}</p>
-                <p className="text-sm font-bold text-neutral-400 uppercase tracking-widest">Citas</p>
+                <p className="text-sm font-bold text-neutral-400 uppercase tracking-widest">Bookings</p>
               </div>
             </div>
             <div className="relative bg-white border border-neutral-100 border-t-4 border-success-500 rounded-[40px] p-8 shadow-[0_1px_3px_rgba(0,0,0,0.1)] hover:shadow-[0_10px_30px_rgba(0,0,0,0.12)] transition-all group flex flex-col items-center justify-center text-center min-h-[220px]">
@@ -1269,9 +1269,9 @@ export default function DashboardPage() {
                               : 'bg-accent-500 text-white'
                           )}
                         >
-                          {booking.status === 'confirmed' ? 'CONFIRMADA' :
-                           booking.status === 'completed' ? 'LISTA' :
-                           booking.status === 'pending' ? 'PENDIENTE' : 'BAJA'}
+                          {booking.status === 'confirmed' ? 'CONFIRMED' :
+                           booking.status === 'completed' ? 'COMPLETED' :
+                           booking.status === 'pending' ? 'PENDING' : 'CANCELLED'}
                         </div>
                       </div>
                     );
@@ -1300,7 +1300,7 @@ export default function DashboardPage() {
                     <thead>
                       <tr className="bg-neutral-50/50">
                         <th className="px-10 py-8 text-left text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em]">Cliente</th>
-                        <th className="px-10 py-8 text-center text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em]">Citas</th>
+                        <th className="px-10 py-8 text-center text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em]">Bookings</th>
                         <th className="px-10 py-8 text-center text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em]">Última Visita</th>
                         <th className="px-10 py-8 text-right text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em]">Acciones</th>
                       </tr>
@@ -1385,13 +1385,13 @@ export default function DashboardPage() {
                 />
               </div>
               <div>
-                <label className="block text-[10px] font-black text-neutral-500 uppercase tracking-[0.3em] mb-3">Terapeuta</label>
+                <label className="block text-[10px] font-black text-neutral-500 uppercase tracking-[0.3em] mb-3">Therapist</label>
                 <select
                   value={selectedEmployeeId}
                   onChange={(e) => setSelectedEmployeeId(e.target.value)}
                   className="w-full px-6 py-5 bg-white/5 border border-white/10 rounded-2xl text-white text-xs font-black focus:border-accent-600 transition-all outline-none appearance-none uppercase tracking-[0.2em]"
                 >
-                  <option value="all" className="bg-neutral-900">TODOS</option>
+                  <option value="all" className="bg-neutral-900">ALL</option>
                   {employees.map(emp => (
                     <option key={emp.id} value={emp.id} className="bg-neutral-900">{emp.firstName.toUpperCase()}</option>
                   ))}
@@ -1404,9 +1404,9 @@ export default function DashboardPage() {
                   onChange={(e) => setDateRange(e.target.value as any)}
                   className="w-full px-6 py-5 bg-white/5 border border-white/10 rounded-2xl text-white text-xs font-black focus:border-accent-600 transition-all outline-none appearance-none uppercase tracking-[0.2em]"
                 >
-                  <option value="today" className="bg-neutral-900">HOY</option>
-                  <option value="week" className="bg-neutral-900">7 DÍAS</option>
-                  <option value="month" className="bg-neutral-900">MES</option>
+                  <option value="today" className="bg-neutral-900">TODAY</option>
+                  <option value="week" className="bg-neutral-900">7 DAYS</option>
+                  <option value="month" className="bg-neutral-900">MONTH</option>
                 </select>
               </div>
               <div>
@@ -1416,11 +1416,11 @@ export default function DashboardPage() {
                   onChange={(e) => setStatusFilter(e.target.value as any)}
                   className="w-full px-6 py-5 bg-white/5 border border-white/10 rounded-2xl text-white text-xs font-black focus:border-accent-600 transition-all outline-none appearance-none uppercase tracking-[0.2em]"
                 >
-                  <option value="all" className="bg-neutral-900">TODOS</option>
-                  <option value="confirmed" className="bg-neutral-900">CONFIRMADA</option>
-                  <option value="completed" className="bg-neutral-900">LISTA</option>
-                  <option value="pending" className="bg-neutral-900">PENDIENTE</option>
-                  <option value="cancelled" className="bg-neutral-900">BAJA</option>
+                  <option value="all" className="bg-neutral-900">ALL</option>
+                  <option value="confirmed" className="bg-neutral-900">CONFIRMED</option>
+                  <option value="completed" className="bg-neutral-900">COMPLETED</option>
+                  <option value="pending" className="bg-neutral-900">PENDING</option>
+                  <option value="cancelled" className="bg-neutral-900">CANCELLED</option>
                 </select>
               </div>
             </div>
@@ -1431,9 +1431,9 @@ export default function DashboardPage() {
               <table className="w-full">
                 <thead>
                   <tr className="bg-neutral-50/50">
-                    <th className="px-10 py-8 text-left text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em]">Fecha / Hora</th>
+                    <th className="px-10 py-8 text-left text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em]">Date / Time</th>
                     <th className="px-10 py-8 text-left text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em]">Cliente</th>
-                    <th className="px-10 py-8 text-left text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em]">Servicio</th>
+                    <th className="px-10 py-8 text-left text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em]">Service</th>
                     <th className="px-10 py-8 text-center text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em]">Estado</th>
                     <th className="px-10 py-8 text-right text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em]">Acciones</th>
                   </tr>
@@ -1799,7 +1799,7 @@ export default function DashboardPage() {
                 <span className="font-black text-primary-900">{actionConfirm.booking.clientName}</span>
               </div>
               <div className="flex items-center justify-between text-sm text-primary-700">
-                <span className="font-bold uppercase tracking-[0.15em]">Fecha</span>
+                <span className="font-bold uppercase tracking-[0.15em]">Date</span>
                 <span className="font-black text-primary-900">{formatDate(actionConfirm.booking.bookingDate)} • {formatTime(actionConfirm.booking.bookingTime)}</span>
               </div>
             </div>
@@ -1820,7 +1820,7 @@ export default function DashboardPage() {
                 )}
                 disabled={actionLoading}
               >
-                {actionLoading ? 'Aplicando...' : 'Confirmar'}
+                {actionLoading ? 'Applying...' : 'Confirm'}
               </button>
             </div>
           </div>
