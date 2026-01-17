@@ -137,7 +137,7 @@ export default function ClientHistoryPage() {
       <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-8">
         <div>
           <h1 className="text-6xl font-black text-neutral-900 tracking-tighter uppercase leading-none">
-            Historial
+            History
           </h1>
           <p className="text-neutral-400 text-sm font-black uppercase tracking-[0.3em] mt-4">
             Tus experiencias en Amor & Amar
@@ -150,9 +150,9 @@ export default function ClientHistoryPage() {
         <div className="bg-white border border-neutral-100 rounded-[40px] p-10 shadow-sm hover:shadow-xl transition-all group overflow-hidden relative">
           <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-50 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-700 opacity-50" />
           <div className="relative">
-            <p className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em] mb-4">Completadas</p>
+            <p className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em] mb-4">Completed</p>
             <p className="text-6xl font-black text-neutral-900 tracking-tighter">{stats.completedCount}</p>
-            <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mt-2">SESIONES ÉXITO</p>
+            <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mt-2">SUCCESSFUL SESSIONS</p>
           </div>
         </div>
 
@@ -191,7 +191,7 @@ export default function ClientHistoryPage() {
             href={stats.favoriteService ? `/book` : '/book'}
             className="px-10 py-5 bg-white text-black text-xs font-black uppercase tracking-[0.3em] rounded-2xl hover:bg-rose-600 hover:text-white transition-all inline-block"
           >
-            Reservar de Nuevo
+            Book Again
           </Link>
         </div>
       )}
@@ -274,7 +274,7 @@ export default function ClientHistoryPage() {
                     href="/book"
                     className="px-8 py-4 rounded-2xl bg-rose-600 text-white text-[10px] font-black uppercase tracking-[0.2em] hover:bg-neutral-900 transition-all shadow-lg inline-block"
                   >
-                    Reservar de Nuevo
+                    Book Again
                   </Link>
                 </div>
               </div>

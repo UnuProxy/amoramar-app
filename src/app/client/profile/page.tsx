@@ -35,7 +35,7 @@ export default function ClientProfilePage() {
       <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-8">
         <div>
           <h1 className="text-6xl font-black text-neutral-900 tracking-tighter uppercase leading-none">
-            Mi Perfil
+            My Profile
           </h1>
           <p className="text-neutral-400 text-sm font-black uppercase tracking-[0.3em] mt-4">
             Gestión de Datos y Preferencias
@@ -51,7 +51,7 @@ export default function ClientProfilePage() {
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div className="space-y-2">
-                <label className="block text-[10px] font-black text-neutral-400 uppercase tracking-widest">Nombre</label>
+                <label className="block text-[10px] font-black text-neutral-400 uppercase tracking-widest">Name</label>
                 <input
                   type="text"
                   value={formData.firstName}
@@ -83,7 +83,7 @@ export default function ClientProfilePage() {
               </div>
 
               <div className="space-y-2">
-                <label className="block text-[10px] font-black text-neutral-400 uppercase tracking-widest">Teléfono</label>
+                <label className="block text-[10px] font-black text-neutral-400 uppercase tracking-widest">Phone</label>
                 <input
                   type="tel"
                   value={formData.phone}
@@ -157,7 +157,7 @@ export default function ClientProfilePage() {
               type="submit"
               className="px-12 py-6 bg-neutral-900 text-white text-xs font-black uppercase tracking-[0.3em] rounded-[24px] hover:bg-rose-600 transition-all shadow-2xl shadow-rose-200"
             >
-              Guardar Perfil
+              Save Profile
             </button>
           </div>
         </div>

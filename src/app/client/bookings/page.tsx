@@ -567,7 +567,7 @@ export default function ClientBookingsPage() {
               </svg>
             </div>
             <h3 className="text-3xl font-black text-neutral-900 tracking-tighter uppercase mb-4">
-              ¿Cancelar Cita?
+              Cancel Appointment?
             </h3>
             <p className="text-neutral-400 font-bold uppercase tracking-widest text-[10px] leading-relaxed mb-10">
               Vas a anular tu cita para <span className="text-neutral-900">{getServiceName(selectedBooking.serviceId)}</span> el {formatDate(selectedBooking.bookingDate)}. Esta acción no se puede deshacer.

@@ -81,7 +81,7 @@ export default function ClientDashboard() {
         <div className="group relative bg-white border border-neutral-100 rounded-[40px] p-8 shadow-sm hover:shadow-xl transition-all overflow-hidden min-h-[220px] flex items-center justify-center">
           <div className="absolute top-0 right-0 w-32 h-32 bg-rose-50 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-700 opacity-50" />
           <div className="relative text-center w-full px-4">
-            <p className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em] mb-4">Próximas Citas</p>
+            <p className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em] mb-4">Upcoming Appointments</p>
             <div className="flex items-baseline justify-center gap-3">
               <p className="text-6xl font-black text-neutral-800 tracking-tight leading-none whitespace-nowrap">{upcomingBookings.length}</p>
               <p className="text-sm font-bold text-rose-600 uppercase tracking-widest">Activas</p>
@@ -104,9 +104,9 @@ export default function ClientDashboard() {
       {/* Quick Actions - Modern Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
         {[
-          { name: 'Reservar', href: '/book', icon: 'M12 4v16m8-8H4', color: 'rose' },
-          { name: 'Mis Citas', href: '/client/bookings', icon: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z', color: 'neutral' },
-          { name: 'Perfil', href: '/client/profile', icon: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z', color: 'neutral' },
+          { name: 'Book', href: '/book', icon: 'M12 4v16m8-8H4', color: 'rose' },
+          { name: 'My Bookings', href: '/client/bookings', icon: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z', color: 'neutral' },
+          { name: 'Profile', href: '/client/profile', icon: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z', color: 'neutral' },
         ].map((action) => (
           <Link
             key={action.name}
@@ -130,13 +130,13 @@ export default function ClientDashboard() {
       {/* Upcoming Bookings - Premium List */}
       <div className="space-y-8">
         <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-black text-neutral-900 tracking-widest uppercase">Próximas Citas</h2>
+          <h2 className="text-2xl font-black text-neutral-900 tracking-widest uppercase">Upcoming Appointments</h2>
           <div className="h-px flex-1 bg-neutral-100 mx-8 hidden sm:block" />
           <Link
             href="/client/bookings"
             className="text-[10px] font-black text-rose-600 uppercase tracking-[0.3em] hover:text-neutral-900 transition-colors"
           >
-            Ver Historial →
+            View History →
           </Link>
         </div>
 
