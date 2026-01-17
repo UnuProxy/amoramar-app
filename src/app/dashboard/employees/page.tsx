@@ -110,7 +110,7 @@ export default function EmployeesPage() {
                       <span className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-[0.3em] ${
                         employee.status === 'active' ? 'bg-emerald-50 text-emerald-600' : 'bg-neutral-100 text-neutral-400'
                       }`}>
-                        {employee.status === 'active' ? 'ACTIVO' : 'INACTIVO'}
+                        {employee.status === 'active' ? 'ACTIVE' : 'INACTIVE'}
                       </span>
                     </td>
                     <td className="px-10 py-10 text-center">

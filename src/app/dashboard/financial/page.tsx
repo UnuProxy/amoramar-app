@@ -652,7 +652,7 @@ export default function FinancialDashboard() {
                   <tr key={expense.id} className="hover:bg-neutral-50 transition-all group">
                     <td className="px-10 py-8">
                       <div className="text-lg font-black text-neutral-800 uppercase tracking-tighter leading-none mb-1">
-                        {new Date(expense.date + 'T00:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
+                        {new Date(expense.date + 'T00:00:00').toLocaleDateString('en-US', { day: 'numeric', month: 'short' })}
                       </div>
                       <div className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.2em]">{expense.vendor || '—'}</div>
                     </td>
@@ -692,7 +692,7 @@ export default function FinancialDashboard() {
             <div className="px-6 sm:px-10 py-6 sm:py-8 flex items-start sm:items-center justify-between gap-4 border-b border-neutral-100">
               <div className="space-y-2">
                 <p className="text-[10px] font-black uppercase tracking-[0.3em] text-neutral-400">
-                  Detalle de pagos • {new Date(payoutStartDate + 'T00:00:00').toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}
+                  Payment details • {new Date(payoutStartDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
                 </p>
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 rounded-2xl bg-neutral-900 text-white flex items-center justify-center font-black text-lg overflow-hidden">
@@ -755,7 +755,7 @@ export default function FinancialDashboard() {
                           {service?.serviceName || 'Service'}
                         </p>
                         <p className="text-xs font-bold text-neutral-500 uppercase tracking-[0.2em]">
-                          {new Date(booking.bookingDate + 'T00:00:00').toLocaleDateString('es-ES', {
+                          {new Date(booking.bookingDate + 'T00:00:00').toLocaleDateString('en-US', {
                             day: '2-digit',
                             month: 'short',
                             year: 'numeric',
