@@ -834,25 +834,25 @@ export default function DashboardPage() {
 
   return (
     <div className="max-w-[1600px] mx-auto space-y-10 pb-12">
-      {/* Header - Elegant & Luxurious */}
+      {/* Header - Modern & Professional */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-8">
         <div>
-          <h1 className="text-5xl font-black text-primary-900 tracking-tighter uppercase bg-gradient-to-r from-rosegold-600 to-luxury-600 bg-clip-text text-transparent">
+          <h1 className="text-4xl font-black text-primary-800 tracking-tighter uppercase">
             Control Panel
           </h1>
           <div className="flex items-center gap-3 mt-3">
-            <div className="w-2 h-2 rounded-full bg-rosegold-500 animate-pulse shadow-lg shadow-rosegold-500/50" />
-            <p className="text-luxury-600 text-[10px] font-black uppercase tracking-[0.3em]">
+            <div className="w-1.5 h-1.5 rounded-full bg-accent-500 shadow-[0_0_10px_rgba(184,155,114,0.5)]" />
+            <p className="text-primary-400 text-[10px] font-bold uppercase tracking-[0.4em]">
               Real-Time Activity
             </p>
           </div>
         </div>
         <button
           onClick={() => openBookingModal()}
-          className="px-8 py-5 rounded-[20px] bg-gradient-to-r from-rosegold-500 to-rosegold-400 text-white text-xs font-black shadow-xl shadow-rosegold-500/30 hover:shadow-2xl hover:shadow-rosegold-500/40 hover:-translate-y-1 transition-all flex items-center justify-center gap-3 uppercase tracking-[0.2em]"
+          className="px-8 py-4 rounded-xl bg-primary-800 text-white text-[10px] font-black shadow-lg shadow-primary-900/10 hover:bg-primary-900 hover:-translate-y-0.5 transition-all flex items-center justify-center gap-3 uppercase tracking-[0.2em]"
         >
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" />
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
           </svg>
           New Booking
         </button>
@@ -929,13 +929,13 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Elegant Filter Bar */}
-          <div className="bg-gradient-to-br from-warmwhite to-softcream rounded-[40px] p-8 shadow-lg border border-rosegold-100">
-            <div className="flex flex-col lg:flex-row gap-8">
+          {/* Professional Filter Bar */}
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-primary-100">
+            <div className="flex flex-col lg:flex-row gap-6">
               <div className="flex-1">
-                <label className="block text-[10px] font-black text-luxury-600 uppercase tracking-[0.3em] mb-3">Quick Search</label>
+                <label className="block text-[10px] font-black text-primary-400 uppercase tracking-[0.2em] mb-2">Quick Search</label>
                 <div className="relative">
-                  <svg className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-rosegold-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-primary-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
                   <input
@@ -943,17 +943,17 @@ export default function DashboardPage() {
                     placeholder="SEARCH CLIENT OR EMAIL..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-16 pr-6 py-5 bg-white border-2 border-rosegold-100 rounded-2xl text-primary-900 text-sm font-bold placeholder:text-primary-300 focus:border-rosegold-400 transition-all outline-none uppercase tracking-widest"
+                    className="w-full pl-12 pr-4 py-3.5 bg-primary-50 border border-transparent rounded-xl text-primary-900 text-sm font-bold placeholder:text-primary-300 focus:bg-white focus:border-primary-200 transition-all outline-none uppercase tracking-widest"
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-3 gap-6 lg:w-[600px]">
+              <div className="grid grid-cols-3 gap-4 lg:w-[500px]">
                 <div>
-                  <label className="block text-[10px] font-black text-luxury-600 uppercase tracking-[0.3em] mb-3">Employee</label>
+                  <label className="block text-[10px] font-black text-primary-400 uppercase tracking-[0.2em] mb-2">Employee</label>
                   <select
                     value={selectedEmployeeId}
                     onChange={(e) => setSelectedEmployeeId(e.target.value)}
-                    className="w-full px-6 py-5 bg-white border-2 border-rosegold-100 rounded-2xl text-primary-900 text-xs font-black focus:border-rosegold-400 transition-all outline-none appearance-none uppercase tracking-[0.2em] cursor-pointer"
+                    className="w-full px-4 py-3.5 bg-primary-50 border border-transparent rounded-xl text-primary-800 text-[10px] font-black focus:bg-white focus:border-primary-200 transition-all outline-none appearance-none uppercase tracking-[0.1em] cursor-pointer"
                   >
                     <option value="all">ALL</option>
                     {employees.map(emp => (
@@ -962,11 +962,11 @@ export default function DashboardPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[10px] font-black text-luxury-600 uppercase tracking-[0.3em] mb-3">Time</label>
+                  <label className="block text-[10px] font-black text-primary-400 uppercase tracking-[0.2em] mb-2">Time</label>
                   <select
                     value={dateRange}
                     onChange={(e) => setDateRange(e.target.value as any)}
-                    className="w-full px-6 py-5 bg-white border-2 border-rosegold-100 rounded-2xl text-primary-900 text-xs font-black focus:border-rosegold-400 transition-all outline-none appearance-none uppercase tracking-[0.2em] cursor-pointer"
+                    className="w-full px-4 py-3.5 bg-primary-50 border border-transparent rounded-xl text-primary-800 text-[10px] font-black focus:bg-white focus:border-primary-200 transition-all outline-none appearance-none uppercase tracking-[0.1em] cursor-pointer"
                   >
                     <option value="today">TODAY</option>
                     <option value="week">7 DAYS</option>
@@ -974,11 +974,11 @@ export default function DashboardPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[10px] font-black text-luxury-600 uppercase tracking-[0.3em] mb-3">Status</label>
+                  <label className="block text-[10px] font-black text-primary-400 uppercase tracking-[0.2em] mb-2">Status</label>
                   <select
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value as any)}
-                    className="w-full px-6 py-5 bg-white border-2 border-rosegold-100 rounded-2xl text-primary-900 text-xs font-black focus:border-rosegold-400 transition-all outline-none appearance-none uppercase tracking-[0.2em] cursor-pointer"
+                    className="w-full px-4 py-3.5 bg-primary-50 border border-transparent rounded-xl text-primary-800 text-[10px] font-black focus:bg-white focus:border-primary-200 transition-all outline-none appearance-none uppercase tracking-[0.1em] cursor-pointer"
                   >
                     <option value="all">ALL</option>
                     <option value="confirmed">CONFIRMED</option>
@@ -992,40 +992,40 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Elegant Performance Table */}
-          <div className="bg-white border-2 border-rosegold-100 rounded-[40px] overflow-hidden shadow-lg">
-            <div className="px-10 py-8 border-b-2 border-rosegold-100 flex items-center justify-between bg-gradient-to-r from-rosegold-50 to-luxury-50">
-              <h2 className="text-lg font-black bg-gradient-to-r from-rosegold-600 to-luxury-600 bg-clip-text text-transparent tracking-[0.2em] uppercase text-center w-full">Team Performance</h2>
+          {/* Professional Performance Table */}
+          <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-primary-100">
+            <div className="px-8 py-6 border-b border-primary-50 bg-primary-50/30 flex items-center justify-between">
+              <h2 className="text-sm font-black text-primary-800 tracking-[0.2em] uppercase">Team Performance</h2>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="bg-gradient-to-r from-softcream to-warmwhite">
-                    <th className="px-10 py-6 text-left text-[10px] font-black text-luxury-600 uppercase tracking-[0.3em]">Therapist</th>
-                    <th className="px-10 py-6 text-center text-[10px] font-black text-luxury-600 uppercase tracking-[0.3em]">Bookings</th>
-                    <th className="px-10 py-6 text-center text-[10px] font-black text-luxury-600 uppercase tracking-[0.3em]">Completed</th>
-                    <th className="px-10 py-6 text-center text-[10px] font-black text-luxury-600 uppercase tracking-[0.3em]">Cancelled</th>
-                    <th className="px-10 py-6 text-center text-[10px] font-black text-luxury-600 uppercase tracking-[0.3em]">Ratio</th>
-                    <th className="px-10 py-6 text-right text-[10px] font-black text-luxury-600 uppercase tracking-[0.3em]">Action</th>
+                  <tr className="bg-primary-50/20">
+                    <th className="px-8 py-4 text-left text-[9px] font-black text-primary-400 uppercase tracking-[0.2em]">Therapist</th>
+                    <th className="px-8 py-4 text-center text-[9px] font-black text-primary-400 uppercase tracking-[0.2em]">Bookings</th>
+                    <th className="px-8 py-4 text-center text-[9px] font-black text-primary-400 uppercase tracking-[0.2em]">Completed</th>
+                    <th className="px-8 py-4 text-center text-[9px] font-black text-primary-400 uppercase tracking-[0.2em]">Cancelled</th>
+                    <th className="px-8 py-4 text-center text-[9px] font-black text-primary-400 uppercase tracking-[0.2em]">Ratio</th>
+                    <th className="px-8 py-4 text-right text-[9px] font-black text-primary-400 uppercase tracking-[0.2em]">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-neutral-100">
                   {analytics.employeeStats.map((stat) => (
-                    <tr key={stat.employee.id} className="hover:bg-gradient-to-r hover:from-rosegold-50/50 hover:to-luxury-50/50 transition-all group">
-                      <td className="px-10 py-8">
-                        <div className="flex items-center gap-5">
-                          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-rosegold-400 to-luxury-500 flex items-center justify-center text-white font-black text-xl shadow-lg group-hover:scale-110 transition-transform ring-2 ring-rosegold-200">
+                    <tr key={stat.employee.id} className="hover:bg-primary-50/30 transition-all group">
+                      <td className="px-8 py-6">
+                        <div className="flex items-center gap-4">
+                          <div className="w-10 h-10 rounded-xl bg-primary-800 flex items-center justify-center text-white font-black text-sm shadow-md group-hover:scale-105 transition-transform ring-1 ring-primary-100">
                             {stat.employee.profileImage ? (
-                              <img src={stat.employee.profileImage} alt="" className="w-full h-full object-cover rounded-2xl" />
+                              <img src={stat.employee.profileImage} alt="" className="w-full h-full object-cover rounded-xl" />
                             ) : (
                               <span>{stat.employee.firstName[0]}</span>
                             )}
                           </div>
                           <div>
-                            <div className="text-xl font-black text-primary-900 uppercase tracking-tight">
+                            <div className="text-sm font-black text-primary-900 uppercase tracking-tight">
                               {stat.employee.firstName} {stat.employee.lastName}
                             </div>
-                            <div className="text-[10px] font-bold text-luxury-500 uppercase tracking-[0.2em] mt-1">
+                            <div className="text-[9px] font-bold text-primary-400 uppercase tracking-[0.2em] mt-0.5">
                               {stat.employee.position || 'Specialist'}
                             </div>
                           </div>

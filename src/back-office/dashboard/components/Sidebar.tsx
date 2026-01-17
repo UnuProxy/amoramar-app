@@ -26,9 +26,9 @@ const LogoutButton = () => {
   return (
     <button
       onClick={handleLogout}
-      className="w-full px-4 py-3 text-primary-700 font-bold text-xs uppercase tracking-widest hover:text-white hover:bg-gradient-to-r hover:from-rosegold-500 hover:to-rosegold-400 hover:shadow-lg transition-all duration-200 flex items-center justify-center gap-2 group rounded-xl border border-rosegold-200 bg-white"
+      className="w-full px-4 py-3 text-primary-500 font-bold text-[10px] uppercase tracking-widest hover:text-primary-900 hover:bg-primary-50 transition-all duration-200 flex items-center justify-center gap-2 group rounded-xl border border-primary-100"
     >
-      <svg className="w-5 h-5 text-rosegold-400 group-hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <svg className="w-4 h-4 text-primary-300 group-hover:text-primary-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
       </svg>
       Logout
@@ -180,35 +180,35 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Sidebar */}
       <div
         className={cn(
-          'bg-gradient-to-b from-warmwhite to-softcream h-screen border-r border-rosegold-100 fixed lg:sticky lg:top-0 z-[50] flex flex-col w-64 shadow-[0_8px_30px_rgba(0,0,0,0.06)] transform transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] lg:translate-x-0 lg:opacity-100 lg:pointer-events-auto',
+          'bg-white h-screen border-r border-primary-100 fixed lg:sticky lg:top-0 z-[50] flex flex-col w-64 shadow-[0_4px_20px_rgba(0,0,0,0.03)] transform transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] lg:translate-x-0 lg:opacity-100 lg:pointer-events-auto',
           mobileMenuOpen ? 'translate-x-0 opacity-100 pointer-events-auto' : '-translate-x-full opacity-0 pointer-events-none lg:opacity-100'
         )}
         role="navigation"
         aria-label="Main navigation"
       >
         {/* Brand */}
-        <div className="p-8 border-b border-rosegold-100/50 bg-gradient-to-br from-rosegold-50 to-luxury-50">
+        <div className="p-8 border-b border-primary-50">
           <Link href="/dashboard" className="block text-center">
-            <h1 className="text-2xl font-black text-primary-900 tracking-tighter uppercase leading-none bg-gradient-to-r from-rosegold-600 to-luxury-600 bg-clip-text text-transparent">
+            <h1 className="text-xl font-black text-primary-800 tracking-[0.1em] uppercase leading-none">
               Amor Amar
             </h1>
-            <p className="text-[10px] font-black text-rosegold-500 uppercase tracking-[0.3em] mt-2">Management</p>
+            <p className="text-[9px] font-bold text-accent-500 uppercase tracking-[0.4em] mt-2">Management</p>
           </Link>
         </div>
 
         {/* User Profile Summary */}
-        <div className="px-6 py-8 border-b border-rosegold-100/50 bg-gradient-to-br from-luxury-50/50 to-transparent">
+        <div className="px-6 py-6 border-b border-primary-50 bg-softcream/50">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-rosegold-400 to-luxury-500 flex items-center justify-center text-white text-lg font-black shadow-lg ring-2 ring-rosegold-200">
+            <div className="w-10 h-10 rounded-xl bg-primary-800 flex items-center justify-center text-white text-sm font-black shadow-md shadow-primary-900/10">
               {user && employee
                 ? `${employee.firstName[0]}${employee.lastName[0]}`.toUpperCase()
                 : user?.email?.[0].toUpperCase() || 'O'}
             </div>
             <div className="min-w-0">
-              <p className="text-xs font-black text-primary-900 uppercase tracking-tight truncate">
+              <p className="text-[11px] font-black text-primary-900 uppercase tracking-tight truncate">
                 {getDisplayName()}
               </p>
-              <p className="text-[10px] font-bold text-luxury-600 uppercase tracking-widest mt-0.5">
+              <p className="text-[9px] font-bold text-primary-400 uppercase tracking-widest mt-0.5">
                 {getDisplayRole()}
               </p>
             </div>
@@ -216,7 +216,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 px-4 py-8 overflow-y-auto space-y-2">
+        <nav className="flex-1 px-4 py-8 overflow-y-auto space-y-1">
           {navigation.map((item) => {
             const isActive = pathname === item.href || pathname?.startsWith(item.href + '/');
             return (
@@ -231,15 +231,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   }
                 }}
                 className={cn(
-                  'flex items-center gap-4 px-5 py-4 text-[10px] font-black uppercase tracking-[0.2em] rounded-2xl transition-all duration-300',
+                  'flex items-center gap-4 px-5 py-3.5 text-[10px] font-black uppercase tracking-[0.2em] rounded-xl transition-all duration-200',
                   isActive
-                    ? 'text-white bg-gradient-to-r from-rosegold-500 to-rosegold-400 shadow-lg shadow-rosegold-500/30'
-                    : 'text-primary-700 hover:text-rosegold-600 hover:bg-rosegold-50'
+                    ? 'text-white bg-primary-800 shadow-lg shadow-primary-900/10'
+                    : 'text-primary-600 hover:text-primary-900 hover:bg-primary-50'
                 )}
               >
                 <span className={cn(
                   'flex-shrink-0 transition-colors',
-                  isActive ? 'text-white' : 'text-rosegold-400'
+                  isActive ? 'text-accent-300' : 'text-primary-300'
                 )}>{item.icon}</span>
                 <span>{item.name}</span>
               </Link>
@@ -248,9 +248,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </nav>
 
         {/* Logout */}
-        <div className="p-6 border-t border-rosegold-100">
+        <div className="p-6 border-t border-primary-50">
           <LogoutButton />
         </div>
+      </div>
       </div>
     </>
   );
