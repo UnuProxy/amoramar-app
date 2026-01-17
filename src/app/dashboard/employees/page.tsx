@@ -114,19 +114,16 @@ export default function EmployeesPage() {
                       </span>
                     </td>
                     <td className="px-10 py-10 text-center">
-                      <p className="text-lg font-black text-neutral-900 tabular-nums">
-                        {new Date(employee.createdAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }).toUpperCase()}
-                      </p>
-                      <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest mt-1">
-                        {new Date(employee.createdAt).getFullYear()}
+                      <p className="text-sm font-medium text-neutral-600">
+                        {new Date(employee.createdAt).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
                       </p>
                     </td>
-                    <td className="px-10 py-10 text-right">
+                    <td className="px-6 py-4 text-right">
                       <Link href={`/dashboard/employees/${employee.id}`}>
                         <button
-                          className="px-8 py-4 rounded-2xl border-2 border-neutral-100 text-[10px] font-black text-neutral-400 hover:border-neutral-900 hover:text-neutral-900 transition-all uppercase tracking-[0.2em]"
+                          className="px-4 py-2 rounded-lg border border-neutral-200 text-sm font-medium text-neutral-600 hover:border-accent-500 hover:text-accent-600 hover:bg-accent-50 transition-all"
                         >
-                          Gestionar
+                          Manage
                         </button>
                       </Link>
                     </td>

@@ -119,10 +119,10 @@ export default function EndOfDayPage() {
         if (emp) {
           staffName = `${emp.firstName} ${emp.lastName}`.trim();
         } else {
-          staffName = booking.createdByName || 'Sin especificar';
+          staffName = booking.createdByName || 'Unspecified';
         }
       }
-      if (!staffName) staffName = 'Sin especificar';
+      if (!staffName) staffName = 'Unspecified';
       
       if (!byStaff[staffId]) {
         byStaff[staffId] = {
@@ -163,7 +163,7 @@ export default function EndOfDayPage() {
             closedByName = b.createdByName || 'Sin especificar';
           }
         }
-        if (!closedByName) closedByName = 'Sin especificar';
+        if (!closedByName) closedByName = 'Unspecified';
         
         if (closedBy) {
           uniqueStaff.set(closedBy, closedByName);
@@ -186,23 +186,23 @@ export default function EndOfDayPage() {
       {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-8">
         <div>
-          <h1 className="text-5xl sm:text-6xl font-black text-neutral-800 tracking-tighter uppercase leading-none">
-            Cierre del Día
+          <h1 className="text-4xl font-bold text-primary-800 tracking-tight">
+            End of Day
           </h1>
-          <p className="text-neutral-500 text-sm font-black uppercase tracking-[0.3em] mt-4">
-            Control de pagos y reconciliación
+          <p className="text-primary-400 text-sm font-medium mt-2">
+            Payment Control & Reconciliation
           </p>
         </div>
 
         {/* Date Selector */}
         <div className="flex flex-wrap items-center gap-4">
           <div className="flex items-center gap-3">
-            <label className="text-[10px] font-black text-neutral-500 uppercase tracking-[0.2em]">Fecha</label>
+            <label className="text-xs font-semibold text-neutral-600 uppercase">Date</label>
             <input
               type="date"
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
-              className="px-6 py-4 bg-white border-2 border-neutral-200 rounded-2xl text-sm font-black uppercase tracking-[0.15em] focus:border-rose-600 outline-none transition-all shadow-sm"
+              className="px-4 py-2 bg-white border border-neutral-200 rounded-lg text-sm font-medium focus:border-accent-500 outline-none transition-all"
             />
           </div>
         </div>
@@ -211,91 +211,86 @@ export default function EndOfDayPage() {
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Total Cash */}
-        <div className="bg-white border-2 border-emerald-100 rounded-[32px] p-8 shadow-sm hover:shadow-xl transition-all group overflow-hidden relative">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-50 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-700" />
-          <div className="relative text-center">
-            <div className="w-16 h-16 bg-emerald-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <span className="text-3xl">€</span>
+        <div className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition-all">
+          <div className="flex items-center justify-between mb-4">
+            <div className="w-12 h-12 bg-success-100 rounded-lg flex items-center justify-center">
+              <span className="text-2xl">€</span>
             </div>
-            <p className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em] mb-2">Efectivo</p>
-            <p className="text-4xl font-black text-emerald-600 tracking-tight leading-none">{formatCurrency(totals.totalCash)}</p>
-            <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest mt-3">{totals.byMethod.cash.count} Transacciones</p>
           </div>
+          <p className="text-sm font-medium text-neutral-500 mb-1">Cash</p>
+          <p className="text-3xl font-bold text-success-600 mb-2">{formatCurrency(totals.totalCash)}</p>
+          <p className="text-xs text-neutral-400">{totals.byMethod.cash.count} transactions</p>
         </div>
 
         {/* Total POS */}
-        <div className="bg-white border-2 border-blue-100 rounded-[32px] p-8 shadow-sm hover:shadow-xl transition-all group overflow-hidden relative">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-blue-50 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-700" />
-          <div className="relative text-center">
-            <div className="w-16 h-16 bg-blue-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition-all">
+          <div className="flex items-center justify-between mb-4">
+            <div className="w-12 h-12 bg-accent-100 rounded-lg flex items-center justify-center">
+              <svg className="w-6 h-6 text-accent-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <rect width="20" height="14" x="2" y="5" rx="2" strokeWidth={2} />
                 <path d="M2 10h20" strokeWidth={2} />
               </svg>
             </div>
-            <p className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em] mb-2">Datáfono (TPV)</p>
-            <p className="text-4xl font-black text-blue-600 tracking-tight leading-none">{formatCurrency(totals.totalPos)}</p>
-            <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest mt-3">{totals.byMethod.pos.count} Transacciones</p>
           </div>
+          <p className="text-sm font-medium text-neutral-500 mb-1">Card Terminal</p>
+          <p className="text-3xl font-bold text-accent-600 mb-2">{formatCurrency(totals.totalPos)}</p>
+          <p className="text-xs text-neutral-400">{totals.byMethod.pos.count} transactions</p>
         </div>
 
         {/* Total Amount */}
-        <div className="bg-neutral-900 rounded-[32px] p-8 shadow-2xl transition-all group overflow-hidden relative">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-700" />
-          <div className="relative text-center">
-            <div className="w-16 h-16 bg-rose-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="bg-primary-800 rounded-2xl p-6 shadow-lg">
+          <div className="flex items-center justify-between mb-4">
+            <div className="w-12 h-12 bg-white/10 rounded-lg flex items-center justify-center">
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
-            <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em] mb-2">Total del Día</p>
-            <p className="text-4xl font-black text-white tracking-tight leading-none">{formatCurrency(totals.totalAmount)}</p>
-            <p className="text-[10px] font-black text-rose-400 uppercase tracking-widest mt-3">{totals.transactionCount} Transacciones</p>
           </div>
+          <p className="text-sm font-medium text-white/60 mb-1">Daily Total</p>
+          <p className="text-3xl font-bold text-white mb-2">{formatCurrency(totals.totalAmount)}</p>
+          <p className="text-xs text-white/50">{totals.transactionCount} transactions</p>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="bg-white border border-neutral-100 rounded-[32px] p-6 shadow-sm">
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.2em]">Filtrar:</span>
-          </div>
+      <div className="bg-white border border-neutral-200 rounded-2xl p-4 shadow-sm">
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="text-sm font-semibold text-neutral-600">Filter:</span>
           
           {/* Payment Method Filter */}
           <div className="flex gap-2">
             <button
               onClick={() => setFilterMethod('all')}
               className={cn(
-                "px-4 py-2 text-xs font-black uppercase tracking-[0.15em] rounded-xl transition-all",
+                "px-3 py-1.5 text-sm font-medium rounded-lg transition-all",
                 filterMethod === 'all'
-                  ? "bg-neutral-900 text-white"
-                  : "bg-neutral-100 text-neutral-500 hover:bg-neutral-200"
+                  ? "bg-primary-800 text-white"
+                  : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
               )}
             >
-              Todos
+              All
             </button>
             <button
               onClick={() => setFilterMethod('cash')}
               className={cn(
-                "px-4 py-2 text-xs font-black uppercase tracking-[0.15em] rounded-xl transition-all",
+                "px-3 py-1.5 text-sm font-medium rounded-lg transition-all",
                 filterMethod === 'cash'
-                  ? "bg-emerald-600 text-white"
-                  : "bg-neutral-100 text-neutral-500 hover:bg-neutral-200"
+                  ? "bg-success-600 text-white"
+                  : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
               )}
             >
-              € Efectivo
+              € Cash
             </button>
             <button
               onClick={() => setFilterMethod('pos')}
               className={cn(
-                "px-4 py-2 text-xs font-black uppercase tracking-[0.15em] rounded-xl transition-all",
+                "px-3 py-1.5 text-sm font-medium rounded-lg transition-all",
                 filterMethod === 'pos'
-                  ? "bg-blue-600 text-white"
-                  : "bg-neutral-100 text-neutral-500 hover:bg-neutral-200"
+                  ? "bg-accent-600 text-white"
+                  : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
               )}
             >
-              💳 TPV
+              💳 Card
             </button>
           </div>
 
@@ -303,9 +298,9 @@ export default function EndOfDayPage() {
           <select
             value={filterStaff}
             onChange={(e) => setFilterStaff(e.target.value)}
-            className="px-4 py-2 bg-neutral-100 border border-neutral-200 rounded-xl text-xs font-black uppercase tracking-[0.15em] focus:border-rose-500 outline-none cursor-pointer"
+            className="px-3 py-1.5 bg-neutral-100 border border-neutral-200 rounded-lg text-sm font-medium focus:border-accent-500 outline-none cursor-pointer"
           >
-            <option value="all">Todo el Personal</option>
+            <option value="all">All Staff</option>
             {staffMembers.map((staff) => (
               <option key={staff.id} value={staff.id}>
                 {staff.name}
@@ -316,42 +311,42 @@ export default function EndOfDayPage() {
       </div>
 
       {/* Revenue by Staff */}
-      <div className="bg-white border border-neutral-100 rounded-[48px] overflow-hidden shadow-sm">
-        <div className="px-10 py-8 border-b border-neutral-100 bg-neutral-50/30">
-          <h2 className="text-sm font-black text-neutral-800 tracking-[0.3em] uppercase text-center">
-            Cobros por Personal
+      <div className="bg-white border border-neutral-200 rounded-2xl overflow-hidden shadow-sm">
+        <div className="px-6 py-4 border-b border-neutral-200 bg-neutral-50">
+          <h2 className="text-lg font-semibold text-primary-800">
+            Collections by Staff
           </h2>
         </div>
         
-        <div className="p-10">
+        <div className="p-6">
           {totals.byStaff.length === 0 ? (
-            <div className="text-center py-12 text-neutral-300 font-bold uppercase tracking-widest text-xs">
-              Sin datos para este día
+            <div className="text-center py-12 text-neutral-400 text-sm">
+              No data for this day
             </div>
           ) : (
-            <div className="space-y-6">
+            <div className="space-y-4">
               {totals.byStaff.sort((a, b) => b.amount - a.amount).map((staff, index) => (
                 <div key={staff.id} className="group">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-xl bg-neutral-800 flex items-center justify-center text-white font-black text-sm">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-primary-800 flex items-center justify-center text-white font-semibold text-sm">
                         {index + 1}
                       </div>
                       <div>
-                        <p className="text-lg font-black text-neutral-800 uppercase tracking-tighter leading-none">
+                        <p className="text-base font-semibold text-neutral-900">
                           {staff.name}
                         </p>
-                        <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest mt-1">
-                          {staff.count} {staff.count === 1 ? 'cobro' : 'cobros'}
+                        <p className="text-xs text-neutral-500">
+                          {staff.count} {staff.count === 1 ? 'payment' : 'payments'}
                         </p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-xl font-black text-rose-600 tabular-nums leading-none">
+                      <p className="text-lg font-bold text-primary-800 tabular-nums">
                         {formatCurrency(staff.amount)}
                       </p>
-                      <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest mt-1">
-                        {((staff.amount / totals.totalAmount) * 100).toFixed(0)}% del total
+                      <p className="text-xs text-neutral-500">
+                        {((staff.amount / totals.totalAmount) * 100).toFixed(0)}% of total
                       </p>
                     </div>
                   </div>
