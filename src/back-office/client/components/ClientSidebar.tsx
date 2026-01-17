@@ -71,21 +71,21 @@ const ClientSidebar: React.FC<ClientSidebarProps> = ({ sidebarOpen, setSidebarOp
       {/* Sidebar */}
       <aside
         className={cn(
-          'bg-neutral-800 text-white h-screen border-r border-neutral-700/50 fixed lg:sticky lg:top-0 z-[50] flex flex-col w-72 transition-transform duration-300 shadow-2xl shadow-black/30',
+          'bg-primary-800 text-white h-screen border-r border-primary-700/50 fixed lg:sticky lg:top-0 z-[50] flex flex-col w-72 transition-transform duration-300 shadow-2xl shadow-black/30',
           sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         )}
       >
         <div className="flex flex-col h-full">
           {/* Header */}
-          <div className="px-6 pt-14 pb-6 lg:pt-8 border-b border-white/5 bg-neutral-900/20 relative">
+          <div className="px-6 pt-14 pb-6 lg:pt-8 border-b border-white/5 bg-primary-900/30 relative">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-[20px] bg-neutral-700 flex items-center justify-center border border-white/10 shadow-lg">
+              <div className="w-12 h-12 rounded-[20px] bg-luxury-600 flex items-center justify-center border border-luxury-400/30 shadow-lg">
                 <span className="text-white font-black text-xl">
                   {user?.firstName?.[0] || user?.email?.[0].toUpperCase() || 'A'}
                 </span>
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-400">Portal Cliente</p>
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-luxury-400">Client Portal</p>
                 <h2 className="text-base font-bold text-white truncate uppercase tracking-tight">
                   {user?.firstName ? `${user.firstName} ${user.lastName}` : user?.email?.split('@')[0]}
                 </h2>
@@ -102,14 +102,14 @@ const ClientSidebar: React.FC<ClientSidebarProps> = ({ sidebarOpen, setSidebarOp
                 className={cn(
                   'group flex items-center gap-3 px-5 py-3.5 text-sm font-bold tracking-widest rounded-2xl transition-all duration-200 border border-transparent uppercase',
                   isActive(item.href)
-                    ? 'text-white bg-rose-600/10 border border-rose-600/20 shadow-xl'
-                    : 'text-neutral-400 hover:text-white hover:bg-white/5'
+                    ? 'text-white bg-rosegold-500/15 border border-rosegold-400/30 shadow-xl'
+                    : 'text-primary-300 hover:text-white hover:bg-white/5'
                 )}
                 onClick={() => setSidebarOpen(false)}
               >
                 <span className={cn(
                   'flex-shrink-0 transition-colors',
-                  isActive(item.href) ? 'text-rose-400' : 'text-neutral-500 group-hover:text-white'
+                  isActive(item.href) ? 'text-rosegold-400' : 'text-primary-400 group-hover:text-white'
                 )}>
                   {item.icon}
                 </span>
@@ -122,9 +122,9 @@ const ClientSidebar: React.FC<ClientSidebarProps> = ({ sidebarOpen, setSidebarOp
           <div className="p-6 border-t border-white/10 bg-white/5">
             <button
               onClick={handleLogout}
-              className="w-full px-4 py-4 bg-white/10 text-white border border-white/20 rounded-2xl font-black text-xs uppercase tracking-[0.2em] hover:bg-white/15 active:bg-rose-600 active:border-rose-600 transition-all duration-200 shadow-xl"
+              className="w-full px-4 py-4 bg-white/10 text-white border border-white/20 rounded-2xl font-black text-xs uppercase tracking-[0.2em] hover:bg-white/15 active:bg-rosegold-600 active:border-rosegold-600 transition-all duration-200 shadow-xl"
             >
-              Cerrar Sesión
+              Logout
             </button>
           </div>
         </div>
