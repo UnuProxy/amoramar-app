@@ -127,10 +127,10 @@ export default function ServicesPage() {
       <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-8">
         <div>
           <h1 className="text-6xl font-black text-neutral-900 tracking-tighter uppercase leading-none">
-            Servicios
+            Services
           </h1>
           <p className="text-neutral-400 text-sm font-black uppercase tracking-[0.3em] mt-4">
-            Catálogo de Experiencias y Tratamientos
+            Services & Treatments Catalog
           </p>
         </div>
         <div className="flex flex-col sm:flex-row gap-4">
@@ -175,7 +175,7 @@ export default function ServicesPage() {
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" />
               </svg>
-              Añadir Servicio
+              Add Service
             </button>
           </Link>
         </div>
@@ -215,13 +215,13 @@ export default function ServicesPage() {
           <table className="w-full">
             <thead>
               <tr className="bg-neutral-50/50">
-                <th className="px-10 py-8 text-left text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em]">Tratamiento</th>
-                <th className="px-10 py-8 text-left text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em]">Terapeutas</th>
-                <th className="px-10 py-8 text-center text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em]">Categoría</th>
-                <th className="px-10 py-8 text-center text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em]">Duración</th>
-                <th className="px-10 py-8 text-center text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em]">Precio</th>
-                <th className="px-10 py-8 text-center text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em]">Estado</th>
-                <th className="px-10 py-8 text-right text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em]">Acción</th>
+                <th className="px-10 py-8 text-left text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em]">Treatment</th>
+                <th className="px-10 py-8 text-left text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em]">Therapists</th>
+                <th className="px-10 py-8 text-center text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em]">Category</th>
+                <th className="px-10 py-8 text-center text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em]">Duration</th>
+                <th className="px-10 py-8 text-center text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em]">Price</th>
+                <th className="px-10 py-8 text-center text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em]">Status</th>
+                <th className="px-10 py-8 text-right text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em]">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-100">
@@ -318,7 +318,7 @@ export default function ServicesPage() {
                           <button
                             className="px-8 py-4 rounded-2xl border-2 border-neutral-100 text-[10px] font-black text-neutral-400 hover:border-neutral-900 hover:text-neutral-900 transition-all uppercase tracking-[0.2em]"
                           >
-                            Editar
+                            Edit
                           </button>
                         </Link>
                       </div>

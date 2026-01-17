@@ -598,7 +598,7 @@ const BookingCard: React.FC<BookingCardProps> = ({
           href={`/dashboard/bookings/${booking.id}`}
           className="flex items-center justify-center gap-2 w-full py-2.5 lg:py-3 bg-stone-100 hover:bg-stone-200 active:bg-stone-300 rounded-xl text-sm font-semibold text-stone-700 transition-colors"
         >
-          Ver detalles
+          View details
           <ArrowRight className="w-4 h-4" />
         </Link>
       </div>
@@ -804,14 +804,14 @@ const FiltersContent: React.FC<FiltersContentProps> = ({
 
       {/* Status Filter */}
       <div className="space-y-2">
-        <label className="text-[10px] font-bold text-stone-500 uppercase tracking-wider">Estado</label>
+        <label className="text-[10px] font-bold text-stone-500 uppercase tracking-wider">Status</label>
         <div className="flex flex-wrap gap-2">
           {[
-            { id: 'all', label: 'Todos' },
-            { id: 'confirmed', label: 'Confirmadas' },
-            { id: 'pending', label: 'Pendientes' },
-            { id: 'completed', label: 'Completadas' },
-            { id: 'cancelled', label: 'Canceladas' },
+            { id: 'all', label: 'All' },
+            { id: 'confirmed', label: 'Confirmed' },
+            { id: 'pending', label: 'Pending' },
+            { id: 'completed', label: 'Completed' },
+            { id: 'cancelled', label: 'Cancelled' },
           ].map((status) => (
             <button
               key={status.id}
@@ -837,7 +837,7 @@ const FiltersContent: React.FC<FiltersContentProps> = ({
           onChange={(e) => setEmployeeFilter(e.target.value)}
           className="w-full px-3 py-3 bg-stone-50 border border-stone-200 rounded-xl text-sm focus:outline-none focus:border-stone-400"
         >
-          <option value="all">Todos</option>
+          <option value="all">All</option>
           {employees.map((emp) => (
             <option key={emp.id} value={emp.id}>
               {emp.firstName} {emp.lastName}
@@ -908,10 +908,10 @@ export default function BookingsPage() {
 
   // Helpers
   const getServiceName = useCallback((serviceId: string) => 
-    services.find((s) => s.id === serviceId)?.serviceName || 'Servicio', [services]);
+    services.find((s) => s.id === serviceId)?.serviceName || 'Service', [services]);
   
   const getEmployeeName = useCallback((employeeId: string) => 
-    employees.find((e) => e.id === employeeId)?.firstName || 'Empleado', [employees]);
+    employees.find((e) => e.id === employeeId)?.firstName || 'Employee', [employees]);
 
   // Booking counts by date
   const bookingCounts = useMemo(() => {
@@ -1077,7 +1077,7 @@ export default function BookingsPage() {
           {/* Mobile Header */}
           <div className="flex lg:hidden items-center justify-between">
             <div>
-              <h1 className="text-xl font-bold text-stone-900">Reservas</h1>
+              <h1 className="text-xl font-bold text-stone-900">Bookings</h1>
               <p className="text-xs text-stone-500">{formatDateShort(selectedDate)}</p>
             </div>
             <div className="flex items-center gap-2">
@@ -1114,7 +1114,7 @@ export default function BookingsPage() {
           <div className="hidden lg:flex items-center justify-between">
             <div className="flex items-center gap-6">
               <div>
-                <h1 className="text-2xl font-bold text-stone-900 tracking-tight">Reservas</h1>
+                <h1 className="text-2xl font-bold text-stone-900 tracking-tight">Bookings</h1>
                 <p className="text-sm text-stone-500">{formatDateLong(selectedDate)}</p>
               </div>
               {!isToday(selectedDate) && (
