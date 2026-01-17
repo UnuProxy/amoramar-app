@@ -242,32 +242,40 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 sm:space-y-6 px-4 sm:px-0">
       {error && (
-        <div className="p-4 text-sm text-red-400 bg-red-900/20 border border-red-800/50 rounded-sm font-light">
+        <div className="p-3 sm:p-4 text-xs sm:text-sm text-red-400 bg-red-900/20 border border-red-800/50 rounded-sm font-light">
           {error}
         </div>
       )}
 
       {generatedPassword && (
-        <div className="p-4 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-900">
-          <p className="text-sm font-semibold mb-2">Account Created</p>
-          <p className="text-sm">Give this temporary password to the employee. They will be asked to change it on first login.</p>
-          <div className="mt-3 flex items-center gap-3">
-            <code className="px-3 py-2 rounded-md bg-white border border-emerald-200 text-emerald-800 font-semibold">
+        <div className="p-3 sm:p-4 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-900">
+          <p className="text-xs sm:text-sm font-semibold mb-2">Account Created</p>
+          <p className="text-xs sm:text-sm">Give this temporary password to the employee. They will be asked to change it on first login.</p>
+          <div className="mt-3 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
+            <code className="px-3 py-2 rounded-md bg-white border border-emerald-200 text-emerald-800 font-semibold text-xs sm:text-sm break-all">
               {generatedPassword}
             </code>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={() => navigator.clipboard?.writeText(generatedPassword)}
-            >
-              Copy
-            </Button>
-            <Button type="button" size="sm" onClick={() => router.push('/dashboard/employees')}>
-              Go to Employees
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => navigator.clipboard?.writeText(generatedPassword)}
+                className="flex-1 sm:flex-none"
+              >
+                Copy
+              </Button>
+              <Button 
+                type="button" 
+                size="sm" 
+                onClick={() => router.push('/dashboard/employees')}
+                className="flex-1 sm:flex-none"
+              >
+                Go to Employees
+              </Button>
+            </div>
           </div>
         </div>
       )}
@@ -401,7 +409,7 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
         <label className="block text-xs font-light tracking-wide text-primary-600 uppercase mb-2">
           Profile Picture
         </label>
-        <div className="flex items-start gap-4">
+        <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4">
           {/* Image Preview */}
           {profileImagePreview ? (
             <div className="relative">
@@ -427,7 +435,7 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
           )}
 
           {/* Upload Button */}
-          <div className="flex-1">
+          <div className="flex-1 w-full sm:w-auto">
             <input
               type="file"
               id="profileImage"
@@ -437,11 +445,11 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
             />
             <label
               htmlFor="profileImage"
-              className="inline-block px-4 py-2 bg-accent-600 text-white rounded-lg hover:bg-accent-700 transition cursor-pointer text-sm font-medium"
+              className="block sm:inline-block w-full sm:w-auto text-center px-4 py-2 bg-accent-600 text-white rounded-lg hover:bg-accent-700 transition cursor-pointer text-sm font-medium"
             >
               {profileImagePreview ? 'Change Photo' : 'Upload Photo'}
             </label>
-            <p className="text-xs text-primary-600 mt-2">
+            <p className="text-xs text-primary-600 mt-2 text-center sm:text-left">
               JPG, PNG or GIF. Maximum 5MB.
             </p>
             {uploadingImage && (
@@ -457,14 +465,15 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
         </div>
       </div>
 
-      <div className="flex gap-4">
-        <Button type="submit" isLoading={isLoading}>
+      <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-4">
+        <Button type="submit" isLoading={isLoading} className="w-full sm:w-auto">
           {employee ? 'Update Employee' : 'Create Employee'}
         </Button>
         <Button
           type="button"
           variant="outline"
           onClick={() => router.push('/dashboard/employees')}
+          className="w-full sm:w-auto"
         >
           Cancel
         </Button>
@@ -474,7 +483,7 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
             variant="danger"
             onClick={handleDelete}
             isLoading={isDeleting}
-            className="ml-auto"
+            className="w-full sm:w-auto sm:ml-auto"
           >
             Delete Employee
           </Button>
