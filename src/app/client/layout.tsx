@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { Loading } from '@/shared/components/Loading';
-import ClientSidebar from '@/back-office/client/components/ClientSidebar';
+import { ClientSidebar } from '@/back-office/client/components/ClientSidebar';
 
 export default function ClientLayout({
   children,
@@ -32,7 +32,7 @@ export default function ClientLayout({
   return (
     <div className="h-screen overflow-hidden bg-neutral-50 flex">
       {/* Sidebar */}
-      <ClientSidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
+      <ClientSidebar mobileMenuOpen={sidebarOpen} onMobileClose={() => setSidebarOpen(false)} />
 
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto">

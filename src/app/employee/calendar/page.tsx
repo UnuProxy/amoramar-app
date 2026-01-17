@@ -137,11 +137,11 @@ const getCreatedByLabel = (booking: Booking) => {
   if (booking.createdByRole === 'client' || isClientMatch) {
     roleLabel = 'Client';
   } else if (booking.createdByRole === 'owner' || booking.createdByRole === 'employee') {
-    roleLabel = 'Equipo';
+    roleLabel = 'Staff';
   } else if (createdName) {
-    roleLabel = 'Equipo';
+    roleLabel = 'Staff';
   } else if (booking.paymentStatus === 'pending' && !booking.depositPaid) {
-    roleLabel = 'Equipo';
+    roleLabel = 'Staff';
   } else {
     roleLabel = 'Client';
   }
