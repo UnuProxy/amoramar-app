@@ -78,12 +78,12 @@ export function ClosingSaleModal({
             {/* Left Column: Summary */}
             <div className="space-y-6">
               <div>
-                <label className="text-[9px] font-black text-neutral-400 uppercase tracking-widest block mb-1">Cliente</label>
+                <label className="text-[9px] font-black text-neutral-400 uppercase tracking-widest block mb-1">Client</label>
                 <p className="text-lg font-black text-neutral-900 uppercase leading-tight">{booking.clientName}</p>
               </div>
 
               <div className="space-y-3">
-                <label className="text-[9px] font-black text-neutral-400 uppercase tracking-widest block">Detalle</label>
+                <label className="text-[9px] font-black text-neutral-400 uppercase tracking-widest block">Details</label>
                 <div className="space-y-1.5">
                   <div className="flex justify-between text-sm py-1.5 border-b border-neutral-50">
                     <span className="font-bold text-neutral-600 truncate mr-2">{service?.serviceName || 'Servicio'}</span>
@@ -104,11 +104,11 @@ export function ClosingSaleModal({
                   <span>{formatCurrency(totalPrice)}</span>
                 </div>
                 <div className="flex justify-between text-[10px] font-bold uppercase tracking-wider text-emerald-600">
-                  <span>Anticipo</span>
+                  <span>Deposit</span>
                   <span>- {formatCurrency(depositPaidValue)}</span>
                 </div>
                 <div className="flex justify-between pt-3 border-t-2 border-neutral-900 mt-2">
-                  <span className="text-xs font-black uppercase tracking-widest text-neutral-900">A cobrar</span>
+                  <span className="text-xs font-black uppercase tracking-widest text-neutral-900">Amount Due</span>
                   <span className="text-lg font-black text-neutral-900">{formatCurrency(outstanding)}</span>
                 </div>
               </div>
@@ -205,7 +205,7 @@ export function ClosingSaleModal({
             disabled={isProcessing || (isAdjusted && !notes.trim())}
             className="px-8 py-4 md:px-12 md:py-5 text-xs md:text-sm font-black uppercase tracking-[0.2em] shadow-xl md:shadow-2xl shadow-rose-200 flex-1 md:flex-none"
           >
-            {isProcessing ? 'Procesando...' : 'Cerrar Venta'}
+            {isProcessing ? 'Processing...' : 'Close Sale'}
           </Button>
         </div>
       </div>

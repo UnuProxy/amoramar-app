@@ -570,7 +570,7 @@ export default function EmployeeBookingsPage() {
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
-              Nueva Reserva
+              New Booking
             </Link>
             <Link
               href="/employee/clients"
@@ -579,11 +579,11 @@ export default function EmployeeBookingsPage() {
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
               </svg>
-              Clientes
+              Clients
             </Link>
           </div>
           <div className="text-right">
-            <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest mb-1">Hoy es</p>
+            <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest mb-1">Today is</p>
             <p className="text-xl font-black text-neutral-800 uppercase tracking-tight">
               {new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
             </p>
@@ -612,9 +612,9 @@ export default function EmployeeBookingsPage() {
       {/* Upcoming - Bold List */}
       <div className="space-y-8">
         <div className="flex items-center justify-between border-b border-neutral-100 pb-6">
-          <h2 className="text-2xl font-black text-neutral-800 uppercase tracking-tight">Citas Próximas</h2>
+          <h2 className="text-2xl font-black text-neutral-800 uppercase tracking-tight">Upcoming Appointments</h2>
           <span className="px-4 py-2 bg-neutral-800 text-white text-[10px] font-black rounded-full uppercase tracking-widest">
-            {upcomingBookings.length} Reservas
+            {upcomingBookings.length} Bookings
           </span>
         </div>
         
@@ -695,7 +695,7 @@ export default function EmployeeBookingsPage() {
                       onClick={() => setSelectedBooking(booking)}
                       className="px-6 py-3 rounded-2xl border-2 border-neutral-100 text-[10px] font-black text-neutral-400 hover:border-neutral-900 hover:text-neutral-900 transition-all uppercase tracking-[0.2em]"
                     >
-                      Ver detalles
+                      View details
                     </button>
                   </div>
                 </div>

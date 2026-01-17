@@ -135,8 +135,8 @@ export function CurrentBookingPanel({
   const totalWindow = Math.max(endMinutes - startMinutes, 1);
   const progress = Math.min(100, Math.max(0, Math.round(((nowMinutes - startMinutes) / totalWindow) * 100)));
   // Dynamic labels based on state for better UX
-  const statusLabel = state === 'past_pending' ? 'POR CERRAR' : state === 'active' ? 'EN CURSO' : 'SIGUIENTE';
-  const headerTitle = state === 'past_pending' ? '⚠️ PENDIENTE DE COBRO' : title;
+  const statusLabel = state === 'past_pending' ? 'TO CLOSE' : state === 'active' ? 'IN PROGRESS' : 'NEXT';
+  const headerTitle = state === 'past_pending' ? '⚠️ PENDING PAYMENT' : title;
 
   return (
     <div className={cn(
@@ -192,7 +192,7 @@ export function CurrentBookingPanel({
                 href={context === 'admin' ? `/dashboard/bookings/${booking.id}` : `/employee/bookings/${booking.id}`}
                 className="shrink-0 px-4 py-2 md:px-6 md:py-3 rounded-xl border-2 border-neutral-200 text-[10px] md:text-xs font-black text-neutral-600 hover:border-blue-500 hover:text-blue-600 hover:bg-blue-50 transition-all uppercase tracking-widest"
               >
-                Ver Detalles →
+                View Details →
               </Link>
             </div>
           </div>
@@ -239,7 +239,7 @@ export function CurrentBookingPanel({
                   onClick={() => onComplete(booking)}
                   className="flex-1 md:w-full py-3 md:py-4 text-[10px] md:text-xs font-black bg-neutral-900 text-white rounded-xl hover:bg-neutral-800 transition-all uppercase tracking-widest leading-none"
                 >
-                  CERRAR
+                  CLOSE
                 </button>
               )}
             </div>

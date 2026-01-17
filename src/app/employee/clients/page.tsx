@@ -292,7 +292,7 @@ export default function EmployeeClientsPage() {
                 {/* Hair Notes */}
                 <div className="space-y-3">
                   <label className="block text-xs font-black text-neutral-600 uppercase tracking-widest">
-                    Notas de Color / Tinte
+                    Hair Color / Dye Notes
                   </label>
                   <textarea
                     value={newHairNote}
@@ -314,7 +314,7 @@ export default function EmployeeClientsPage() {
                 {selectedClient.hairColorHistory && selectedClient.hairColorHistory.length > 0 && (
                   <div className="space-y-3">
                     <label className="block text-xs font-black text-neutral-600 uppercase tracking-widest">
-                      Historial de Color
+                      Color History
                     </label>
                     <div className="space-y-2 max-h-60 overflow-y-auto">
                       {[...selectedClient.hairColorHistory]

@@ -133,9 +133,9 @@ const getCreatedByLabel = (booking: Booking) => {
     normalizedCreated && normalizedClient && normalizedCreated === normalizedClient
   );
 
-  let roleLabel: 'Cliente' | 'Equipo';
+  let roleLabel: 'Client' | 'Staff';
   if (booking.createdByRole === 'client' || isClientMatch) {
-    roleLabel = 'Cliente';
+    roleLabel = 'Client';
   } else if (booking.createdByRole === 'owner' || booking.createdByRole === 'employee') {
     roleLabel = 'Equipo';
   } else if (createdName) {
@@ -143,10 +143,10 @@ const getCreatedByLabel = (booking: Booking) => {
   } else if (booking.paymentStatus === 'pending' && !booking.depositPaid) {
     roleLabel = 'Equipo';
   } else {
-    roleLabel = 'Cliente';
+    roleLabel = 'Client';
   }
 
-  const displayName = createdName || (roleLabel === 'Cliente' ? clientName : undefined);
+  const displayName = createdName || (roleLabel === 'Client' ? clientName : undefined);
   return displayName ? `${displayName} (${roleLabel})` : roleLabel;
 };
 
@@ -999,7 +999,7 @@ export default function EmployeeCalendarPage() {
     if (!bookingModal) return;
     const { booking } = bookingModal;
     if (booking.status === 'completed') return;
-    const ok = window.confirm('¿Cancelar esta reserva? Esta acción liberará el horario.');
+    const ok = window.confirm('Cancel this booking? This will free up the time slot.');
     if (!ok) return;
     setBookingModal((prev) => (prev ? { ...prev, saving: true } : prev));
     try {
@@ -1421,7 +1421,7 @@ export default function EmployeeCalendarPage() {
                                   <span className="text-xs font-black tabular-nums tracking-tight">{slot}</span>
                                   <div className="w-1.5 h-1.5 rounded-full bg-neutral-400 opacity-60" />
                                 </div>
-                                <p className="text-[9px] font-black uppercase tracking-[0.15em] mt-2">Horario pasado</p>
+                                <p className="text-[9px] font-black uppercase tracking-[0.15em] mt-2">Past time</p>
                               </div>
                             );
                           }
@@ -1482,7 +1482,7 @@ export default function EmployeeCalendarPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-2xl font-black text-neutral-900 uppercase tracking-tighter">
-                    {blockModal.isEdit ? 'Editar Bloqueo' : 'Bloquear Horario'}
+                    {blockModal.isEdit ? 'Edit Block' : 'Block Time'}
                   </h2>
                   <p className="text-[10px] font-black text-accent-600 uppercase tracking-[0.3em] mt-1">
                     {new Date(blockModal.date + 'T12:00:00').toLocaleDateString('es-ES', { 
@@ -1553,7 +1553,7 @@ export default function EmployeeCalendarPage() {
                 disabled={savingBlock}
                 className="px-6 py-4 text-[10px] font-black text-neutral-400 uppercase tracking-widest hover:text-neutral-900 transition"
               >
-                Cancelar
+                Cancel
               </button>
               <button
                 onClick={handleSaveBlock}
@@ -1599,7 +1599,7 @@ export default function EmployeeCalendarPage() {
             <div className="p-10 space-y-6">
               <div className="grid grid-cols-2 gap-4">
                 <div className="p-6 bg-neutral-50 rounded-[32px]">
-                  <p className="text-[9px] font-black text-neutral-400 uppercase tracking-widest mb-1">Cliente</p>
+                  <p className="text-[9px] font-black text-neutral-400 uppercase tracking-widest mb-1">Client</p>
                   <p className="text-lg font-black text-neutral-900 uppercase tracking-tighter truncate">{bookingModal.booking.clientName}</p>
                 </div>
                 <div className="p-6 bg-neutral-50 rounded-[32px]">
@@ -1680,7 +1680,7 @@ export default function EmployeeCalendarPage() {
                         disabled={actionsDisabled}
                         className="flex-1 py-5 bg-amber-50 text-amber-600 text-[10px] font-black uppercase tracking-widest rounded-2xl hover:bg-amber-600 hover:text-white transition disabled:opacity-50"
                       >
-                        Cancelar
+                        Cancel
                       </button>
                       {isCompleted && (
                         <p className="w-full text-center text-[9px] font-black text-neutral-400 uppercase tracking-widest">
@@ -1719,7 +1719,7 @@ export default function EmployeeCalendarPage() {
                         onChange={(e) => setBookingModal((prev) => (prev ? { ...prev, newTime: e.target.value } : prev))}
                         className="w-full px-6 py-4 bg-neutral-50 border-2 border-neutral-100 rounded-2xl text-neutral-900 font-black focus:border-accent-500 outline-none appearance-none transition-all"
                       >
-                        <option value="">SELECCIONA</option>
+                        <option value="">SELECT</option>
                         {bookingModal.slots
                           .filter((s) => s.available)
                           .map((s) => (
@@ -1820,7 +1820,7 @@ export default function EmployeeCalendarPage() {
                             {bookingForm.clientName.trim().length === 0 && (
                               <div className="px-4 py-2 bg-blue-50 border-b border-blue-100">
                                 <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest">
-                                  ✨ Clientes Recientes
+                                  ✨ Recent Clients
                                 </p>
                               </div>
                             )}
@@ -1874,13 +1874,13 @@ export default function EmployeeCalendarPage() {
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 <div className="space-y-2">
-                  <label className="block text-xs font-black text-neutral-400 uppercase tracking-widest">Servicio</label>
+                  <label className="block text-xs font-black text-neutral-400 uppercase tracking-widest">Service</label>
                   <select
                     value={bookingForm.serviceId}
                     onChange={(e) => setBookingForm((prev) => ({ ...prev, serviceId: e.target.value, bookingTime: '' }))}
                     className="w-full px-6 py-5 bg-neutral-50 border-2 border-neutral-100 rounded-2xl text-neutral-900 font-black focus:border-accent-500 transition-all outline-none appearance-none"
                   >
-                    <option value="">SELECCIONA</option>
+                    <option value="">SELECT</option>
                     {services.map((service) => (
                       <option key={service.id} value={service.id}>
                         {service.serviceName.toUpperCase()}
@@ -1889,7 +1889,7 @@ export default function EmployeeCalendarPage() {
                   </select>
                 </div>
                 <div className="space-y-2">
-                  <label className="block text-xs font-black text-neutral-400 uppercase tracking-widest">Fecha</label>
+                  <label className="block text-xs font-black text-neutral-400 uppercase tracking-widest">Date</label>
                   <input
                     type="date"
                     min={new Date().toISOString().split('T')[0]}
@@ -1899,14 +1899,14 @@ export default function EmployeeCalendarPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="block text-xs font-black text-neutral-400 uppercase tracking-widest">Horario</label>
+                  <label className="block text-xs font-black text-neutral-400 uppercase tracking-widest">Time</label>
                   <select
                     value={bookingForm.bookingTime}
                     onChange={(e) => setBookingForm((prev) => ({ ...prev, bookingTime: e.target.value }))}
                     className="w-full px-6 py-5 bg-neutral-50 border-2 border-neutral-100 rounded-2xl text-neutral-900 font-black focus:border-accent-500 transition-all outline-none appearance-none"
                     disabled={!bookingForm.bookingDate || !bookingForm.serviceId}
                   >
-                    <option value="">SELECCIONA</option>
+                    <option value="">SELECT</option>
                     {bookingSlots
                       .filter((slot) => slot.available)
                       .map((slot) => (
@@ -1920,7 +1920,7 @@ export default function EmployeeCalendarPage() {
               </div>
 
               <div className="space-y-2">
-                <label className="block text-xs font-black text-neutral-400 uppercase tracking-widest">Notas Especiales</label>
+                <label className="block text-xs font-black text-neutral-400 uppercase tracking-widest">Special Notes</label>
                 <textarea
                   value={bookingForm.notes}
                   onChange={(e) => setBookingForm((prev) => ({ ...prev, notes: e.target.value }))}
@@ -1935,7 +1935,7 @@ export default function EmployeeCalendarPage() {
                 onClick={() => setNewBookingOpen(false)}
                 className="px-8 py-4 text-sm font-bold text-neutral-400 uppercase tracking-widest hover:text-neutral-900 transition-colors"
               >
-                Cancelar
+                Cancel
               </button>
               <button
                 onClick={handleCreateBooking}
