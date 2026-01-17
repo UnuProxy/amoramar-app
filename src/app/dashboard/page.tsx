@@ -140,10 +140,10 @@ export default function DashboardPage() {
   }, []);
 
   const getPaymentLabel = useCallback((booking: Booking) => {
-    if (booking.paymentStatus === 'paid' || booking.depositPaid) return 'Pagado';
-    if (booking.paymentStatus === 'refunded') return 'Reembolsado';
-    if (booking.paymentStatus === 'failed') return 'Fallido';
-    return 'Pendiente';
+    if (booking.paymentStatus === 'paid' || booking.depositPaid) return 'Paid';
+    if (booking.paymentStatus === 'refunded') return 'Refunded';
+    if (booking.paymentStatus === 'failed') return 'Failed';
+    return 'Pending';
   }, []);
 
   useEffect(() => {
@@ -222,7 +222,7 @@ export default function DashboardPage() {
       const res = await fetch(`/api/slots/available?${params.toString()}`);
       const json = await res.json();
       if (!res.ok || !json?.success) {
-        throw new Error(json?.error || 'No se pudieron cargar los horarios');
+        throw new Error(json?.error || 'Could not load schedules');
       }
       const slots: TimeSlot[] = json.data?.slots || [];
       setBookingSlots(slots);
@@ -347,7 +347,7 @@ export default function DashboardPage() {
       });
       const json = await response.json();
       if (!response.ok || !json?.success) {
-        throw new Error(json?.error || 'No se pudo crear la reserva');
+        throw new Error(json?.error || 'Could not create booking');
       }
       const newBooking: Booking = {
         id: json.data.id,
@@ -378,7 +378,7 @@ export default function DashboardPage() {
       closeBookingModal();
     } catch (error: any) {
       console.error('Error creating booking:', error);
-      alert(error?.message || 'No se pudo crear la reserva');
+      alert(error?.message || 'Could not create booking');
     } finally {
       setBookingSaving(false);
       setProcessingPayment(false);
@@ -668,7 +668,7 @@ export default function DashboardPage() {
       setBookingToMarkPaid(null);
     } catch (error) {
       console.error('Error closing sale:', error);
-      alert('No se pudo cerrar la venta');
+      alert('Could not close sale');
     } finally {
       setProcessingPayment(false);
     }
@@ -854,7 +854,7 @@ export default function DashboardPage() {
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" />
           </svg>
-          Nueva Reserva
+          New Booking
         </button>
       </div>
 
@@ -862,10 +862,10 @@ export default function DashboardPage() {
       <div className="border-b border-neutral-100">
         <nav className="flex gap-12 overflow-x-auto no-scrollbar">
           {[
-            { id: 'overview', label: 'Inicio' },
-            { id: 'clients', label: 'Clientes' },
-            { id: 'bookings', label: 'Reservas' },
-            { id: 'calendar', label: 'Calendario' },
+            { id: 'overview', label: 'Overview' },
+            { id: 'clients', label: 'Clients' },
+            { id: 'bookings', label: 'Bookings' },
+            { id: 'calendar', label: 'Calendar' },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -903,21 +903,21 @@ export default function DashboardPage() {
           {/* Stats Grid - Large Impact Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
             <div className="relative bg-white border border-neutral-100 border-t-4 border-info-500 rounded-[40px] p-8 shadow-[0_1px_3px_rgba(0,0,0,0.1)] hover:shadow-[0_10px_30px_rgba(0,0,0,0.12)] transition-all group flex flex-col items-center justify-center text-center min-h-[220px]">
-              <p className="text-[10px] font-black text-neutral-500 uppercase tracking-[0.2em] mb-4 group-hover:text-info-600 transition-colors">Hoy</p>
+              <p className="text-[10px] font-black text-neutral-500 uppercase tracking-[0.2em] mb-4 group-hover:text-info-600 transition-colors">Today</p>
               <div className="flex items-baseline justify-center gap-3 w-full px-4">
                 <p className="text-6xl font-black text-neutral-800 tracking-tight leading-none whitespace-nowrap">{analytics.todayBookings}</p>
                 <p className="text-sm font-bold text-neutral-400 uppercase tracking-widest">Citas</p>
               </div>
             </div>
             <div className="relative bg-white border border-neutral-100 border-t-4 border-success-500 rounded-[40px] p-8 shadow-[0_1px_3px_rgba(0,0,0,0.1)] hover:shadow-[0_10px_30px_rgba(0,0,0,0.12)] transition-all group flex flex-col items-center justify-center text-center min-h-[220px]">
-              <p className="text-[10px] font-black text-neutral-500 uppercase tracking-[0.2em] mb-4 group-hover:text-success-600 transition-colors">Confirmadas</p>
+              <p className="text-[10px] font-black text-neutral-500 uppercase tracking-[0.2em] mb-4 group-hover:text-success-600 transition-colors">Confirmed</p>
               <div className="flex items-baseline justify-center gap-3 w-full px-4">
                 <p className="text-6xl font-black text-success-600 tracking-tight leading-none whitespace-nowrap">{analytics.confirmedBookings}</p>
-                <p className="text-sm font-bold text-neutral-400 uppercase tracking-widest">Pendientes</p>
+                <p className="text-sm font-bold text-neutral-400 uppercase tracking-widest">Pending</p>
               </div>
             </div>
             <div className="relative bg-white border border-neutral-100 border-t-4 border-primary-200 rounded-[40px] p-8 shadow-[0_1px_3px_rgba(0,0,0,0.1)] hover:shadow-[0_10px_30px_rgba(0,0,0,0.12)] transition-all group flex flex-col items-center justify-center text-center min-h-[220px]">
-              <p className="text-[10px] font-black text-neutral-500 uppercase tracking-[0.2em] mb-4 group-hover:text-primary-700 transition-colors">Tasa Cancelación</p>
+              <p className="text-[10px] font-black text-neutral-500 uppercase tracking-[0.2em] mb-4 group-hover:text-primary-700 transition-colors">Cancellation Rate</p>
               <div className="flex items-baseline justify-center gap-3 w-full px-4">
                 <p className={cn(
                   "text-6xl font-black tracking-tight leading-none whitespace-nowrap",
@@ -933,7 +933,7 @@ export default function DashboardPage() {
           <div className="bg-neutral-800 rounded-[40px] p-8 shadow-2xl border border-white/5">
             <div className="flex flex-col lg:flex-row gap-8">
               <div className="flex-1">
-                <label className="block text-[10px] font-black text-neutral-500 uppercase tracking-[0.3em] mb-3">Búsqueda Rápida</label>
+                <label className="block text-[10px] font-black text-neutral-500 uppercase tracking-[0.3em] mb-3">Quick Search</label>
                 <div className="relative">
                   <svg className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -1006,7 +1006,7 @@ export default function DashboardPage() {
                     <th className="px-10 py-6 text-center text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em]">OK</th>
                     <th className="px-10 py-6 text-center text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em]">Baja</th>
                     <th className="px-10 py-6 text-center text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em]">Ratio</th>
-                    <th className="px-10 py-6 text-right text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em]">Acción</th>
+                    <th className="px-10 py-6 text-right text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em]">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-neutral-100">
@@ -1046,7 +1046,7 @@ export default function DashboardPage() {
                           onClick={() => setSelectedEmployeeId(stat.employee.id)}
                           className="px-6 py-3 rounded-xl border-2 border-neutral-100 text-[10px] font-black text-neutral-400 hover:border-accent-600 hover:text-accent-600 hover:shadow-lg transition-all uppercase tracking-[0.2em]"
                         >
-                          Detalles
+                          Details
                         </button>
                       </td>
                     </tr>
@@ -1082,7 +1082,7 @@ export default function DashboardPage() {
                 <button
                   disabled={clientDeleting}
                   onClick={async () => {
-                    const ok = window.confirm('¿Eliminar este cliente? Esta acción no se puede deshacer.');
+                    const ok = window.confirm('Delete this client? This action cannot be undone.');
                     if (!ok) return;
                     try {
                       setClientDeleting(true);
@@ -1122,7 +1122,7 @@ export default function DashboardPage() {
                       setSelectedClientEmail(null);
                     } catch (error) {
                       console.error('Error deleting client:', error);
-                      alert('No se pudo eliminar el cliente.');
+                      alert('Could not delete client.');
                     } finally {
                       setClientDeleting(false);
                     }
@@ -1187,7 +1187,7 @@ export default function DashboardPage() {
                             }}
                             className="flex-1 w-full px-4 py-3 bg-neutral-50 border-2 border-neutral-100 rounded-[16px] text-neutral-900 font-medium focus:border-accent-500 transition-all outline-none"
                             rows={3}
-                            placeholder="Ej. Wella Koleston 6/7 + 6% · Última aplicación 05/01/2026"
+                            placeholder="E.g. Wella Koleston 6/7 + 6% · Last application 05/01/2026"
                           />
                           <button
                             type="button"
@@ -1201,14 +1201,14 @@ export default function DashboardPage() {
                                 });
                               } catch (error) {
                                 console.error('Error guardando notas de color:', error);
-                                alert('No se pudieron guardar las notas de color.');
+                                alert('Could not save color notes.');
                               } finally {
                                 setClientNotesSaving(false);
                               }
                             }}
                             className="px-6 py-3 bg-neutral-900 text-white text-[10px] font-black uppercase tracking-[0.2em] rounded-[14px] hover:bg-accent-600 transition disabled:opacity-60"
                           >
-                            {clientNotesSaving ? 'Guardando...' : 'Guardar Color'}
+                            {clientNotesSaving ? 'Saving...' : 'Save Color'}
                           </button>
                         </div>
                       </div>
@@ -1219,7 +1219,7 @@ export default function DashboardPage() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
                 <div className="bg-neutral-50 rounded-[32px] p-10 border border-neutral-100 group hover:bg-white hover:shadow-xl transition-all">
-                  <p className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em] mb-2">Visitas Totales</p>
+                  <p className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em] mb-2">Total Visits</p>
                   <p className="text-5xl font-black text-neutral-900 tracking-tighter">{selectedClient.totalBookings}</p>
                 </div>
                 <div className="bg-neutral-50 rounded-[32px] p-10 border border-neutral-100 group hover:bg-white hover:shadow-xl transition-all">
@@ -1227,14 +1227,14 @@ export default function DashboardPage() {
                   <p className="text-5xl font-black text-accent-600 tracking-tighter">{selectedClient.confirmedBookings + selectedClient.completedBookings}</p>
                 </div>
                 <div className="bg-neutral-50 rounded-[32px] p-10 border border-neutral-100 group hover:bg-white hover:shadow-xl transition-all">
-                  <p className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em] mb-2">Canceladas</p>
+                  <p className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em] mb-2">Cancelled</p>
                   <p className="text-5xl font-black text-neutral-900 tracking-tighter">{selectedClient.cancelledBookings}</p>
                 </div>
               </div>
 
               <div className="space-y-8">
                 <div className="flex items-center gap-4">
-                  <h3 className="text-2xl font-black text-neutral-900 tracking-tight uppercase">Historial de Reservas</h3>
+                  <h3 className="text-2xl font-black text-neutral-900 tracking-tight uppercase">Booking History</h3>
                   <div className="h-px flex-1 bg-neutral-100" />
                 </div>
                 <div className="grid gap-6">
@@ -1348,7 +1348,7 @@ export default function DashboardPage() {
                                   onClick={() => setSelectedClientEmail(client.email)}
                                   className="px-8 py-4 rounded-2xl border-2 border-neutral-100 text-[10px] font-black text-neutral-400 hover:border-neutral-900 hover:text-neutral-900 transition-all uppercase tracking-[0.2em]"
                                 >
-                                  Perfil
+                                  Profile
                                 </button>
                                 <button
                                   onClick={() => openBookingModal(client)}
@@ -1511,7 +1511,7 @@ export default function DashboardPage() {
                               }}
                               className="px-4 h-12 bg-white border border-neutral-200 rounded-[14px] text-[10px] font-black uppercase tracking-[0.2em] hover:bg-neutral-900 hover:text-white transition-all shadow-sm"
                             >
-                              Ver cliente
+                              View client
                             </button>
                             {booking.status === 'confirmed' && (
                               <>
@@ -1583,8 +1583,8 @@ export default function DashboardPage() {
           >
             <div className="px-12 py-10 flex items-center justify-between border-b border-neutral-100">
               <div>
-                <h2 className="text-3xl font-black text-neutral-900 tracking-tighter uppercase">Crear Reserva</h2>
-                <p className="text-neutral-500 font-bold uppercase tracking-widest text-xs mt-1">Agenda manual</p>
+                <h2 className="text-3xl font-black text-neutral-900 tracking-tighter uppercase">Create Booking</h2>
+                <p className="text-neutral-500 font-bold uppercase tracking-widest text-xs mt-1">Manual Schedule</p>
               </div>
               <button
                 onClick={closeBookingModal}
@@ -1599,7 +1599,7 @@ export default function DashboardPage() {
             <div className="p-12 space-y-8 max-h-[70vh] overflow-y-auto no-scrollbar">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 <div className="space-y-2">
-                  <label className="block text-xs font-black text-neutral-400 uppercase tracking-widest">Nombre</label>
+                  <label className="block text-xs font-black text-neutral-400 uppercase tracking-widest">Name</label>
                   <div className="relative">
                     <input
                       type="text"
@@ -1618,7 +1618,7 @@ export default function DashboardPage() {
                       <div className="absolute z-10 mt-2 w-full bg-white border-2 border-blue-200 rounded-2xl shadow-2xl overflow-hidden">
                         {clientMatches.length === 0 ? (
                           <div className="px-4 py-4 text-center">
-                            <p className="text-sm font-bold text-neutral-600">No se encontraron clientes</p>
+                            <p className="text-sm font-bold text-neutral-600">No clients found</p>
                             <p className="text-xs text-neutral-400 mt-1">Escribe el nombre completo para crear uno nuevo</p>
                           </div>
                         ) : (
@@ -1626,7 +1626,7 @@ export default function DashboardPage() {
                             {(!bookingForm.clientName || bookingForm.clientName.trim().length === 0) && (
                               <div className="px-4 py-2 bg-blue-50 border-b border-blue-100">
                                 <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest">
-                                  ✨ Clientes Recientes
+                                  ✨ Recent Clients
                                 </p>
                               </div>
                             )}
@@ -1674,26 +1674,26 @@ export default function DashboardPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="block text-xs font-black text-neutral-400 uppercase tracking-widest">Teléfono</label>
+                  <label className="block text-xs font-black text-neutral-400 uppercase tracking-widest">Phone</label>
                   <input
                     type="tel"
                     value={bookingForm.clientPhone}
                     onChange={(e) => setBookingForm((prev) => ({ ...prev, clientPhone: e.target.value }))}
                     className="w-full px-6 py-5 bg-neutral-50 border-2 border-neutral-100 rounded-2xl text-neutral-900 font-bold focus:border-accent-500 transition-all outline-none"
-                    placeholder="TELÉFONO"
+                    placeholder="PHONE"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 <div className="space-y-2">
-                  <label className="block text-xs font-black text-neutral-400 uppercase tracking-widest">Servicio</label>
+                  <label className="block text-xs font-black text-neutral-400 uppercase tracking-widest">Service</label>
                   <select
                     value={bookingForm.serviceId}
                     onChange={(e) => setBookingForm((prev) => ({ ...prev, serviceId: e.target.value, employeeId: '', bookingTime: '' }))}
                     className="w-full px-6 py-5 bg-neutral-50 border-2 border-neutral-100 rounded-2xl text-neutral-900 font-black focus:border-accent-500 transition-all outline-none appearance-none"
                   >
-                    <option value="">SELECCIONA</option>
+                    <option value="">SELECT</option>
                     {services.map((service) => (
                       <option key={service.id} value={service.id}>
                         {service.serviceName.toUpperCase()}
@@ -1702,14 +1702,14 @@ export default function DashboardPage() {
                   </select>
                 </div>
                 <div className="space-y-2">
-                  <label className="block text-xs font-black text-neutral-400 uppercase tracking-widest">Terapeuta</label>
+                  <label className="block text-xs font-black text-neutral-400 uppercase tracking-widest">Therapist</label>
                   <select
                     value={bookingForm.employeeId}
                     onChange={(e) => setBookingForm((prev) => ({ ...prev, employeeId: e.target.value, bookingTime: '' }))}
                     className="w-full px-6 py-5 bg-neutral-50 border-2 border-neutral-100 rounded-2xl text-neutral-900 font-black focus:border-accent-500 transition-all outline-none appearance-none"
                     disabled={!bookingForm.serviceId}
                   >
-                    <option value="">SELECCIONA</option>
+                    <option value="">SELECT</option>
                     {bookingEmployees.map((emp) => (
                       <option key={emp.id} value={emp.id}>
                         {emp.firstName.toUpperCase()}
@@ -1718,7 +1718,7 @@ export default function DashboardPage() {
                   </select>
                 </div>
                 <div className="space-y-2">
-                  <label className="block text-xs font-black text-neutral-400 uppercase tracking-widest">Fecha</label>
+                  <label className="block text-xs font-black text-neutral-400 uppercase tracking-widest">Date</label>
                   <input
                     type="date"
                     min={new Date().toISOString().split('T')[0]}
@@ -1731,14 +1731,14 @@ export default function DashboardPage() {
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 <div className="space-y-2">
-                  <label className="block text-xs font-black text-neutral-400 uppercase tracking-widest">Horario</label>
+                  <label className="block text-xs font-black text-neutral-400 uppercase tracking-widest">Time</label>
                   <select
                     value={bookingForm.bookingTime}
                     onChange={(e) => setBookingForm((prev) => ({ ...prev, bookingTime: e.target.value }))}
                     className="w-full px-6 py-5 bg-neutral-50 border-2 border-neutral-100 rounded-2xl text-neutral-900 font-black focus:border-accent-500 transition-all outline-none appearance-none"
                     disabled={!bookingForm.employeeId || !bookingForm.bookingDate}
                   >
-                    <option value="">SELECCIONA</option>
+                    <option value="">SELECT</option>
                     {bookingSlots
                       .filter((slot) => slot.available)
                       .map((slot) => (
@@ -1749,13 +1749,13 @@ export default function DashboardPage() {
                   </select>
                 </div>
                 <div className="md:col-span-2 space-y-2">
-                  <label className="block text-xs font-black text-neutral-400 uppercase tracking-widest">Notas (Opcional)</label>
+                  <label className="block text-xs font-black text-neutral-400 uppercase tracking-widest">Notes (Optional)</label>
                   <textarea
                     value={bookingForm.notes}
                     onChange={(e) => setBookingForm((prev) => ({ ...prev, notes: e.target.value }))}
                     rows={2}
                     className="w-full px-6 py-5 bg-neutral-50 border-2 border-neutral-100 rounded-2xl text-neutral-900 font-medium focus:border-accent-500 transition-all outline-none no-scrollbar"
-                    placeholder="PREFERENCIAS O DETALLES..."
+                    placeholder="PREFERENCES OR DETAILS..."
                   />
                 </div>
               </div>
@@ -1767,14 +1767,14 @@ export default function DashboardPage() {
                 className="px-8 py-4 text-sm font-bold text-neutral-400 uppercase tracking-widest hover:text-neutral-900 transition-colors"
                 disabled={bookingSaving}
               >
-                Cancelar
+                Cancel
               </button>
               <button
                 onClick={handleBookingSubmit}
                 className="px-12 py-4 text-sm font-black text-white bg-accent-600 rounded-2xl hover:bg-accent-700 hover:scale-[1.02] active:scale-[0.98] transition-all shadow-[0_10px_24px_rgba(230,57,70,0.2)] disabled:opacity-50 uppercase tracking-[0.2em]"
                 disabled={bookingSaving}
               >
-                {bookingSaving ? 'GUARDANDO...' : 'CONFIRMAR RESERVA'}
+                {bookingSaving ? 'SAVING...' : 'CONFIRM BOOKING'}
               </button>
             </div>
           </div>
@@ -1786,11 +1786,11 @@ export default function DashboardPage() {
         <div className="fixed inset-0 z-[90] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-neutral-100 overflow-hidden">
             <div className="px-8 py-6 border-b border-neutral-100">
-              <h3 className="text-xl font-black text-primary-900 uppercase tracking-tight">Confirmar acción</h3>
+              <h3 className="text-xl font-black text-primary-900 uppercase tracking-tight">Confirm Action</h3>
               <p className="text-sm text-neutral-500 mt-2">
                 {actionConfirm.nextStatus === 'cancelled'
-                  ? 'Vas a cancelar esta reserva. ¿Seguro?'
-                  : 'Vas a marcar la reserva como completada.'}
+                  ? 'You are about to cancel this booking. Are you sure?'
+                  : 'You are about to mark this booking as completed.'}
               </p>
             </div>
             <div className="px-8 py-6 space-y-3">

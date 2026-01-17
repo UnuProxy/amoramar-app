@@ -31,7 +31,7 @@ const LogoutButton = () => {
       <svg className="w-5 h-5 text-neutral-500 group-hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
       </svg>
-      Cerrar sesión
+      Logout
     </button>
   );
 };
@@ -39,7 +39,7 @@ const LogoutButton = () => {
 
 const navigation = [
   {
-    name: 'Resumen',
+    name: 'Overview',
     href: '/dashboard',
     icon: (
     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -48,7 +48,7 @@ const navigation = [
     ),
   },
   {
-    name: 'Cierre del Día',
+    name: 'End of Day',
     href: '/dashboard/end-of-day',
     icon: (
     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -57,7 +57,7 @@ const navigation = [
     ),
   },
   {
-    name: 'Finanzas',
+    name: 'Financial',
     href: '/dashboard/financial',
     icon: (
     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -66,7 +66,7 @@ const navigation = [
     ),
   },
   {
-    name: 'Empleados',
+    name: 'Employees',
     href: '/dashboard/employees',
     icon: (
     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -75,7 +75,7 @@ const navigation = [
     ),
   },
   {
-    name: 'Servicios',
+    name: 'Services',
     href: '/dashboard/services',
     icon: (
     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -84,7 +84,7 @@ const navigation = [
     ),
   },
   {
-    name: 'Reservas',
+    name: 'Bookings',
     href: '/dashboard/bookings',
     icon: (
     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -140,22 +140,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   // Get display name
   const getDisplayName = () => {
-    if (loading) return 'Cargando...';
-    if (!user) return 'Usuario';
+    if (loading) return 'Loading...';
+    if (!user) return 'User';
     
     if (user.role === 'employee' && employee) {
       return `${employee.firstName} ${employee.lastName}`;
     }
     
     // For owners, use email or a default name
-    return user.email?.split('@')[0] || 'Propietario';
+    return user.email?.split('@')[0] || 'Owner';
   };
 
   // Get display role
   const getDisplayRole = () => {
-    if (!user) return 'Panel de administración';
-    if (user.role === 'employee') return 'Empleado';
-    return 'Propietario del salón';
+    if (!user) return 'Admin Panel';
+    if (user.role === 'employee') return 'Employee';
+    return 'Salon Owner';
   };
 
   return (
