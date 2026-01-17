@@ -19,6 +19,7 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [generatedPassword, setGeneratedPassword] = useState<string | null>(null);
   const [profileImageFile, setProfileImageFile] = useState<File | null>(null);
   const [profileImagePreview, setProfileImagePreview] = useState<string | undefined>(employee?.profileImage || undefined);
@@ -125,7 +126,7 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
 
         const secondaryAuth = getSecondaryAuth();
         if (!secondaryAuth) {
-          throw new Error('Firebase no está configurado para crear usuarios. Verifica tu .env.local');
+          throw new Error('Firebase is not configured to create users. Check your .env.local');
         }
 
         const userCredential = await createUserWithEmailAndPassword(
@@ -190,16 +191,53 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
     } catch (err: any) {
       const code = err?.code || err?.message || '';
       if (code.includes('auth/email-already-in-use')) {
-        setError('Ese correo ya está registrado. Usa un correo diferente para este empleado.');
+        setError('This email is already registered. Use a different email for this employee.');
       } else if (code.includes('auth/invalid-email')) {
-        setError('El correo no es válido. Verifícalo e inténtalo de nuevo.');
+        setError('The email is not valid. Please verify and try again.');
       } else if (code.includes('auth/weak-password')) {
-        setError('La contraseña generada no cumple los requisitos. Inténtalo nuevamente.');
+        setError('The generated password does not meet requirements. Please try again.');
       } else {
-        setError(err.message || 'Error al guardar el empleado');
+        setError(err.message || 'Error saving employee');
       }
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!employee) return;
+
+    const confirmDelete = window.confirm(
+      `Are you sure you want to delete ${employee.firstName} ${employee.lastName}? This action cannot be undone.`
+    );
+
+    if (!confirmDelete) return;
+
+    setIsDeleting(true);
+    setError(null);
+
+    try {
+      const response = await fetch(`/api/employees/${employee.id}`, {
+        method: 'DELETE',
+      });
+
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to delete employee');
+      }
+
+      // Delete profile image if exists
+      if (employee.profileImage) {
+        await deleteEmployeeProfileImage(employee.profileImage).catch(console.error);
+      }
+
+      router.push('/dashboard/employees');
+      router.refresh();
+    } catch (err: any) {
+      setError(err.message || 'Error deleting employee');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -213,8 +251,8 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
 
       {generatedPassword && (
         <div className="p-4 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-900">
-          <p className="text-sm font-semibold mb-2">Cuenta creada</p>
-          <p className="text-sm">Entrega esta contraseña temporal al empleado. Se le pedirá cambiarla en su primer acceso.</p>
+          <p className="text-sm font-semibold mb-2">Account Created</p>
+          <p className="text-sm">Give this temporary password to the employee. They will be asked to change it on first login.</p>
           <div className="mt-3 flex items-center gap-3">
             <code className="px-3 py-2 rounded-md bg-white border border-emerald-200 text-emerald-800 font-semibold">
               {generatedPassword}
@@ -225,10 +263,10 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
               variant="outline"
               onClick={() => navigator.clipboard?.writeText(generatedPassword)}
             >
-              Copiar
+              Copy
             </Button>
             <Button type="button" size="sm" onClick={() => router.push('/dashboard/employees')}>
-              Ir a empleados
+              Go to Employees
             </Button>
           </div>
         </div>
@@ -236,64 +274,64 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Input
-          label="Nombre"
-          {...register('firstName', { required: 'El nombre es obligatorio' })}
+          label="FIRST NAME"
+          {...register('firstName', { required: 'First name is required' })}
           error={errors.firstName?.message}
         />
         <Input
-          label="Apellidos"
-          {...register('lastName', { required: 'Los apellidos son obligatorios' })}
+          label="LAST NAME"
+          {...register('lastName', { required: 'Last name is required' })}
           error={errors.lastName?.message}
         />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Input
-          label="Correo Electrónico"
+          label="EMAIL"
           type="email"
           disabled={!!employee}
           {...register('email', {
-            required: 'El correo electrónico es obligatorio',
+            required: 'Email is required',
             pattern: {
               value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-              message: 'Dirección de correo electrónico no válida',
+              message: 'Invalid email address',
             },
           })}
           error={errors.email?.message}
         />
         <Input
-          label="Teléfono"
+          label="PHONE"
           type="tel"
-          {...register('phone', { required: 'El teléfono es obligatorio' })}
+          {...register('phone', { required: 'Phone is required' })}
           error={errors.phone?.message}
         />
       </div>
 
       <Input
-        label="DNI / NIE"
-        {...register('nationalId', { required: 'El DNI/NIE es obligatorio' })}
+        label="NATIONAL ID"
+        {...register('nationalId', { required: 'National ID is required' })}
         error={errors.nationalId?.message}
       />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className="block text-xs font-light tracking-wide text-primary-600 uppercase mb-2">
-            Puesto
+            Position
           </label>
           <select
-            {...register('position', { required: 'El puesto es obligatorio' })}
+            {...register('position', { required: 'Position is required' })}
             className="w-full px-4 py-3 border border-primary-300 rounded-sm focus:outline-none focus:ring-1 focus:ring-accent-500 bg-white text-primary-900 font-light"
             defaultValue={employee?.position || ''}
           >
-            <option value="" disabled>Selecciona un puesto</option>
-            <option value="Peluquería">Peluquería</option>
-            <option value="Barbería">Barbería</option>
-            <option value="Manicura / Pedicura">Manicura / Pedicura</option>
-            <option value="Estética">Estética</option>
-            <option value="Colorista">Colorista</option>
-            <option value="Recepción">Recepción</option>
-            <option value="Maquillaje">Maquillaje</option>
-            <option value="Otro">Otro</option>
+            <option value="" disabled>Select a position</option>
+            <option value="Hair Stylist">Hair Stylist</option>
+            <option value="Barber">Barber</option>
+            <option value="Manicure / Pedicure">Manicure / Pedicure</option>
+            <option value="Esthetician">Esthetician</option>
+            <option value="Colorist">Colorist</option>
+            <option value="Receptionist">Receptionist</option>
+            <option value="Makeup Artist">Makeup Artist</option>
+            <option value="Other">Other</option>
           </select>
           {errors.position?.message && (
             <p className="mt-2 text-xs text-red-600 font-light">{errors.position.message}</p>
@@ -302,54 +340,54 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
 
         <div>
           <label className="block text-xs font-light tracking-wide text-primary-600 uppercase mb-2">
-            Tipo de Contrato
+            Employment Type
           </label>
           <select
-            {...register('employmentType', { required: 'El tipo de contrato es obligatorio' })}
+            {...register('employmentType', { required: 'Employment type is required' })}
             className="w-full px-4 py-3 border border-primary-300 rounded-sm focus:outline-none focus:ring-1 focus:ring-accent-500 bg-white text-primary-900 font-light"
             defaultValue={employee?.employmentType || 'employee'}
           >
-            <option value="employee">Empleado Regular</option>
-            <option value="self-employed">Autónomo</option>
+            <option value="employee">Regular Employee</option>
+            <option value="self-employed">Self-Employed</option>
           </select>
           {errors.employmentType?.message && (
             <p className="mt-2 text-xs text-red-600 font-light">{errors.employmentType.message}</p>
           )}
           <p className="mt-2 text-xs text-primary-400 italic">
-            Autónomos gestionan su propia agenda y pagos (solo depósito 50%)
+            Self-employed manage their own schedule and payments (deposit only 50%)
           </p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Input
-          label="Dirección"
-          {...register('addressLine1', { required: 'La dirección es obligatoria' })}
+          label="ADDRESS"
+          {...register('addressLine1', { required: 'Address is required' })}
           error={errors.addressLine1?.message}
         />
         <Input
-          label="Ciudad"
-          {...register('city', { required: 'La ciudad es obligatoria' })}
+          label="CITY"
+          {...register('city', { required: 'City is required' })}
           error={errors.city?.message}
         />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Input
-          label="Provincia"
-          {...register('province', { required: 'La provincia es obligatoria' })}
+          label="PROVINCE"
+          {...register('province', { required: 'Province is required' })}
           error={errors.province?.message}
         />
         <Input
-          label="Código Postal"
-          {...register('postalCode', { required: 'El código postal es obligatorio' })}
+          label="POSTAL CODE"
+          {...register('postalCode', { required: 'Postal code is required' })}
           error={errors.postalCode?.message}
         />
       </div>
 
       <div>
         <label className="block text-xs font-light tracking-wide text-primary-600 uppercase mb-2">
-          Biografía
+          Biography
         </label>
         <textarea
           {...register('bio')}
@@ -361,7 +399,7 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
       {/* Profile Image Upload */}
       <div>
         <label className="block text-xs font-light tracking-wide text-primary-600 uppercase mb-2">
-          Foto de Perfil
+          Profile Picture
         </label>
         <div className="flex items-start gap-4">
           {/* Image Preview */}
@@ -401,10 +439,10 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
               htmlFor="profileImage"
               className="inline-block px-4 py-2 bg-accent-600 text-white rounded-lg hover:bg-accent-700 transition cursor-pointer text-sm font-medium"
             >
-              {profileImagePreview ? 'Cambiar foto' : 'Subir foto'}
+              {profileImagePreview ? 'Change Photo' : 'Upload Photo'}
             </label>
             <p className="text-xs text-primary-600 mt-2">
-              JPG, PNG o GIF. Máximo 5MB.
+              JPG, PNG or GIF. Maximum 5MB.
             </p>
             {uploadingImage && (
               <p className="text-xs text-accent-600 mt-2 flex items-center gap-2">
@@ -412,7 +450,7 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                 </svg>
-                Subiendo imagen...
+                Uploading image...
               </p>
             )}
           </div>
@@ -421,15 +459,26 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
 
       <div className="flex gap-4">
         <Button type="submit" isLoading={isLoading}>
-          {employee ? 'Actualizar Empleado' : 'Crear Empleado'}
+          {employee ? 'Update Employee' : 'Create Employee'}
         </Button>
         <Button
           type="button"
           variant="outline"
           onClick={() => router.push('/dashboard/employees')}
         >
-          Cancelar
+          Cancel
         </Button>
+        {employee && (
+          <Button
+            type="button"
+            variant="danger"
+            onClick={handleDelete}
+            isLoading={isDeleting}
+            className="ml-auto"
+          >
+            Delete Employee
+          </Button>
+        )}
       </div>
     </form>
   );
