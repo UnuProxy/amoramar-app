@@ -131,7 +131,7 @@ export default function EmployeeBookingsPage() {
     } else if (booking.createdByRole === 'owner' || booking.createdByRole === 'employee') {
       roleLabel = 'Staff';
     } else if (createdName) {
-      roleLabel = 'Equipo';
+      roleLabel = 'Staff';
     } else if (booking.paymentStatus === 'pending' && !booking.depositPaid) {
       roleLabel = 'Staff';
     } else {
