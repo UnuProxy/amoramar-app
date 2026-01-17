@@ -177,29 +177,29 @@ export const Sidebar: React.FC<SidebarProps> = ({
         aria-hidden="true"
       />
 
-      {/* Sidebar */}
+      {/* Sidebar - Booksy Style */}
       <div
         className={cn(
-          'bg-white h-screen border-r border-primary-100 fixed lg:sticky lg:top-0 z-[50] flex flex-col w-64 shadow-[0_4px_20px_rgba(0,0,0,0.03)] transform transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] lg:translate-x-0 lg:opacity-100 lg:pointer-events-auto',
+          'bg-white h-screen border-r border-neutral-200 fixed lg:sticky lg:top-0 z-[50] flex flex-col w-64 shadow-sm transform transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] lg:translate-x-0 lg:opacity-100 lg:pointer-events-auto',
           mobileMenuOpen ? 'translate-x-0 opacity-100 pointer-events-auto' : '-translate-x-full opacity-0 pointer-events-none lg:opacity-100'
         )}
         role="navigation"
         aria-label="Main navigation"
       >
         {/* Brand */}
-        <div className="p-8 border-b border-primary-50">
-          <Link href="/dashboard" className="block text-center">
-            <h1 className="text-xl font-black text-primary-800 tracking-[0.1em] uppercase leading-none">
+        <div className="px-6 py-6 border-b border-neutral-100">
+          <Link href="/dashboard" className="block">
+            <h1 className="text-lg font-bold text-neutral-900">
               Amor Amar
             </h1>
-            <p className="text-[9px] font-bold text-accent-500 uppercase tracking-[0.4em] mt-2">Management</p>
+            <p className="text-xs text-neutral-500 mt-0.5">Business Management</p>
           </Link>
         </div>
 
         {/* User Profile Summary */}
-        <div className="px-6 py-6 border-b border-primary-50 bg-softcream/50">
-          <div className="flex items-center gap-4">
-            <div className="w-10 h-10 rounded-xl bg-primary-800 flex items-center justify-center text-white text-sm font-black shadow-md shadow-primary-900/10">
+        <div className="px-6 py-5 border-b border-neutral-100">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-accent-500 flex items-center justify-center text-white text-sm font-semibold">
               {user && employee
                 ? `${employee.firstName[0]}${employee.lastName[0]}`.toUpperCase()
                 : user?.email?.[0].toUpperCase() || 'O'}
@@ -231,15 +231,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   }
                 }}
                 className={cn(
-                  'flex items-center gap-4 px-5 py-3.5 text-[10px] font-black uppercase tracking-[0.2em] rounded-xl transition-all duration-200',
+                  'flex items-center gap-4 px-5 py-3 text-[10px] font-black uppercase tracking-[0.2em] transition-all duration-300',
                   isActive
-                    ? 'text-white bg-primary-800 shadow-lg shadow-primary-900/10'
-                    : 'text-primary-600 hover:text-primary-900 hover:bg-primary-50'
+                    ? 'text-accent-600 border-l-4 border-accent-500 pl-4'
+                    : 'text-primary-400 hover:text-primary-900 hover:pl-6'
                 )}
               >
                 <span className={cn(
                   'flex-shrink-0 transition-colors',
-                  isActive ? 'text-accent-300' : 'text-primary-300'
+                  isActive ? 'text-accent-500' : 'text-primary-300'
                 )}>{item.icon}</span>
                 <span>{item.name}</span>
               </Link>

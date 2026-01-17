@@ -10,17 +10,17 @@ import { formatCurrency, cn } from '@/shared/lib/utils';
 type DateRange = 'month' | 'quarter' | 'year' | 'all';
 
 const EXPENSE_CATEGORIES: { value: ExpenseCategory; label: string; icon: string }[] = [
-  { value: 'rent', label: 'Alquiler', icon: '🏠' },
-  { value: 'utilities', label: 'Servicios (luz, agua)', icon: '⚡' },
-  { value: 'products', label: 'Productos', icon: '💄' },
-  { value: 'supplies', label: 'Suministros', icon: '📦' },
-  { value: 'staff', label: 'Personal', icon: '👥' },
+  { value: 'rent', label: 'Rent', icon: '🏠' },
+  { value: 'utilities', label: 'Utilities', icon: '⚡' },
+  { value: 'products', label: 'Products', icon: '💄' },
+  { value: 'supplies', label: 'Supplies', icon: '📦' },
+  { value: 'staff', label: 'Staff', icon: '👥' },
   { value: 'marketing', label: 'Marketing', icon: '📢' },
-  { value: 'equipment', label: 'Equipo', icon: '🔧' },
-  { value: 'insurance', label: 'Seguros', icon: '🛡️' },
-  { value: 'taxes', label: 'Impuestos', icon: '📋' },
-  { value: 'maintenance', label: 'Mantenimiento', icon: '🔨' },
-  { value: 'other', label: 'Otros', icon: '📌' },
+  { value: 'equipment', label: 'Equipment', icon: '🔧' },
+  { value: 'insurance', label: 'Insurance', icon: '🛡️' },
+  { value: 'taxes', label: 'Taxes', icon: '📋' },
+  { value: 'maintenance', label: 'Maintenance', icon: '🔨' },
+  { value: 'other', label: 'Other', icon: '📌' },
 ];
 
 export default function FinancialDashboard() {
@@ -299,7 +299,7 @@ export default function FinancialDashboard() {
 
   const handleAddExpense = async () => {
     if (!newExpense.name || !newExpense.amount) {
-      alert('Por favor completa los campos requeridos');
+      alert('Please fill in required fields');
       return;
     }
 
@@ -330,12 +330,12 @@ export default function FinancialDashboard() {
       }
     } catch (error) {
       console.error('Error adding expense:', error);
-      alert('Error al añadir el gasto');
+      alert('Error adding expense');
     }
   };
 
   const handleDeleteExpense = async (id: string) => {
-    if (!confirm('¿Estás seguro de eliminar este gasto?')) return;
+    if (!confirm('Are you sure you want to delete this expense?')) return;
 
     try {
       const response = await fetch(`/api/expenses/${id}`, {
@@ -379,114 +379,120 @@ export default function FinancialDashboard() {
       {/* Header - Premium Luxury */}
       <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-8">
         <div>
-          <h1 className="text-6xl font-black text-neutral-800 tracking-tighter uppercase leading-none">
-            Finanzas
+          <h1 className="text-5xl font-black text-primary-800 tracking-tighter uppercase leading-none bg-gradient-to-r from-primary-900 to-accent-600 bg-clip-text text-transparent">
+            Financials
           </h1>
-          <p className="text-neutral-500 text-sm font-black uppercase tracking-[0.3em] mt-4">
-            Análisis de Rentabilidad y Gastos
-          </p>
+          <div className="flex items-center gap-3 mt-4">
+            <div className="w-1.5 h-1.5 rounded-full bg-accent-500 shadow-lg shadow-accent-500/50" />
+            <p className="text-primary-400 text-[10px] font-black uppercase tracking-[0.4em]">
+              Profitability & Expense Analysis
+            </p>
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-4">
           <select
             value={dateRange}
             onChange={(e) => setDateRange(e.target.value as DateRange)}
-            className="px-6 py-4 bg-white border border-neutral-200 rounded-2xl text-xs font-black uppercase tracking-[0.2em] focus:border-rose-600 outline-none cursor-pointer shadow-sm transition-all"
+            className="px-6 py-4 bg-white border border-primary-100 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] focus:border-accent-500 outline-none cursor-pointer shadow-sm hover:shadow-md transition-all"
           >
-            <option value="month">ESTE MES</option>
-            <option value="quarter">3 MESES</option>
-            <option value="year">1 AÑO</option>
-            <option value="all">HISTÓRICO</option>
+            <option value="month">THIS MONTH</option>
+            <option value="quarter">LAST 3 MONTHS</option>
+            <option value="year">1 YEAR</option>
+            <option value="all">ALL TIME</option>
           </select>
 
           <button
             onClick={() => setShowAddExpense(true)}
-            className="px-8 py-4 bg-neutral-800 text-white text-xs font-black uppercase tracking-[0.2em] rounded-2xl hover:bg-rose-600 transition-all shadow-2xl shadow-rose-900/20"
+            className="px-8 py-4 bg-primary-800 text-white text-[10px] font-black uppercase tracking-[0.2em] rounded-2xl hover:bg-accent-600 hover:-translate-y-0.5 transition-all shadow-xl shadow-primary-900/10 flex items-center gap-3"
           >
-            + Añadir Gasto
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" />
+            </svg>
+            Add Expense
           </button>
         </div>
       </div>
 
-      {/* Summary Cards - High Impact */}
+      {/* Summary Cards - Elegant & Light */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
         {/* Revenue */}
-        <div className="bg-white border border-neutral-100 rounded-[40px] p-8 shadow-sm hover:shadow-xl transition-all group overflow-hidden relative min-h-[220px] flex items-center justify-center">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-50 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-700 opacity-50" />
+        <div className="bg-white border-2 border-accent-100/50 rounded-[40px] p-8 shadow-sm hover:shadow-xl transition-all group overflow-hidden relative min-h-[220px] flex items-center justify-center">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-accent-50 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-700 opacity-50" />
           <div className="relative text-center w-full px-4">
-            <p className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em] mb-4">Ingresos Brutos</p>
-            <p className="text-4xl font-black text-neutral-800 tracking-tight leading-none whitespace-nowrap">{formatCurrency(financials.totalRevenue)}</p>
-            <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mt-4">{filteredBookings.length} RESERVAS</p>
+            <p className="text-[10px] font-black text-primary-400 uppercase tracking-[0.3em] mb-4">Gross Income</p>
+            <p className="text-4xl font-black text-primary-800 tracking-tight leading-none whitespace-nowrap">{formatCurrency(financials.totalRevenue)}</p>
+            <p className="text-[10px] font-black text-accent-500 uppercase tracking-widest mt-4">{filteredBookings.length} BOOKINGS</p>
           </div>
         </div>
 
         {/* Expenses */}
-        <div className="bg-white border border-neutral-100 rounded-[40px] p-8 shadow-sm hover:shadow-xl transition-all group overflow-hidden relative min-h-[220px] flex items-center justify-center">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-amber-50 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-700 opacity-50" />
+        <div className="bg-white border-2 border-accent-100/50 rounded-[40px] p-8 shadow-sm hover:shadow-xl transition-all group overflow-hidden relative min-h-[220px] flex items-center justify-center">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-accent-50 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-700 opacity-50" />
           <div className="relative text-center w-full px-4">
-            <p className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em] mb-4">Gastos Totales</p>
-            <p className="text-4xl font-black text-neutral-800 tracking-tight leading-none whitespace-nowrap">{formatCurrency(financials.totalExpenses)}</p>
-            <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest mt-4">{filteredExpenses.length} TRANSACCIONES</p>
+            <p className="text-[10px] font-black text-primary-400 uppercase tracking-[0.3em] mb-4">Total Expenses</p>
+            <p className="text-4xl font-black text-primary-800 tracking-tight leading-none whitespace-nowrap">{formatCurrency(financials.totalExpenses)}</p>
+            <p className="text-[10px] font-black text-accent-500 uppercase tracking-widest mt-4">{filteredExpenses.length} TRANSACTIONS</p>
           </div>
         </div>
 
         {/* Net Profit */}
         <div className={cn(
-          "rounded-[40px] p-8 shadow-2xl transition-all group overflow-hidden relative min-h-[220px] flex items-center justify-center",
-          financials.netProfit >= 0 ? "bg-neutral-800" : "bg-amber-600"
+          "rounded-[40px] p-8 shadow-xl transition-all group overflow-hidden relative min-h-[220px] flex items-center justify-center border-2",
+          financials.netProfit >= 0 ? "bg-accent-50 border-accent-200" : "bg-warning-50 border-warning-200"
         )}>
-          <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-700" />
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/40 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-700" />
           <div className="relative text-center w-full px-4">
-            <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em] mb-4">Beneficio Neto</p>
-            <p className="text-4xl font-black text-white tracking-tight leading-none whitespace-nowrap">{formatCurrency(financials.netProfit)}</p>
-            <p className="text-[10px] font-black text-rose-400 uppercase tracking-widest mt-4">RESULTADO FINAL</p>
+            <p className="text-[10px] font-black text-primary-500 uppercase tracking-[0.3em] mb-4">Net Profit</p>
+            <p className="text-4xl font-black text-primary-900 tracking-tight leading-none whitespace-nowrap">{formatCurrency(financials.netProfit)}</p>
+            <p className="text-[10px] font-black text-accent-600 uppercase tracking-widest mt-4">FINAL RESULT</p>
           </div>
         </div>
 
         {/* Profit Margin */}
-        <div className="bg-white border border-neutral-100 rounded-[40px] p-8 shadow-sm hover:shadow-xl transition-all group overflow-hidden relative min-h-[220px] flex items-center justify-center">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-purple-50 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-700 opacity-50" />
+        <div className="bg-white border-2 border-accent-100/50 rounded-[40px] p-8 shadow-sm hover:shadow-xl transition-all group overflow-hidden relative min-h-[220px] flex items-center justify-center">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-accent-50 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-700 opacity-50" />
           <div className="relative text-center w-full px-4">
-            <p className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em] mb-4">Margen %</p>
-            <p className="text-4xl font-black text-neutral-800 tracking-tight leading-none whitespace-nowrap">{financials.profitMargin.toFixed(1)}%</p>
-            <p className="text-[10px] font-black text-purple-600 uppercase tracking-widest mt-4">RENTABILIDAD</p>
+            <p className="text-[10px] font-black text-primary-400 uppercase tracking-[0.3em] mb-4">Margin %</p>
+            <p className="text-4xl font-black text-primary-800 tracking-tight leading-none whitespace-nowrap">{financials.profitMargin.toFixed(1)}%</p>
+            <p className="text-[10px] font-black text-accent-500 uppercase tracking-widest mt-4">PROFITABILITY</p>
           </div>
         </div>
       </div>
 
-      {/* Revenue Analytics Grid - High End Tables */}
+      {/* Revenue Analytics Grid - Professional Ibiza Style */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
         {/* Revenue by Service */}
-        <div className="bg-white border border-neutral-100 rounded-[48px] overflow-hidden shadow-sm">
-          <div className="px-10 py-8 border-b border-neutral-100 bg-neutral-50/30">
-            <h2 className="text-sm font-black text-neutral-800 tracking-[0.3em] uppercase text-center">Ingresos por Servicio</h2>
+        <div className="bg-white border-2 border-accent-100/50 rounded-[48px] overflow-hidden shadow-sm">
+          <div className="px-10 py-8 border-b-2 border-accent-100/50 bg-accent-50/30">
+            <h2 className="text-sm font-black text-primary-800 tracking-[0.3em] uppercase text-center">Revenue by Service</h2>
           </div>
           
           <div className="p-10">
             {financials.revenueByService.length === 0 ? (
-              <div className="text-center py-12 text-neutral-300 font-bold uppercase tracking-widest text-xs">Sin datos</div>
+              <div className="text-center py-12 text-primary-200 font-bold uppercase tracking-widest text-[10px]">No data available</div>
             ) : (
               <div className="space-y-8">
                 {financials.revenueByService.map((item, index) => (
                   <div key={item.service.id} className="group">
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-xl bg-neutral-800 flex items-center justify-center text-white font-black text-sm">
+                        <div className="w-10 h-10 rounded-xl bg-primary-800 flex items-center justify-center text-white font-black text-sm shadow-md">
                           {index + 1}
                         </div>
                         <div>
-                          <p className="text-lg font-black text-neutral-800 uppercase tracking-tighter leading-none">{item.service.serviceName}</p>
-                          <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest mt-1">{item.bookingsCount} RESERVAS</p>
+                          <p className="text-lg font-black text-primary-800 uppercase tracking-tighter leading-none">{item.service.serviceName}</p>
+                          <p className="text-[10px] font-bold text-primary-400 uppercase tracking-widest mt-1">{item.bookingsCount} BOOKINGS</p>
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="text-xl font-black text-rose-600 tabular-nums leading-none">{formatCurrency(item.revenue)}</p>
-                        <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest mt-1">{item.percentage.toFixed(0)}% DEL TOTAL</p>
+                        <p className="text-xl font-black text-accent-600 tabular-nums leading-none">{formatCurrency(item.revenue)}</p>
+                        <p className="text-[10px] font-bold text-primary-400 uppercase tracking-widest mt-1">{item.percentage.toFixed(0)}% OF TOTAL</p>
                       </div>
                     </div>
-                    <div className="w-full bg-neutral-100 rounded-full h-1 overflow-hidden">
+                    <div className="w-full bg-accent-50 rounded-full h-1 overflow-hidden">
                       <div
-                        className="h-full bg-rose-600 rounded-full transition-all duration-1000"
+                        className="h-full bg-accent-500 rounded-full transition-all duration-1000 shadow-[0_0_10px_rgba(197,160,89,0.3)]"
                         style={{ width: `${item.percentage}%` }}
                       />
                     </div>
@@ -497,39 +503,39 @@ export default function FinancialDashboard() {
           </div>
         </div>
 
-        {/* Revenue by Employee with monthly payout selector */}
-        <div className="bg-white border border-neutral-100 rounded-[48px] overflow-hidden shadow-sm">
-          <div className="px-10 py-8 border-b border-neutral-100 bg-neutral-50/30 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-            <h2 className="text-sm font-black text-neutral-800 tracking-[0.3em] uppercase text-center lg:text-left">
-              Ingresos por Terapeuta (Payout mensual)
+        {/* Revenue by Employee */}
+        <div className="bg-white border-2 border-accent-100/50 rounded-[48px] overflow-hidden shadow-sm">
+          <div className="px-10 py-8 border-b-2 border-accent-100/50 bg-accent-50/30 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <h2 className="text-sm font-black text-primary-800 tracking-[0.3em] uppercase text-center lg:text-left">
+              Revenue by Therapist
             </h2>
             <div className="flex items-center gap-3">
-              <label className="text-[10px] font-black text-neutral-500 uppercase tracking-[0.2em]">Mes</label>
+              <label className="text-[10px] font-black text-primary-400 uppercase tracking-[0.2em]">Month</label>
               <input
                 type="month"
                 value={payoutMonth}
                 onChange={(e) => setPayoutMonth(e.target.value)}
-                className="px-4 py-2 border border-neutral-200 rounded-xl text-xs font-black uppercase tracking-[0.15em] focus:border-rose-500 outline-none"
+                className="px-4 py-2 border border-accent-100 rounded-xl text-[10px] font-black uppercase tracking-[0.1em] focus:border-accent-500 outline-none bg-white shadow-sm"
               />
             </div>
           </div>
           
           <div className="p-10">
             {financials.payoutByEmployee.length === 0 ? (
-              <div className="text-center py-12 text-neutral-300 font-bold uppercase tracking-widest text-xs">
-                Sin datos para {payoutMonth || 'el mes seleccionado'}
+              <div className="text-center py-12 text-primary-200 font-bold uppercase tracking-widest text-[10px]">
+                No data for {payoutMonth || 'selected month'}
               </div>
             ) : (
               <div className="space-y-8">
-                <div className="flex items-center justify-between bg-neutral-50 border border-neutral-100 rounded-2xl p-4">
-                  <div className="text-xs font-black text-neutral-500 uppercase tracking-[0.2em]">
-                    Total mes
+                <div className="flex items-center justify-between bg-accent-50/50 border border-accent-100 rounded-2xl p-4">
+                  <div className="text-[10px] font-black text-primary-500 uppercase tracking-[0.2em]">
+                    Monthly Total
                   </div>
-                  <div className="text-lg font-black text-neutral-900">
+                  <div className="text-lg font-black text-primary-900">
                     {formatCurrency(financials.payoutTotalRevenue)}
                   </div>
                 </div>
-                {financials.payoutByEmployee.map((item, index) => (
+                {financials.payoutByEmployee.map((item) => (
                   <button
                     key={item.employee.id}
                     type="button"
@@ -538,7 +544,7 @@ export default function FinancialDashboard() {
                   >
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-xl bg-neutral-800 flex items-center justify-center text-white font-black text-lg overflow-hidden">
+                        <div className="w-12 h-12 rounded-xl bg-primary-800 flex items-center justify-center text-white font-black text-lg overflow-hidden shadow-md group-hover:scale-105 transition-transform ring-2 ring-accent-50">
                           {item.employee.profileImage ? (
                             <img src={item.employee.profileImage} alt="" className="w-full h-full object-cover" />
                           ) : (
@@ -547,32 +553,32 @@ export default function FinancialDashboard() {
                         </div>
                         <div>
                           <div className="flex items-center gap-2">
-                            <p className="text-lg font-black text-neutral-800 uppercase tracking-tighter leading-none">
+                            <p className="text-lg font-black text-primary-800 uppercase tracking-tighter leading-none group-hover:text-accent-600 transition-colors">
                               {item.employee.firstName} {item.employee.lastName}
                             </p>
                             {item.employee.employmentType === 'self-employed' && (
-                              <span className="px-2 py-0.5 text-[8px] font-black uppercase tracking-wider bg-amber-100 text-amber-700 rounded-md">
+                              <span className="px-2 py-0.5 text-[8px] font-black uppercase tracking-wider bg-accent-100 text-accent-700 rounded-md">
                                 50%
                               </span>
                             )}
                           </div>
-                          <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest mt-1">
-                            {item.bookingsCount} {item.bookingsCount === 1 ? 'reserva' : 'reservas'}
+                          <p className="text-[10px] font-bold text-primary-400 uppercase tracking-widest mt-1">
+                            {item.bookingsCount} {item.bookingsCount === 1 ? 'booking' : 'bookings'}
                           </p>
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="text-xl font-black text-rose-600 tabular-nums leading-none">
+                        <p className="text-xl font-black text-primary-900 tabular-nums leading-none">
                           {formatCurrency(item.revenue)}
                         </p>
-                        <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest mt-1">
-                          {item.employee.employmentType === 'self-employed' ? 'DEPÓSITOS COBRADOS' : 'TOTAL GENERADO'}
+                        <p className="text-[10px] font-bold text-primary-400 uppercase tracking-widest mt-1 uppercase">
+                          {item.employee.employmentType === 'self-employed' ? 'DEPOSITS COLLECTED' : 'TOTAL GENERATED'}
                         </p>
                       </div>
                     </div>
-                    <div className="w-full bg-neutral-100 rounded-full h-1 overflow-hidden">
+                    <div className="w-full bg-accent-50 rounded-full h-1 overflow-hidden">
                       <div
-                        className="h-full bg-neutral-800 rounded-full transition-all duration-1000"
+                        className="h-full bg-primary-800 rounded-full transition-all duration-1000 shadow-[0_0_10px_rgba(38,38,38,0.2)]"
                         style={{ width: `${item.percentage}%` }}
                       />
                     </div>

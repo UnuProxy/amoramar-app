@@ -18,53 +18,91 @@ module.exports = {
     },
     extend: {
       colors: {
-        // Ibiza Modern & Professional Neutral Palette 🏝️🏛️
+        // Premium SaaS Design System (Booksy-inspired + Clean)
         primary: {
-          50: '#f8f9fa',
-          100: '#f1f3f5',
-          200: '#e9ecef',
-          300: '#dee2e6',
-          400: '#ced4da',
-          500: '#adb5bd', 
-          600: '#6c757d',
-          700: '#495057',
-          800: '#2C3E50', // Deep Slate (Professional & Neutral)
-          900: '#1A252F', // Charcoal
+          50: '#f5f7fa',
+          100: '#ebeef3',
+          200: '#d2d9e4',
+          300: '#aab8cc',
+          400: '#7c92af',
+          500: '#5b7495',
+          600: '#485d7c',
+          700: '#3c4d65',
+          800: '#354155',
+          900: '#2f3948',
         },
         accent: {
-          50: '#fbfaf7',
-          100: '#f7f2ea',
-          200: '#ece3d1',
-          300: '#e0d1b5',
-          400: '#d1b994',
-          500: '#B89B72', // Warm Antique Sand/Gold (Gender-neutral luxury)
-          600: '#a38761',
-          700: '#897050',
-          800: '#6f5a41',
-          900: '#564633',
-        },
-        luxury: {
-          stone: '#8E8D8A',
-          sand: '#E6DED3',
-          navy: '#1B262C', // Deep Mediterranean Navy
-          ocean: '#4A6B6B', // Muted Sea Green/Blue
+          50: '#e6f7ff',
+          100: '#bae7ff',
+          200: '#91d5ff',
+          300: '#69c0ff',
+          400: '#40a9ff',
+          500: '#1890ff', // Clean Azure Blue
+          600: '#096dd9',
+          700: '#0050b3',
+          800: '#003a8c',
+          900: '#002766',
         },
         success: {
-          500: '#5A7D6C', // Muted Sage
+          50: '#f0fdf4',
+          100: '#dcfce7',
+          200: '#bbf7d0',
+          300: '#86efac',
+          400: '#4ade80',
+          500: '#22c55e',
+          600: '#16a34a',
+          700: '#15803d',
+          800: '#166534',
+          900: '#14532d',
         },
         warning: {
-          500: '#B88B4A', // Muted Ochre
+          50: '#fef9f3',
+          100: '#fef3e2',
+          200: '#fde5c4',
+          300: '#fbd097',
+          400: '#f8b262',
+          500: '#f59638',
+          600: '#e67a1e',
+          700: '#be5e19',
+          800: '#974b1b',
+          900: '#7a401b',
         },
-        info: {
-          500: '#5B7A8C', // Steel Blue
+        danger: {
+          50: '#fef2f2',
+          100: '#fee2e2',
+          200: '#fecaca',
+          300: '#fca5a5',
+          400: '#f87171',
+          500: '#ef4444',
+          600: '#dc2626',
+          700: '#b91c1c',
+          800: '#991b1b',
+          900: '#7f1d1d',
         },
-        background: '#F4F1EE', // Soft Stone/Alabaster
-        card: '#FFFFFF',
-        softcream: '#FAF9F6',
-        warmwhite: '#FFFFFF',
+        neutral: {
+          50: '#fafafa',
+          100: '#f5f5f5',
+          200: '#e5e5e5',
+          300: '#d4d4d4',
+          400: '#a3a3a3',
+          500: '#737373',
+          600: '#525252',
+          700: '#404040',
+          800: '#262626',
+          900: '#171717',
+        },
+        background: '#fafbfc',
+        card: '#ffffff',
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
+        sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Helvetica', 'Arial', 'sans-serif'],
+      },
+      boxShadow: {
+        'sm': '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+        'DEFAULT': '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
+        'md': '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+        'lg': '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+        'xl': '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
       },
     },
   },
