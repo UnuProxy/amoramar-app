@@ -238,7 +238,7 @@ export default function FinancialDashboard() {
       .filter((item) => item.revenue > 0)
       .sort((a, b) => b.revenue - a.revenue);
 
-    // Add "Servicios Desconocidos" if any bookings don't match existing services
+    // Add "Unknown Services" if any bookings don't match existing services
     const unknownServiceBookings = filteredBookings.filter(
       (b) => !services.find((s) => s.id === b.serviceId)
     );
@@ -836,7 +836,7 @@ export default function FinancialDashboard() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-2">
-                  <label className="block text-xs font-black text-neutral-400 uppercase tracking-widest">Importe (€)</label>
+                  <label className="block text-xs font-black text-neutral-400 uppercase tracking-widest">Amount (€)</label>
                   <input
                     type="number"
                     value={newExpense.amount}

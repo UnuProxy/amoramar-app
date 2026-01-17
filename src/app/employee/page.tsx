@@ -125,20 +125,20 @@ export default function EmployeeBookingsPage() {
       normalizedCreated && normalizedClient && normalizedCreated === normalizedClient
     );
 
-    let roleLabel: 'Cliente' | 'Equipo';
+    let roleLabel: 'Client' | 'Staff';
     if (booking.createdByRole === 'client' || isClientMatch) {
-      roleLabel = 'Cliente';
+      roleLabel = 'Client';
     } else if (booking.createdByRole === 'owner' || booking.createdByRole === 'employee') {
-      roleLabel = 'Equipo';
+      roleLabel = 'Staff';
     } else if (createdName) {
       roleLabel = 'Equipo';
     } else if (booking.paymentStatus === 'pending' && !booking.depositPaid) {
-      roleLabel = 'Equipo';
+      roleLabel = 'Staff';
     } else {
-      roleLabel = 'Cliente';
+      roleLabel = 'Client';
     }
 
-    const displayName = createdName || (roleLabel === 'Cliente' ? clientName : undefined);
+    const displayName = createdName || (roleLabel === 'Client' ? clientName : undefined);
     return displayName ? `${displayName} (${roleLabel})` : roleLabel;
   };
 
@@ -707,7 +707,7 @@ export default function EmployeeBookingsPage() {
 
       {/* History - Muted Luxury */}
       <div className="space-y-8 pt-12 border-t border-neutral-100">
-        <h2 className="text-xl font-black text-neutral-800 uppercase tracking-tight opacity-50">Citas Pasadas</h2>
+        <h2 className="text-xl font-black text-neutral-800 uppercase tracking-tight opacity-50">Past Appointments</h2>
         <div className="grid grid-cols-1 gap-3">
           {bookings
             .filter((b) => b.status === 'completed' || b.status === 'cancelled')
@@ -750,7 +750,7 @@ export default function EmployeeBookingsPage() {
           <div className="w-full max-w-3xl bg-white rounded-[32px] shadow-2xl overflow-y-auto max-h-[90vh] border-2 border-white/20">
             <div className="sticky top-0 bg-white px-8 py-6 flex items-center justify-between border-b border-neutral-100 z-10">
               <div>
-                <h2 className="text-2xl font-black text-neutral-900 uppercase tracking-tight">Detalles de la Reserva</h2>
+                <h2 className="text-2xl font-black text-neutral-900 uppercase tracking-tight">Booking Details</h2>
                 <p className="text-neutral-400 text-xs font-black uppercase tracking-widest mt-1">
                   {getServiceName(selectedBooking.serviceId)}
                 </p>
@@ -768,7 +768,7 @@ export default function EmployeeBookingsPage() {
               <div className="p-8 space-y-6">
               {/* Client Information Section */}
               <div className="space-y-4">
-                <h3 className="text-lg font-black text-neutral-900 uppercase tracking-tight">Información del Cliente</h3>
+                <h3 className="text-lg font-black text-neutral-900 uppercase tracking-tight">Client Information</h3>
                 <div className="grid grid-cols-1 gap-3">
                   <div className="p-4 rounded-2xl bg-neutral-50 border border-neutral-100">
                     <p className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.2em]">Nombre</p>
@@ -788,7 +788,7 @@ export default function EmployeeBookingsPage() {
               {/* Appointment Details Section */}
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-black text-neutral-900 uppercase tracking-tight">Detalles de la Cita</h3>
+                  <h3 className="text-lg font-black text-neutral-900 uppercase tracking-tight">Appointment Details</h3>
                   {selectedBooking.status !== 'completed' && selectedBooking.status !== 'cancelled' && !isEditingDateTime && (
                     <button
                       onClick={() => {
@@ -901,8 +901,8 @@ export default function EmployeeBookingsPage() {
               <div className="space-y-4 border-t border-neutral-100 pt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="text-lg font-black text-neutral-900 uppercase tracking-tight">Servicios de la Cita</h3>
-                    <p className="text-[10px] text-neutral-500 mt-1">Servicio principal y servicios adicionales</p>
+                    <h3 className="text-lg font-black text-neutral-900 uppercase tracking-tight">Appointment Services</h3>
+                    <p className="text-[10px] text-neutral-500 mt-1">Main service and additional services</p>
                   </div>
                   {selectedBooking.status !== 'completed' && selectedBooking.status !== 'cancelled' && (
                     <button
@@ -918,7 +918,7 @@ export default function EmployeeBookingsPage() {
                 <div className="p-4 rounded-2xl bg-gradient-to-br from-blue-50 to-white border-2 border-blue-200">
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
-                      <p className="text-[10px] font-black text-blue-700 uppercase tracking-[0.2em] mb-1">Servicio Principal</p>
+                      <p className="text-[10px] font-black text-blue-700 uppercase tracking-[0.2em] mb-1">Main Service</p>
                       <p className="text-base font-black text-blue-900">{getServiceName(selectedBooking.serviceId)}</p>
                     </div>
                     <div className="text-right">
@@ -932,7 +932,7 @@ export default function EmployeeBookingsPage() {
                 {/* Additional Services List */}
                 {selectedBooking.additionalServices && selectedBooking.additionalServices.length > 0 && (
                   <div className="space-y-2">
-                    <p className="text-[10px] font-black text-neutral-500 uppercase tracking-[0.2em]">Servicios Adicionales</p>
+                    <p className="text-[10px] font-black text-neutral-500 uppercase tracking-[0.2em]">Additional Services</p>
                     {selectedBooking.additionalServices.map((item) => (
                       <div key={item.id} className="p-3 rounded-2xl bg-neutral-50 border border-neutral-200 flex items-center justify-between group">
                         <div className="flex-1">
@@ -999,7 +999,7 @@ export default function EmployeeBookingsPage() {
                     {newServiceType === 'catalog' ? (
                       <div className="space-y-2">
                         <label className="text-[10px] font-black text-neutral-500 uppercase tracking-[0.2em]">
-                          Seleccionar Servicio
+                          Select Service
                         </label>
                         <select
                           value={selectedServiceId}
@@ -1018,7 +1018,7 @@ export default function EmployeeBookingsPage() {
                 <div className="space-y-3">
                         <div>
                           <label className="text-[10px] font-black text-neutral-500 uppercase tracking-[0.2em]">
-                            Nombre del Servicio
+                            Service Name
                           </label>
                           <input
                             type="text"
@@ -1093,7 +1093,7 @@ export default function EmployeeBookingsPage() {
                                     : "bg-white border-2 border-neutral-200 text-neutral-600 hover:border-neutral-400"
                                 )}
                               >
-                                💵 Efectivo
+                                💵 Cash
                               </button>
                               <button
                                 onClick={() => setFinalPaymentMethod('pos')}
@@ -1104,7 +1104,7 @@ export default function EmployeeBookingsPage() {
                                     : "bg-white border-2 border-neutral-200 text-neutral-600 hover:border-neutral-400"
                                 )}
                               >
-                                💳 Datáfono/POS
+                                💳 Card Terminal
                               </button>
                             </div>
                           </div>
@@ -1147,7 +1147,7 @@ export default function EmployeeBookingsPage() {
                   <div className="pt-3 border-t-2 border-neutral-200">
                     <div className="p-3 rounded-xl bg-green-50 border border-green-200">
                       <p className="text-xs font-bold text-green-800">
-                        ✓ Pago final recibido ({selectedBooking.finalPaymentMethod === 'cash' ? 'Efectivo' : 'Datáfono'}) - {formatCurrency(selectedBooking.finalPaymentAmount || 0)}
+                        ✓ Final payment received ({selectedBooking.finalPaymentMethod === 'cash' ? 'Cash' : 'Card Terminal'}) - {formatCurrency(selectedBooking.finalPaymentAmount || 0)}
                       </p>
                       {selectedBooking.finalPaymentReceivedAt && (
                         <p className="text-xs text-green-700 mt-1">

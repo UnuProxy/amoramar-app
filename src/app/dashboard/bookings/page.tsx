@@ -587,7 +587,7 @@ const BookingCard: React.FC<BookingCardProps> = ({
             <span className={cn('text-xs lg:text-sm font-medium', payment.color)}>{payment.label}</span>
           </div>
           <div className="text-[9px] lg:text-[10px] text-stone-400 uppercase tracking-wide truncate ml-2">
-            Por: {booking.createdByName || booking.createdByRole || 'Cliente'}
+            By: {booking.createdByName || booking.createdByRole || 'Client'}
           </div>
         </div>
       </div>

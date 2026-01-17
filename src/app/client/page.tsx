@@ -72,7 +72,7 @@ export default function ClientDashboard() {
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" />
           </svg>
-          Nueva Reserva
+          New Booking
         </Link>
       </div>
 
@@ -189,7 +189,7 @@ export default function ClientDashboard() {
             </div>
             <h3 className="text-2xl font-black text-neutral-900 uppercase tracking-widest mb-4">No hay citas pendientes</h3>
             <p className="text-neutral-400 font-bold uppercase tracking-widest text-xs mb-10 max-w-xs mx-auto leading-relaxed">
-              Reserva tu próxima experiencia de lujo en Amor & Amar
+              Book your next luxury experience at Amor & Amar
             </p>
             <Link
               href="/"

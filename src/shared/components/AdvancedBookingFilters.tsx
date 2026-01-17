@@ -165,7 +165,7 @@ export function AdvancedBookingFilters({
             </div>
             <div>
               <label className="block text-[10px] font-black text-neutral-500 uppercase tracking-[0.2em] mb-2">
-                Servicio
+                Service
               </label>
               <select
                 value={filters.serviceId}
@@ -186,7 +186,7 @@ export function AdvancedBookingFilters({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-[10px] font-black text-neutral-500 uppercase tracking-[0.2em] mb-2">
-                Estado de Reserva
+                Booking Status
               </label>
               <select
                 value={filters.status}
@@ -229,9 +229,9 @@ export function AdvancedBookingFilters({
                 onChange={(e) => updateFilter('createdBy', e.target.value as any)}
                 className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl text-sm font-medium focus:border-blue-500 focus:outline-none transition-all appearance-none cursor-pointer"
               >
-                <option value="all">Todos</option>
-                <option value="client">Cliente (Online)</option>
-                <option value="staff">Personal (Walk-in)</option>
+                <option value="all">All</option>
+                <option value="client">Client (Online)</option>
+                <option value="staff">Staff (Walk-in)</option>
               </select>
             </div>
             <div>
@@ -243,9 +243,9 @@ export function AdvancedBookingFilters({
                 onChange={(e) => updateFilter('paymentMethod', e.target.value as any)}
                 className="w-full px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl text-sm font-medium focus:border-blue-500 focus:outline-none transition-all appearance-none cursor-pointer"
               >
-                <option value="all">Todos</option>
-                <option value="cash">Efectivo</option>
-                <option value="pos">Datáfono</option>
+                <option value="all">All</option>
+                <option value="cash">Cash</option>
+                <option value="pos">Card Terminal</option>
                 <option value="online">Online</option>
                 <option value="stripe">Stripe</option>
               </select>

@@ -270,7 +270,7 @@ export default function ClientBookingsPage() {
 
     const clientName = clientData 
       ? `${clientData.firstName} ${clientData.lastName}` 
-      : user.email?.split('@')[0] || 'Cliente';
+      : user.email?.split('@')[0] || 'Client';
     const clientEmail = user.email || '';
     const clientPhone = clientData?.phone || '';
 
@@ -371,7 +371,7 @@ export default function ClientBookingsPage() {
           setBookings(clientBookings);
         }
         closeNewBooking();
-        alert('¡Reserva creada exitosamente!');
+        alert('Booking created successfully!');
       } else {
         throw new Error(result.error || 'No se pudo crear la reserva');
       }
@@ -420,7 +420,7 @@ export default function ClientBookingsPage() {
   };
 
   const getServiceName = (serviceId: string) => {
-    return services.find(s => s.id === serviceId)?.serviceName || 'Servicio';
+    return services.find(s => s.id === serviceId)?.serviceName || 'Service';
   };
 
   const getEmployee = (employeeId: string) => {
@@ -440,7 +440,7 @@ export default function ClientBookingsPage() {
       <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-8">
         <div>
           <h1 className="text-6xl font-black text-neutral-900 tracking-tighter uppercase leading-none">
-            Mis Citas
+            My Appointments
           </h1>
           <p className="text-neutral-400 text-sm font-black uppercase tracking-[0.3em] mt-4">
             Gestión de tus reservas activas
@@ -453,7 +453,7 @@ export default function ClientBookingsPage() {
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" />
           </svg>
-          Nueva Reserva
+          New Booking
         </button>
       </div>
 
@@ -546,7 +546,7 @@ export default function ClientBookingsPage() {
           </div>
           <h3 className="text-3xl font-black text-neutral-900 uppercase tracking-tighter mb-4">No hay citas activas</h3>
           <p className="text-neutral-400 font-bold uppercase tracking-widest text-xs mb-12 max-w-xs mx-auto leading-relaxed">
-            Reserva tu próxima experiencia de lujo en Amor & Amar
+            Book your next luxury experience at Amor & Amar
           </p>
           <button
             onClick={openNewBooking}
@@ -599,7 +599,7 @@ export default function ClientBookingsPage() {
                 }}
                 className="w-full py-5 bg-neutral-50 text-neutral-400 text-xs font-black uppercase tracking-[0.2em] rounded-2xl hover:bg-neutral-900 hover:text-white transition-all"
               >
-                Mantener Cita
+                Keep Appointment
               </button>
             </div>
           </div>
@@ -615,9 +615,9 @@ export default function ClientBookingsPage() {
               <div>
                 <div className="flex items-center gap-3 mb-2">
                   <div className="w-2 h-2 rounded-full bg-rose-600 animate-pulse" />
-                  <p className="text-[10px] font-black uppercase tracking-[0.3em] text-rose-400">PASO {bookingStep} DE 3</p>
+                  <p className="text-[10px] font-black uppercase tracking-[0.3em] text-rose-400">STEP {bookingStep} OF 3</p>
                 </div>
-                <h2 className="text-4xl font-black tracking-tighter uppercase leading-none">Nueva Reserva</h2>
+                <h2 className="text-4xl font-black tracking-tighter uppercase leading-none">New Booking</h2>
               </div>
               <button
                 onClick={closeNewBooking}

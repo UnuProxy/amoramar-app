@@ -366,7 +366,7 @@ export default function EmployeeCalendarPage() {
 
   const openNewBooking = (defaults: Partial<BookingFormData>) => {
     if (defaults.bookingDate && defaults.bookingTime && isSlotInPast(defaults.bookingDate, defaults.bookingTime)) {
-      alert('No puedes reservar en un horario pasado.');
+      alert('Cannot book in a past time slot.');
       return;
     }
     setBookingForm({
@@ -389,7 +389,7 @@ export default function EmployeeCalendarPage() {
       return;
     }
     if (isSlotInPast(bookingForm.bookingDate, bookingForm.bookingTime)) {
-      alert('No puedes crear una reserva en el pasado.');
+      alert('Cannot create a booking in the past.');
       return;
     }
 
@@ -415,7 +415,7 @@ export default function EmployeeCalendarPage() {
           finalPaymentMethod: noPaymentCollected ? undefined : paymentMethod,
           paymentNotes: notes || undefined,
           createdByRole: user?.role ?? 'employee',
-          createdByName: employee ? `${employee.firstName} ${employee.lastName}` : 'Empleado',
+          createdByName: employee ? `${employee.firstName} ${employee.lastName}` : 'Employee',
           createdByUserId: user?.id,
         }),
       });
@@ -450,11 +450,11 @@ export default function EmployeeCalendarPage() {
         setShowPaymentMethodModal(false);
         setNewBookingNeedsPayment(false);
       } else {
-        alert(json.error || 'Error al crear la reserva');
+        alert(json.error || 'Error creating booking');
       }
     } catch (error) {
       console.error('Error creating booking:', error);
-      alert('Error al crear la reserva');
+      alert('Error creating booking');
     } finally {
       setBookingSaving(false);
       setProcessingPayment(false);
@@ -621,7 +621,7 @@ export default function EmployeeCalendarPage() {
 
   const openBlockModal = (date: string, startTime: string, blocked?: BlockedSlot) => {
     if (!blocked && isSlotInPast(date, startTime)) {
-      alert('No puedes bloquear un horario pasado.');
+      alert('Cannot block a past time slot.');
       return;
     }
     if (blocked) {
@@ -648,7 +648,7 @@ export default function EmployeeCalendarPage() {
     if (!employee || !selectedServiceId || !blockModal) return;
 
     if (isSlotInPast(blockModal.date, blockModal.startTime)) {
-      alert('No puedes guardar un bloqueo en una fecha u horario pasado.');
+      alert('Cannot save a block in a past date or time.');
       return;
     }
     
@@ -700,7 +700,7 @@ export default function EmployeeCalendarPage() {
     // Guardrails:
     // - Do not allow completing a booking that hasn't happened yet
     if (newStatus === 'completed' && isBookingInFuture(booking.bookingDate, booking.bookingTime)) {
-      alert('No puedes marcar como completada una reserva futura. Puedes cancelarla o reprogramarla.');
+      alert('Cannot mark a future booking as completed. You can cancel or reschedule it.');
       return;
     }
 
@@ -713,12 +713,12 @@ export default function EmployeeCalendarPage() {
         });
         const result = await response.json();
         if (!result.success) {
-          throw new Error(result.error || 'No se pudo cancelar la reserva');
+          throw new Error(result.error || 'Could not cancel booking');
         }
         setBookings((prev) => prev.map((b) => (b.id === booking.id ? { ...b, status: 'cancelled' } : b)));
       } catch (error) {
         console.error('Error cancelling booking:', error);
-        alert('No se pudo cancelar la reserva');
+        alert('Could not cancel booking');
       }
       return;
     }
@@ -733,7 +733,7 @@ export default function EmployeeCalendarPage() {
       );
     } catch (error) {
       console.error('Error updating booking:', error);
-      alert('No se pudo actualizar la reserva');
+      alert('Could not update booking');
     }
   };
 
@@ -975,10 +975,10 @@ export default function EmployeeCalendarPage() {
 
   const updateBookingWithGuard = async (booking: Booking, updates: Partial<Booking>) => {
     if (!user || !employee) {
-      throw new Error('Debes iniciar sesión para actualizar la reserva.');
+      throw new Error('You must log in to update the booking.');
     }
     if (booking.employeeId !== employee.id) {
-      throw new Error('Solo el terapeuta asignado puede actualizar esta reserva.');
+      throw new Error('Only the assigned therapist can update this booking.');
     }
     await updateBooking(booking.id, updates);
   };
@@ -1010,7 +1010,7 @@ export default function EmployeeCalendarPage() {
       });
       const result = await response.json();
       if (!result.success) {
-        throw new Error(result.error || 'No se pudo cancelar la reserva');
+        throw new Error(result.error || 'Could not cancel booking');
       }
       setBookings((prev) => prev.map((b) => (b.id === booking.id ? { ...b, status: 'cancelled' } : b)));
       
@@ -1033,7 +1033,7 @@ export default function EmployeeCalendarPage() {
       setBookingModal(null);
     } catch (e) {
       console.error(e);
-      alert('No se pudo cancelar la reserva');
+      alert('Could not cancel booking');
       setBookingModal((prev) => (prev ? { ...prev, saving: false } : prev));
     }
   };
@@ -1050,7 +1050,7 @@ export default function EmployeeCalendarPage() {
 
     // Prevent setting to past
     if (isBookingInFuture(newDate, newTime) === false && (newDate < new Date().toISOString().split('T')[0] || isSlotInPast(newDate, newTime))) {
-      alert('No puedes reprogramar a un horario pasado.');
+      alert('Cannot reschedule to a past time slot.');
       return;
     }
 
@@ -1091,7 +1091,7 @@ export default function EmployeeCalendarPage() {
       setBookingModal(null);
     } catch (e) {
       console.error(e);
-      alert('No se pudo reprogramar la reserva');
+      alert('Could not reschedule booking');
       setBookingModal((prev) => (prev ? { ...prev, saving: false } : prev));
     }
   };
@@ -1165,7 +1165,7 @@ export default function EmployeeCalendarPage() {
   }
 
   if (!employee) {
-    return <div>Perfil de empleado no encontrado</div>;
+    return <div>Employee profile not found</div>;
   }
 
   const weekStart = new Date(`${calendarStartDate}T12:00:00`);
@@ -1208,7 +1208,7 @@ export default function EmployeeCalendarPage() {
             onChange={(e) => setSelectedServiceId(e.target.value || undefined)}
             className="px-6 py-4 bg-white border border-neutral-200 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] focus:border-accent-600 outline-none cursor-pointer shadow-sm transition-all"
           >
-            {services.length === 0 && <option value="">SIN SERVICIOS</option>}
+            {services.length === 0 && <option value="">NO SERVICES</option>}
             {services.map((service) => (
               <option key={service.id} value={service.id}>
                 {service.serviceName.toUpperCase()} • {service.duration}MIN
@@ -1221,7 +1221,7 @@ export default function EmployeeCalendarPage() {
       {/* Stats Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="bg-white border border-neutral-100 border-t-4 border-info-500 rounded-[32px] p-8 shadow-[0_1px_3px_rgba(0,0,0,0.1)] group hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)] transition-all">
-          <p className="text-[9px] font-black text-neutral-500 uppercase tracking-[0.2em] mb-2">Reservas</p>
+          <p className="text-[9px] font-black text-neutral-500 uppercase tracking-[0.2em] mb-2">Bookings</p>
           <p className="text-4xl font-black text-neutral-900 tabular-nums">{weekStats.confirmedBookings}</p>
         </div>
         <div className="bg-white border border-neutral-100 border-t-4 border-success-500 rounded-[32px] p-8 shadow-[0_1px_3px_rgba(0,0,0,0.1)] group hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)] transition-all">
@@ -1275,7 +1275,7 @@ export default function EmployeeCalendarPage() {
         <div className="px-10 py-4 border-b border-neutral-100 bg-neutral-50/50 flex flex-wrap gap-8">
           {[
             { color: 'bg-success-500', label: 'Disponible' },
-            { color: 'bg-info-500', label: 'Reservado' },
+            { color: 'bg-info-500', label: 'Booked' },
             { color: 'bg-primary-900', label: 'Bloqueado' },
             { color: 'bg-[#9CA3AF]', label: 'Pasado' },
           ].map(status => (
@@ -1287,7 +1287,7 @@ export default function EmployeeCalendarPage() {
 
         {!selectedServiceId ? (
           <div className="p-20 text-center">
-            <p className="text-sm font-black text-neutral-300 uppercase tracking-[0.3em]">Selecciona un servicio para visualizar el calendario</p>
+            <p className="text-sm font-black text-neutral-300 uppercase tracking-[0.3em]">Select a service to view the calendar</p>
           </div>
         ) : (
           <div className="overflow-x-auto no-scrollbar">
@@ -1451,7 +1451,7 @@ export default function EmployeeCalendarPage() {
                                   }
                                   className="w-full py-2 bg-accent-50 text-[9px] font-black text-accent-700 uppercase tracking-[0.15em] rounded-lg hover:bg-accent-600 hover:text-white transition-all duration-150 hover:brightness-95"
                                 >
-                                  Reservar
+                                  Book
                                 </button>
                                 <button
                                   type="button"
@@ -1531,7 +1531,7 @@ export default function EmployeeCalendarPage() {
                   type="text"
                   value={blockModal.reason || ''}
                   onChange={(e) => setBlockModal({ ...blockModal, reason: e.target.value })}
-                  placeholder="EJ: CITA MÉDICA, DESCANSO..."
+                  placeholder="E.G.: MEDICAL APPOINTMENT, REST..."
                   className="w-full px-6 py-4 bg-neutral-50 border-2 border-neutral-100 rounded-2xl text-neutral-900 font-bold focus:border-accent-500 outline-none transition-all uppercase"
                 />
               </div>
@@ -1575,7 +1575,7 @@ export default function EmployeeCalendarPage() {
             <div className="px-10 py-8 border-b border-neutral-100">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-2xl font-black text-neutral-900 uppercase tracking-tighter">Reserva</h2>
+                  <h2 className="text-2xl font-black text-neutral-900 uppercase tracking-tighter">Booking</h2>
                   <p className="text-[10px] font-black text-accent-600 uppercase tracking-[0.3em] mt-1">
                     {new Date(bookingModal.booking.bookingDate + 'T12:00:00').toLocaleDateString('es-ES', {
                       weekday: 'long',
@@ -1629,7 +1629,7 @@ export default function EmployeeCalendarPage() {
                   </p>
                 </div>
                 <div className="p-6 bg-neutral-50 rounded-[32px]">
-                  <p className="text-[9px] font-black text-neutral-400 uppercase tracking-[0.15em] mb-2">Pago</p>
+                  <p className="text-[9px] font-black text-neutral-400 uppercase tracking-[0.15em] mb-2">Payment</p>
                   <span
                     className={cn(
                       "inline-flex px-3 py-2 rounded-full text-[10px] font-black uppercase tracking-[0.2em]",
@@ -1673,7 +1673,7 @@ export default function EmployeeCalendarPage() {
                         disabled={actionsDisabled}
                         className="flex-1 py-5 bg-neutral-900 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl hover:bg-accent-600 transition disabled:opacity-50"
                       >
-                        Cambiar reserva
+                        Change booking
                       </button>
                       <button
                         onClick={cancelBookingFromModal}
@@ -1684,7 +1684,7 @@ export default function EmployeeCalendarPage() {
                       </button>
                       {isCompleted && (
                         <p className="w-full text-center text-[9px] font-black text-neutral-400 uppercase tracking-widest">
-                          Esta reserva está completada y no se puede modificar.
+                          This booking is completed and cannot be modified.
                         </p>
                       )}
                       {!ownsBooking && !isCompleted && (

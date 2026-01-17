@@ -155,7 +155,7 @@ export function PaymentMethodModal({
                 )}>
                   €
                 </div>
-                <p className="text-[8px] md:text-[9px] font-black uppercase tracking-widest">Efectivo</p>
+                <p className="text-[8px] md:text-[9px] font-black uppercase tracking-widest">Cash</p>
               </button>
               
               <button
@@ -178,7 +178,7 @@ export function PaymentMethodModal({
                     <path d="M2 10h20" strokeWidth={1.5} />
                   </svg>
                 </div>
-                <p className="text-[8px] md:text-[9px] font-black uppercase tracking-widest">Datáfono</p>
+                <p className="text-[8px] md:text-[9px] font-black uppercase tracking-widest">Card Terminal</p>
               </button>
             </div>
           </div>

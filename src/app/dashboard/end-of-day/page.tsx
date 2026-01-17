@@ -376,10 +376,10 @@ export default function EndOfDayPage() {
             <thead>
               <tr className="bg-neutral-50/50">
                 <th className="px-6 sm:px-10 py-6 text-left text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em]">
-                  Hora / Cliente
+                  Time / Client
                 </th>
                 <th className="px-6 sm:px-10 py-6 text-left text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em]">
-                  Servicio
+                  Service
                 </th>
                 <th className="px-6 sm:px-10 py-6 text-center text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em]">
                   Método
@@ -388,7 +388,7 @@ export default function EndOfDayPage() {
                   Creado / Cerrado Por
                 </th>
                 <th className="px-6 sm:px-10 py-6 text-right text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em]">
-                  Importe
+                  Amount
                 </th>
               </tr>
             </thead>
@@ -428,7 +428,7 @@ export default function EndOfDayPage() {
                       </td>
                       <td className="px-6 sm:px-10 py-6">
                         <div className="text-sm font-bold text-neutral-700 uppercase tracking-wide">
-                          {service?.serviceName || 'Servicio'}
+                          {service?.serviceName || 'Service'}
                         </div>
                         {employee?.employmentType === 'self-employed' && (
                           <span className="inline-block mt-1 px-2 py-0.5 text-[8px] font-black uppercase tracking-wider bg-amber-100 text-amber-700 rounded-md">
@@ -439,11 +439,11 @@ export default function EndOfDayPage() {
                       <td className="px-6 sm:px-10 py-6 text-center">
                         {method === 'cash' ? (
                           <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-emerald-100 text-emerald-700 text-xs font-black uppercase tracking-wider">
-                            € Efectivo
+                            € Cash
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-blue-100 text-blue-700 text-xs font-black uppercase tracking-wider">
-                            💳 TPV
+                            💳 Card Terminal
                           </span>
                         )}
                       </td>

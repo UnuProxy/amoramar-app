@@ -70,7 +70,7 @@ export default function ClientHistoryPage() {
   };
 
   const getServiceName = (serviceId: string) => {
-    return services.find(s => s.id === serviceId)?.serviceName || 'Servicio';
+    return services.find(s => s.id === serviceId)?.serviceName || 'Service';
   };
 
   const getEmployee = (employeeId: string) => {

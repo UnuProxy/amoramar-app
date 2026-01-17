@@ -45,7 +45,7 @@ export function trackBookingCreation(
   return createModification(
     context,
     'created',
-    `Reserva creada por ${context.userName} (${context.userRole === 'owner' ? 'Admin' : 'Empleado'})`
+    `Booking created by ${context.userName} (${context.userRole === 'owner' ? 'Admin' : 'Employee'})`
   );
 }
 
@@ -86,7 +86,7 @@ export function trackPaymentReceived(
   return createModification(
     context,
     'payment_received',
-    `Pago de €${amount.toFixed(2)} recibido (${method === 'cash' ? 'Efectivo' : 'Datáfono'}) por ${context.userName}`
+    `Payment of €${amount.toFixed(2)} received (${method === 'cash' ? 'Cash' : 'Card Terminal'}) by ${context.userName}`
   );
 }
 
@@ -157,7 +157,7 @@ export function trackAdditionalService(
   return createModification(
     context,
     'updated',
-    `Servicio adicional agregado: ${serviceName} (€${price.toFixed(2)}) por ${context.userName}`
+    `Additional service added: ${serviceName} (€${price.toFixed(2)}) by ${context.userName}`
   );
 }
 
@@ -169,8 +169,8 @@ export function trackCancellation(
   reason?: string
 ): BookingModification {
   const desc = reason
-    ? `Reserva cancelada por ${context.userName}: ${reason}`
-    : `Reserva cancelada por ${context.userName}`;
+    ? `Booking cancelled by ${context.userName}: ${reason}`
+    : `Booking cancelled by ${context.userName}`;
   
   return createModification(context, 'cancelled', desc);
 }
@@ -182,7 +182,7 @@ export function trackCompletion(context: AuditContext): BookingModification {
   return createModification(
     context,
     'completed',
-    `Reserva completada y cerrada por ${context.userName}`
+    `Booking completed and closed by ${context.userName}`
   );
 }
 
