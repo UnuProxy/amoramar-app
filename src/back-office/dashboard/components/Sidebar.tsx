@@ -252,7 +252,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <LogoutButton />
         </div>
       </div>
-      </div>
     </>
   );
 };
