@@ -203,34 +203,58 @@ export const updateEmployee = async (employeeId: string, updates: Partial<Employ
 
 export const deleteEmployee = async (employeeId: string): Promise<void> => {
   try {
+    console.log('[deleteEmployee] Starting deletion for employee ID:', employeeId);
+    
     // Get employee data first to get the userId
+    console.log('[deleteEmployee] Fetching employee data...');
     const employee = await getEmployee(employeeId);
     
     if (!employee) {
+      console.error('[deleteEmployee] Employee not found');
       throw new Error('Employee not found');
     }
 
+    console.log('[deleteEmployee] Employee found:', {
+      id: employee.id,
+      name: `${employee.firstName} ${employee.lastName}`,
+      userId: employee.userId,
+    });
+
     // Delete the employee document from Firestore
+    console.log('[deleteEmployee] Deleting employee document...');
     const docRef = doc(checkDb(), 'employees', employeeId);
     await deleteDoc(docRef);
+    console.log('[deleteEmployee] Employee document deleted successfully');
 
     // Delete the associated user document if it exists
     if (employee.userId) {
       try {
+        console.log('[deleteEmployee] Deleting user document for userId:', employee.userId);
         const userDocRef = doc(checkDb(), 'users', employee.userId);
         await deleteDoc(userDocRef);
-      } catch (userError) {
-        console.error('Error deleting user document:', userError);
+        console.log('[deleteEmployee] User document deleted successfully');
+      } catch (userError: any) {
+        console.error('[deleteEmployee] Error deleting user document:', {
+          message: userError.message,
+          code: userError.code,
+        });
         // Continue even if user deletion fails
       }
     }
 
+    console.log('[deleteEmployee] Deletion completed successfully');
+    
     // Note: Firebase Auth user deletion requires Admin SDK on the backend
     // The Auth user will need to be deleted separately via Firebase Admin
     
   } catch (error: any) {
-    console.error('Error in deleteEmployee:', error);
-    throw new Error(error.message || 'Failed to delete employee');
+    console.error('[deleteEmployee] Error occurred:', {
+      message: error.message,
+      code: error.code,
+      fullError: error,
+    });
+    // Re-throw the error with its original message
+    throw error;
   }
 };
 

@@ -217,32 +217,50 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
     setError(null);
 
     try {
+      console.log('Starting employee deletion for ID:', employee.id);
+      
       // Delete profile image first if exists
       if (employee.profileImage) {
         try {
+          console.log('Deleting profile image:', employee.profileImage);
           await deleteEmployeeProfileImage(employee.profileImage);
+          console.log('Profile image deleted successfully');
         } catch (imgError) {
-          console.error('Error deleting profile image:', imgError);
+          console.error('Error deleting profile image (continuing):', imgError);
           // Continue with employee deletion even if image fails
         }
       }
 
+      console.log('Sending DELETE request to API...');
       const response = await fetch(`/api/employees/${employee.id}`, {
         method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
       });
 
+      console.log('DELETE response status:', response.status);
+      
       const result = await response.json();
+      console.log('DELETE response body:', result);
 
       if (!result.success) {
         throw new Error(result.error || 'Failed to delete employee');
       }
 
       // Success - redirect to employees list
+      console.log('Employee deleted successfully, redirecting...');
       router.push('/dashboard/employees');
       router.refresh();
     } catch (err: any) {
       console.error('Delete employee error:', err);
-      setError(err.message || 'Error deleting employee. Please try again.');
+      
+      // Check if it's a permission error
+      if (err.message?.includes('PERMISSION_DENIED') || err.message?.includes('permission')) {
+        setError('Permission denied. Please make sure you are logged in as the salon owner to delete employees.');
+      } else {
+        setError(err.message || 'Error deleting employee. Please try again.');
+      }
     } finally {
       setIsDeleting(false);
     }

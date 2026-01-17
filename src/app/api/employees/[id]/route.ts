@@ -67,7 +67,10 @@ export async function DELETE(
   try {
     const { id } = await context.params;
     
+    console.log('[API DELETE Employee] Request received for employee ID:', id);
+    
     if (!id || id.trim() === '') {
+      console.error('[API DELETE Employee] Missing employee ID');
       return NextResponse.json<ApiResponse<null>>(
         {
           success: false,
@@ -77,14 +80,32 @@ export async function DELETE(
       );
     }
 
+    console.log('[API DELETE Employee] Calling deleteEmployee...');
     await deleteEmployee(id);
+    console.log('[API DELETE Employee] Employee deleted successfully');
 
     return NextResponse.json<ApiResponse<null>>({
       success: true,
       data: null,
     });
   } catch (error: any) {
-    console.error('DELETE /api/employees/[id] error:', error);
+    console.error('[API DELETE Employee] Error occurred:', {
+      message: error.message,
+      code: error.code,
+      stack: error.stack,
+      fullError: error,
+    });
+    
+    // Check for permission errors
+    if (error.message?.includes('PERMISSION_DENIED') || error.message?.includes('permission')) {
+      return NextResponse.json<ApiResponse<null>>(
+        {
+          success: false,
+          error: 'Permission denied. You must be logged in as the salon owner to delete employees.',
+        },
+        { status: 403 }
+      );
+    }
     
     // Return appropriate status codes
     const status = error.message?.includes('not found') ? 404 : 500;
