@@ -834,22 +834,22 @@ export default function DashboardPage() {
 
   return (
     <div className="max-w-[1600px] mx-auto space-y-10 pb-12">
-      {/* Header - Bolder & Premium */}
+      {/* Header - Elegant & Luxurious */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-8">
         <div>
-          <h1 className="text-5xl font-black text-neutral-800 tracking-tighter uppercase">
-            Panel de Control
+          <h1 className="text-5xl font-black text-primary-900 tracking-tighter uppercase bg-gradient-to-r from-rosegold-600 to-luxury-600 bg-clip-text text-transparent">
+            Control Panel
           </h1>
-          <div className="flex items-center gap-3 mt-2">
-            <div className="w-2 h-2 rounded-full bg-accent-600 animate-pulse" />
-            <p className="text-neutral-500 text-[10px] font-black uppercase tracking-[0.3em]">
-              Actividad en Tiempo Real
+          <div className="flex items-center gap-3 mt-3">
+            <div className="w-2 h-2 rounded-full bg-rosegold-500 animate-pulse shadow-lg shadow-rosegold-500/50" />
+            <p className="text-luxury-600 text-[10px] font-black uppercase tracking-[0.3em]">
+              Real-Time Activity
             </p>
           </div>
         </div>
         <button
           onClick={() => openBookingModal()}
-          className="px-8 py-5 rounded-[20px] bg-neutral-800 text-white text-xs font-black shadow-2xl hover:bg-accent-600 hover:-translate-y-1 transition-all flex items-center justify-center gap-3 uppercase tracking-[0.2em]"
+          className="px-8 py-5 rounded-[20px] bg-gradient-to-r from-rosegold-500 to-rosegold-400 text-white text-xs font-black shadow-xl shadow-rosegold-500/30 hover:shadow-2xl hover:shadow-rosegold-500/40 hover:-translate-y-1 transition-all flex items-center justify-center gap-3 uppercase tracking-[0.2em]"
         >
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" />
@@ -929,104 +929,104 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Simple Filter Bar - Refined */}
-          <div className="bg-neutral-800 rounded-[40px] p-8 shadow-2xl border border-white/5">
+          {/* Elegant Filter Bar */}
+          <div className="bg-gradient-to-br from-warmwhite to-softcream rounded-[40px] p-8 shadow-lg border border-rosegold-100">
             <div className="flex flex-col lg:flex-row gap-8">
               <div className="flex-1">
-                <label className="block text-[10px] font-black text-neutral-500 uppercase tracking-[0.3em] mb-3">Quick Search</label>
+                <label className="block text-[10px] font-black text-luxury-600 uppercase tracking-[0.3em] mb-3">Quick Search</label>
                 <div className="relative">
-                  <svg className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-rosegold-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
                   <input
                     type="text"
-                    placeholder="BUSCAR CLIENTE O EMAIL..."
+                    placeholder="SEARCH CLIENT OR EMAIL..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-16 pr-6 py-5 bg-white/5 border border-white/10 rounded-2xl text-white text-sm font-bold placeholder:text-neutral-700 focus:border-accent-600 transition-all outline-none uppercase tracking-widest"
+                    className="w-full pl-16 pr-6 py-5 bg-white border-2 border-rosegold-100 rounded-2xl text-primary-900 text-sm font-bold placeholder:text-primary-300 focus:border-rosegold-400 transition-all outline-none uppercase tracking-widest"
                   />
                 </div>
               </div>
               <div className="grid grid-cols-3 gap-6 lg:w-[600px]">
                 <div>
-                  <label className="block text-[10px] font-black text-neutral-500 uppercase tracking-[0.3em] mb-3">Empleado</label>
+                  <label className="block text-[10px] font-black text-luxury-600 uppercase tracking-[0.3em] mb-3">Employee</label>
                   <select
                     value={selectedEmployeeId}
                     onChange={(e) => setSelectedEmployeeId(e.target.value)}
-                    className="w-full px-6 py-5 bg-white/5 border border-white/10 rounded-2xl text-white text-xs font-black focus:border-accent-600 transition-all outline-none appearance-none uppercase tracking-[0.2em] cursor-pointer"
+                    className="w-full px-6 py-5 bg-white border-2 border-rosegold-100 rounded-2xl text-primary-900 text-xs font-black focus:border-rosegold-400 transition-all outline-none appearance-none uppercase tracking-[0.2em] cursor-pointer"
                   >
-                    <option value="all" className="bg-neutral-800">TODOS</option>
+                    <option value="all">ALL</option>
                     {employees.map(emp => (
-                      <option key={emp.id} value={emp.id} className="bg-neutral-800">{emp.firstName.toUpperCase()}</option>
+                      <option key={emp.id} value={emp.id}>{emp.firstName.toUpperCase()}</option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[10px] font-black text-neutral-500 uppercase tracking-[0.3em] mb-3">Tiempo</label>
+                  <label className="block text-[10px] font-black text-luxury-600 uppercase tracking-[0.3em] mb-3">Time</label>
                   <select
                     value={dateRange}
                     onChange={(e) => setDateRange(e.target.value as any)}
-                    className="w-full px-6 py-5 bg-white/5 border border-white/10 rounded-2xl text-white text-xs font-black focus:border-accent-600 transition-all outline-none appearance-none uppercase tracking-[0.2em] cursor-pointer"
+                    className="w-full px-6 py-5 bg-white border-2 border-rosegold-100 rounded-2xl text-primary-900 text-xs font-black focus:border-rosegold-400 transition-all outline-none appearance-none uppercase tracking-[0.2em] cursor-pointer"
                   >
-                    <option value="today" className="bg-neutral-800">HOY</option>
-                    <option value="week" className="bg-neutral-800">7 DÍAS</option>
-                    <option value="month" className="bg-neutral-800">MES</option>
+                    <option value="today">TODAY</option>
+                    <option value="week">7 DAYS</option>
+                    <option value="month">MONTH</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[10px] font-black text-neutral-500 uppercase tracking-[0.3em] mb-3">Estado</label>
+                  <label className="block text-[10px] font-black text-luxury-600 uppercase tracking-[0.3em] mb-3">Status</label>
                   <select
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value as any)}
-                    className="w-full px-6 py-5 bg-white/5 border border-white/10 rounded-2xl text-white text-xs font-black focus:border-accent-600 transition-all outline-none appearance-none uppercase tracking-[0.2em] cursor-pointer"
+                    className="w-full px-6 py-5 bg-white border-2 border-rosegold-100 rounded-2xl text-primary-900 text-xs font-black focus:border-rosegold-400 transition-all outline-none appearance-none uppercase tracking-[0.2em] cursor-pointer"
                   >
-                    <option value="all" className="bg-neutral-800">TODOS</option>
-                    <option value="confirmed" className="bg-neutral-800">CONFIRMADA</option>
-                    <option value="completed" className="bg-neutral-800">LISTA</option>
-                    <option value="pending" className="bg-neutral-800">PENDIENTE</option>
-                    <option value="no-show" className="bg-neutral-800">NO PRESENTADO</option>
-                    <option value="cancelled" className="bg-neutral-800">BAJA</option>
+                    <option value="all">ALL</option>
+                    <option value="confirmed">CONFIRMED</option>
+                    <option value="completed">COMPLETED</option>
+                    <option value="pending">PENDING</option>
+                    <option value="no-show">NO-SHOW</option>
+                    <option value="cancelled">CANCELLED</option>
                   </select>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Table - High End Style */}
-          <div className="bg-white border border-neutral-100 rounded-[40px] overflow-hidden shadow-sm">
-            <div className="px-10 py-8 border-b border-neutral-100 flex items-center justify-between bg-neutral-50/30">
-              <h2 className="text-lg font-black text-neutral-800 tracking-[0.2em] uppercase text-center w-full">Rendimiento del Equipo</h2>
+          {/* Elegant Performance Table */}
+          <div className="bg-white border-2 border-rosegold-100 rounded-[40px] overflow-hidden shadow-lg">
+            <div className="px-10 py-8 border-b-2 border-rosegold-100 flex items-center justify-between bg-gradient-to-r from-rosegold-50 to-luxury-50">
+              <h2 className="text-lg font-black bg-gradient-to-r from-rosegold-600 to-luxury-600 bg-clip-text text-transparent tracking-[0.2em] uppercase text-center w-full">Team Performance</h2>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="bg-neutral-50/50">
-                    <th className="px-10 py-6 text-left text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em]">Terapeuta</th>
-                    <th className="px-10 py-6 text-center text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em]">Citas</th>
-                    <th className="px-10 py-6 text-center text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em]">OK</th>
-                    <th className="px-10 py-6 text-center text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em]">Baja</th>
-                    <th className="px-10 py-6 text-center text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em]">Ratio</th>
-                    <th className="px-10 py-6 text-right text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em]">Action</th>
+                  <tr className="bg-gradient-to-r from-softcream to-warmwhite">
+                    <th className="px-10 py-6 text-left text-[10px] font-black text-luxury-600 uppercase tracking-[0.3em]">Therapist</th>
+                    <th className="px-10 py-6 text-center text-[10px] font-black text-luxury-600 uppercase tracking-[0.3em]">Bookings</th>
+                    <th className="px-10 py-6 text-center text-[10px] font-black text-luxury-600 uppercase tracking-[0.3em]">Completed</th>
+                    <th className="px-10 py-6 text-center text-[10px] font-black text-luxury-600 uppercase tracking-[0.3em]">Cancelled</th>
+                    <th className="px-10 py-6 text-center text-[10px] font-black text-luxury-600 uppercase tracking-[0.3em]">Ratio</th>
+                    <th className="px-10 py-6 text-right text-[10px] font-black text-luxury-600 uppercase tracking-[0.3em]">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-neutral-100">
                   {analytics.employeeStats.map((stat) => (
-                    <tr key={stat.employee.id} className="hover:bg-neutral-50/80 transition-all group">
+                    <tr key={stat.employee.id} className="hover:bg-gradient-to-r hover:from-rosegold-50/50 hover:to-luxury-50/50 transition-all group">
                       <td className="px-10 py-8">
                         <div className="flex items-center gap-5">
-                          <div className="w-14 h-14 rounded-2xl bg-neutral-800 flex items-center justify-center text-white font-black text-xl shadow-lg group-hover:scale-110 transition-transform">
+                          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-rosegold-400 to-luxury-500 flex items-center justify-center text-white font-black text-xl shadow-lg group-hover:scale-110 transition-transform ring-2 ring-rosegold-200">
                             {stat.employee.profileImage ? (
-                              <img src={stat.employee.profileImage} alt="" className="w-full h-full object-cover" />
+                              <img src={stat.employee.profileImage} alt="" className="w-full h-full object-cover rounded-2xl" />
                             ) : (
                               <span>{stat.employee.firstName[0]}</span>
                             )}
                           </div>
                           <div>
-                            <div className="text-xl font-black text-neutral-800 uppercase tracking-tight">
+                            <div className="text-xl font-black text-primary-900 uppercase tracking-tight">
                               {stat.employee.firstName} {stat.employee.lastName}
                             </div>
-                            <div className="text-[10px] font-bold text-neutral-400 uppercase tracking-[0.2em] mt-1">
-                              {stat.employee.position || 'Especialista'}
+                            <div className="text-[10px] font-bold text-luxury-500 uppercase tracking-[0.2em] mt-1">
+                              {stat.employee.position || 'Specialist'}
                             </div>
                           </div>
                         </div>

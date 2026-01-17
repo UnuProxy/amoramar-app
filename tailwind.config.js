@@ -104,8 +104,10 @@ module.exports = {
           900: '#172b42',
         },
         muted: '#7a8694',
-        background: '#fafaf9', // Warm cream
+        background: '#fdfcfb', // Softest warm cream
         card: '#ffffff',
+        softcream: '#faf8f5', // Ultra-soft cream for sections
+        warmwhite: '#fffefb', // Warm white for cards
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
