@@ -7,7 +7,6 @@ export const metadata: Metadata = {
   description: 'Manage your salon operations, bookings, and team',
   applicationName: 'Amor Amar',
   manifest: '/manifest.webmanifest',
-  themeColor: '#111827',
   appleWebApp: {
     capable: true,
     title: 'Amor Amar',
@@ -34,6 +33,7 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
+  themeColor: '#111827',
 };
 
 export default function RootLayout({
