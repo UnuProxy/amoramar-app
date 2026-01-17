@@ -64,11 +64,11 @@ export function ClosingSaleModal({
         {/* Header - Fixed */}
         <div className="px-6 py-5 md:px-10 md:py-6 bg-neutral-900 text-white flex items-center justify-between shrink-0">
           <div>
-            <h2 className="text-xl md:text-2xl font-black uppercase tracking-tight italic leading-none">Cerrar Venta</h2>
-            <p className="text-neutral-400 text-[8px] md:text-[10px] font-black uppercase tracking-[0.2em] mt-1">Finalización y cobro</p>
+            <h2 className="text-xl md:text-2xl font-black uppercase tracking-tight italic leading-none">Close Sale</h2>
+            <p className="text-neutral-400 text-[8px] md:text-[10px] font-black uppercase tracking-[0.2em] mt-1">Completion & Payment</p>
           </div>
           <div className="px-3 py-1.5 bg-rose-600 rounded-full text-[8px] md:text-[9px] font-black uppercase tracking-widest">
-            Cobro Final
+            Final Payment
           </div>
         </div>
 
@@ -119,7 +119,7 @@ export function ClosingSaleModal({
               {/* Final Amount Adjustment */}
               <div className="space-y-2">
                 <label className="block text-[9px] font-black text-neutral-800 uppercase tracking-[0.2em]">
-                  Monto percibido
+                  Amount Received
                 </label>
                 <div className="relative">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-lg font-bold text-neutral-400">€</span>
@@ -137,7 +137,7 @@ export function ClosingSaleModal({
                 {isAdjusted && (
                   <p className="text-[9px] font-black text-amber-600 uppercase tracking-widest italic flex items-center gap-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                    Monto ajustado manualmente
+                    Amount manually adjusted
                   </p>
                 )}
               </div>
@@ -145,12 +145,12 @@ export function ClosingSaleModal({
               {/* Adjustment Notes */}
               <div className="space-y-2">
                 <label className="block text-[9px] font-black text-neutral-500 uppercase tracking-[0.2em]">
-                  Nota administrativa
+                  Administrative Note
                 </label>
                 <textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Explica el cambio si aplica..."
+                  placeholder="Explain the change if applicable..."
                   className={cn(
                     "w-full px-4 py-3 bg-white border-2 rounded-xl text-base md:text-sm font-medium focus:border-neutral-900 focus:outline-none transition-all resize-none h-20",
                     isAdjusted && !notes.trim() ? "border-amber-300 ring-4 ring-amber-50" : "border-neutral-200"
@@ -160,7 +160,7 @@ export function ClosingSaleModal({
 
               {/* Payment Methods */}
               <div className="space-y-3">
-                <label className="block text-[9px] font-black text-neutral-500 uppercase tracking-[0.2em]">Método de Pago</label>
+                <label className="block text-[9px] font-black text-neutral-500 uppercase tracking-[0.2em]">Payment Method</label>
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     onClick={() => setSelectedMethod('cash')}
@@ -170,7 +170,7 @@ export function ClosingSaleModal({
                     )}
                   >
                     <span className="text-xl leading-none">€</span>
-                    <span className="text-[8px] font-black uppercase tracking-widest">Efectivo</span>
+                    <span className="text-[8px] font-black uppercase tracking-widest">Cash</span>
                   </button>
                   <button
                     onClick={() => setSelectedMethod('pos')}
@@ -183,7 +183,7 @@ export function ClosingSaleModal({
                       <rect width="20" height="14" x="2" y="5" rx="2" strokeWidth={1.5} />
                       <path d="M2 10h20" strokeWidth={1.5} />
                     </svg>
-                    <span className="text-[8px] font-black uppercase tracking-widest">Datáfono</span>
+                    <span className="text-[8px] font-black uppercase tracking-widest">Card</span>
                   </button>
                 </div>
               </div>
