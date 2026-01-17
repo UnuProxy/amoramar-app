@@ -202,8 +202,36 @@ export const updateEmployee = async (employeeId: string, updates: Partial<Employ
 };
 
 export const deleteEmployee = async (employeeId: string): Promise<void> => {
-  const docRef = doc(checkDb(), 'employees', employeeId);
-  await deleteDoc(docRef);
+  try {
+    // Get employee data first to get the userId
+    const employee = await getEmployee(employeeId);
+    
+    if (!employee) {
+      throw new Error('Employee not found');
+    }
+
+    // Delete the employee document from Firestore
+    const docRef = doc(checkDb(), 'employees', employeeId);
+    await deleteDoc(docRef);
+
+    // Delete the associated user document if it exists
+    if (employee.userId) {
+      try {
+        const userDocRef = doc(checkDb(), 'users', employee.userId);
+        await deleteDoc(userDocRef);
+      } catch (userError) {
+        console.error('Error deleting user document:', userError);
+        // Continue even if user deletion fails
+      }
+    }
+
+    // Note: Firebase Auth user deletion requires Admin SDK on the backend
+    // The Auth user will need to be deleted separately via Firebase Admin
+    
+  } catch (error: any) {
+    console.error('Error in deleteEmployee:', error);
+    throw new Error(error.message || 'Failed to delete employee');
+  }
 };
 
 export async function getEmployeeByUserId(userId: string): Promise<Employee | null> {

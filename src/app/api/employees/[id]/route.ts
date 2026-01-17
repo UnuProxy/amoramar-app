@@ -66,6 +66,17 @@ export async function DELETE(
 ) {
   try {
     const { id } = await context.params;
+    
+    if (!id || id.trim() === '') {
+      return NextResponse.json<ApiResponse<null>>(
+        {
+          success: false,
+          error: 'Employee ID is required',
+        },
+        { status: 400 }
+      );
+    }
+
     await deleteEmployee(id);
 
     return NextResponse.json<ApiResponse<null>>({
@@ -73,12 +84,17 @@ export async function DELETE(
       data: null,
     });
   } catch (error: any) {
+    console.error('DELETE /api/employees/[id] error:', error);
+    
+    // Return appropriate status codes
+    const status = error.message?.includes('not found') ? 404 : 500;
+    
     return NextResponse.json<ApiResponse<null>>(
       {
         success: false,
         error: error.message || 'Failed to delete employee',
       },
-      { status: 500 }
+      { status }
     );
   }
 }

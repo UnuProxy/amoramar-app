@@ -208,7 +208,7 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
     if (!employee) return;
 
     const confirmDelete = window.confirm(
-      `Are you sure you want to delete ${employee.firstName} ${employee.lastName}? This action cannot be undone.`
+      `Are you sure you want to delete ${employee.firstName} ${employee.lastName}? This action cannot be undone.\n\nThis will:\n- Remove their employee account\n- Remove their login access\n- Keep their booking history for records`
     );
 
     if (!confirmDelete) return;
@@ -217,6 +217,16 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
     setError(null);
 
     try {
+      // Delete profile image first if exists
+      if (employee.profileImage) {
+        try {
+          await deleteEmployeeProfileImage(employee.profileImage);
+        } catch (imgError) {
+          console.error('Error deleting profile image:', imgError);
+          // Continue with employee deletion even if image fails
+        }
+      }
+
       const response = await fetch(`/api/employees/${employee.id}`, {
         method: 'DELETE',
       });
@@ -227,15 +237,12 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
         throw new Error(result.error || 'Failed to delete employee');
       }
 
-      // Delete profile image if exists
-      if (employee.profileImage) {
-        await deleteEmployeeProfileImage(employee.profileImage).catch(console.error);
-      }
-
+      // Success - redirect to employees list
       router.push('/dashboard/employees');
       router.refresh();
     } catch (err: any) {
-      setError(err.message || 'Error deleting employee');
+      console.error('Delete employee error:', err);
+      setError(err.message || 'Error deleting employee. Please try again.');
     } finally {
       setIsDeleting(false);
     }
