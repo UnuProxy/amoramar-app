@@ -20,8 +20,6 @@ export async function GET(request: NextRequest) {
           const assignedEmployeeIds = employeeServices
             .filter(es => es.isOffered)
             .map(es => es.employeeId);
-          
-          if (assignedEmployeeIds.length === 0) return null;
 
           const assignedEmployees = allEmployees
             .filter(emp => assignedEmployeeIds.includes(emp.id))
@@ -37,12 +35,10 @@ export async function GET(request: NextRequest) {
           };
         })
       );
-      
-      const filtered = servicesWithEmployees.filter((s) => s !== null) as Service[];
-      
+
       return NextResponse.json<ApiResponse<Service[]>>({
         success: true,
-        data: filtered,
+        data: servicesWithEmployees as Service[],
       });
     }
 
@@ -92,7 +88,6 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-
 
 
 

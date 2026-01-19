@@ -5,55 +5,23 @@ import { useForm } from 'react-hook-form';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/shared/components/Button';
 import { Input } from '@/shared/components/Input';
-import { createService, updateService, getEmployees, getEmployeeServices, createEmployeeService, deleteEmployeeService } from '@/shared/lib/firestore';
-import type { Service, ServiceFormData, ServiceCategory, Employee } from '@/shared/lib/types';
+import { createService, updateService, getEmployees, getEmployeeServices, createEmployeeService, deleteEmployeeService, deleteService, getServices } from '@/shared/lib/firestore';
+import type { Service, ServiceFormData, Employee } from '@/shared/lib/types';
+import { SERVICE_CATEGORIES, formatServiceCategory, getOrderedServiceCategories } from '@/shared/lib/serviceCategories';
 
 interface ServiceFormProps {
   service?: Service;
 }
 
-const categories: ServiceCategory[] = [
-  'nails',
-  'hair',
-  'balayage',
-  'air-touch',
-  'babylight',
-  'filler-therapy',
-  'brows-lashes',
-  'makeup',
-  'haircut',
-  'styling',
-  'coloring',
-  'skincare',
-  'massage',
-  'facial',
-  'other',
-];
-
-const categoryLabels: Record<ServiceCategory, string> = {
-  'nails': 'Uñas',
-  'hair': 'Cabello',
-  'balayage': 'Balayage',
-  'air-touch': 'Air Touch',
-  'babylight': 'Babylight',
-  'filler-therapy': 'Terapia de Relleno',
-  'brows-lashes': 'Cejas y Pestañas',
-  'makeup': 'Maquillaje',
-  'haircut': 'Corte de Cabello',
-  'styling': 'Peinado',
-  'coloring': 'Coloración',
-  'skincare': 'Cuidado de la Piel',
-  'massage': 'Masaje',
-  'facial': 'Facial',
-  'other': 'Otro',
-};
 
 export const ServiceForm: React.FC<ServiceFormProps> = ({ service }) => {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
+  const [categoryOptions, setCategoryOptions] = useState<string[]>(SERVICE_CATEGORIES);
 
   useEffect(() => {
     const fetchEmployees = async () => {
@@ -72,6 +40,24 @@ export const ServiceForm: React.FC<ServiceFormProps> = ({ service }) => {
 
     fetchEmployees();
   }, [service]);
+
+  useEffect(() => {
+    const fetchCategoryOptions = async () => {
+      try {
+        const servicesData = await getServices();
+        const options = getOrderedServiceCategories(servicesData, { includeEmptyDefaults: true });
+        if (service?.category && !options.includes(service.category)) {
+          options.push(service.category);
+        }
+        setCategoryOptions(options);
+      } catch (error) {
+        console.error('Error fetching service categories:', error);
+        setCategoryOptions(SERVICE_CATEGORIES);
+      }
+    };
+
+    fetchCategoryOptions();
+  }, [service?.category]);
 
   const {
     register,
@@ -181,6 +167,32 @@ export const ServiceForm: React.FC<ServiceFormProps> = ({ service }) => {
     );
   };
 
+  const handleDelete = async () => {
+    if (!service) return;
+
+    const confirmDelete = window.confirm(
+      `Delete "${service.serviceName}"? This will remove the service and its employee assignments.`
+    );
+    if (!confirmDelete) return;
+
+    setIsDeleting(true);
+    setError(null);
+
+    try {
+      const assignments = await getEmployeeServices(undefined, service.id);
+      for (const assignment of assignments) {
+        await deleteEmployeeService(assignment.id);
+      }
+
+      await deleteService(service.id);
+      router.push('/dashboard/services');
+    } catch (err: any) {
+      setError(err?.message || 'Error al eliminar el servicio');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       {error && (
@@ -241,9 +253,9 @@ export const ServiceForm: React.FC<ServiceFormProps> = ({ service }) => {
             {...register('category', { required: 'La categoría es obligatoria' })}
             className="w-full px-4 py-3 border border-primary-300 rounded-sm focus:outline-none focus:ring-1 focus:ring-accent-500 bg-white text-primary-900 font-light"
           >
-          {categories.map((cat) => (
+          {categoryOptions.map((cat) => (
             <option key={cat} value={cat}>
-              {categoryLabels[cat]}
+              {formatServiceCategory(cat)}
             </option>
           ))}
         </select>
@@ -302,7 +314,7 @@ export const ServiceForm: React.FC<ServiceFormProps> = ({ service }) => {
         </div>
       </div>
 
-      <div className="flex gap-4">
+      <div className="flex flex-wrap gap-4">
         <Button type="submit" isLoading={isLoading}>
           {service ? 'Actualizar Servicio' : 'Crear Servicio'}
         </Button>
@@ -313,10 +325,17 @@ export const ServiceForm: React.FC<ServiceFormProps> = ({ service }) => {
         >
           Cancelar
         </Button>
+        {service && (
+          <Button
+            type="button"
+            variant="danger"
+            onClick={handleDelete}
+            isLoading={isDeleting}
+          >
+            Eliminar Servicio
+          </Button>
+        )}
       </div>
     </form>
   );
 };
-
-
-

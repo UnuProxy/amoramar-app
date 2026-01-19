@@ -7,6 +7,7 @@ import { Loading } from '@/shared/components/Loading';
 import { ClientAuthModal } from '@/shared/components/ClientAuthModal';
 import { formatCurrency } from '@/shared/lib/utils';
 import type { Service, Employee, BookingFormData } from '@/shared/lib/types';
+import { formatServiceCategory } from '@/shared/lib/serviceCategories';
 import { loadStripe, type Stripe, type StripeCardElement, type StripeElements } from '@stripe/stripe-js';
 
 type Step = 1 | 2 | 3 | 4;
@@ -47,28 +48,6 @@ const TESTIMONIALS = [
 
 const clampStep = (n: number): Step => Math.min(4, Math.max(1, n)) as Step;
 
-// Category display labels
-const categoryDisplayLabels: Record<string, string> = {
-  'nails': 'Uñas',
-  'hair': 'Cabello',
-  'balayage': 'Balayage',
-  'air-touch': 'Air Touch',
-  'babylight': 'Babylight',
-  'filler-therapy': 'Terapia de Relleno',
-  'brows-lashes': 'Cejas y Pestañas',
-  'makeup': 'Maquillaje',
-  'haircut': 'Corte',
-  'styling': 'Peinado',
-  'coloring': 'Coloración',
-  'skincare': 'Cuidado de la Piel',
-  'massage': 'Masaje',
-  'facial': 'Facial',
-  'other': 'Otro',
-};
-
-function formatCategory(category: string): string {
-  return categoryDisplayLabels[category] || category.charAt(0).toUpperCase() + category.slice(1);
-}
 
 function Row({ label, value }: { label: string; value?: string | null }) {
   return (
@@ -499,7 +478,7 @@ export default function HomePage() {
     price: formatCurrency(s.price),
     priceValue: s.price,
     duration: `${s.duration} min`,
-    category: formatCategory(s.category),
+    category: formatServiceCategory(s.category),
     requiresApproval: false,
   }));
   const selectedPriceValue = selectedService?.priceValue ?? null;

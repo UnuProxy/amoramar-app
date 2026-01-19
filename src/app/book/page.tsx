@@ -7,6 +7,7 @@ import { Loading } from '@/shared/components/Loading';
 import { ClientAuthModal } from '@/shared/components/ClientAuthModal';
 import { formatCurrency, cn } from '@/shared/lib/utils';
 import type { Service, Employee, BookingFormData, Client } from '@/shared/lib/types';
+import { formatServiceCategory, getOrderedServiceCategories } from '@/shared/lib/serviceCategories';
 import { loadStripe, type Stripe, type StripeCardElement, type StripeElements } from '@stripe/stripe-js';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -29,28 +30,6 @@ type TimeSlot = {
   available: boolean;
 };
 
-// Category display labels
-const categoryDisplayLabels: Record<string, string> = {
-  'nails': 'Uñas',
-  'hair': 'Cabello',
-  'balayage': 'Balayage',
-  'air-touch': 'Air Touch',
-  'babylight': 'Babylight',
-  'filler-therapy': 'Terapia de Relleno',
-  'brows-lashes': 'Cejas y Pestañas',
-  'makeup': 'Maquillaje',
-  'haircut': 'Corte',
-  'styling': 'Peinado',
-  'coloring': 'Coloración',
-  'skincare': 'Cuidado de la Piel',
-  'massage': 'Masaje',
-  'facial': 'Facial',
-  'other': 'Otro',
-};
-
-function formatCategory(category: string): string {
-  return categoryDisplayLabels[category] || category.charAt(0).toUpperCase() + category.slice(1);
-}
 
 const clampStep = (n: number): Step => Math.min(4, Math.max(1, n)) as Step;
 
@@ -67,6 +46,7 @@ export default function BookAllServicesPage() {
   
   const [services, setServices] = useState<Service[]>([]);
   const [selectedService, setSelectedService] = useState<Service | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [serviceEmployees, setServiceEmployees] = useState<Employee[]>([]);
   const [availableSlots, setAvailableSlots] = useState<TimeSlot[]>([]);
   const [clientData, setClientData] = useState<Client | null>(null);
@@ -78,6 +58,65 @@ export default function BookAllServicesPage() {
   const [depositAmount, setDepositAmount] = useState<number | null>(null);
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [paymentLoading, setPaymentLoading] = useState(false);
+
+  const servicesByCategory = useMemo(() => {
+    return services.reduce<Record<string, Service[]>>((acc, service) => {
+      const category = service.category || 'other';
+      if (!acc[category]) {
+        acc[category] = [];
+      }
+      acc[category].push(service);
+      return acc;
+    }, {} as Record<string, Service[]>);
+  }, [services]);
+
+  const availableCategories = useMemo(() => {
+    return getOrderedServiceCategories(services);
+  }, [services]);
+
+  const categoryHighlights = useMemo(() => {
+    return availableCategories.map((category) => {
+      const items = servicesByCategory[category] || [];
+      const availableItems = items.filter((service) => service.isActive);
+      const prices = availableItems
+        .map((service) => service.price)
+        .filter((price) => typeof price === 'number');
+      const durations = availableItems
+        .map((service) => service.duration)
+        .filter((duration) => typeof duration === 'number');
+      const hasPricing = prices.length > 0;
+      const hasDurations = durations.length > 0;
+      const minPrice = prices.length ? Math.min(...prices) : 0;
+      const maxPrice = prices.length ? Math.max(...prices) : 0;
+      const minDuration = durations.length ? Math.min(...durations) : 0;
+      const maxDuration = durations.length ? Math.max(...durations) : 0;
+
+      return {
+        category,
+        count: items.length,
+        availableCount: availableItems.length,
+        hasPricing,
+        hasDurations,
+        minPrice,
+        maxPrice,
+        minDuration,
+        maxDuration,
+      };
+    });
+  }, [availableCategories, servicesByCategory]);
+
+  const defaultCategory = useMemo(() => {
+    return (
+      availableCategories.find((category) =>
+        (servicesByCategory[category] || []).some((service) => service.isActive)
+      ) ||
+      availableCategories[0] ||
+      null
+    );
+  }, [availableCategories, servicesByCategory]);
+
+  const activeCategory = selectedCategory || defaultCategory;
+  const activeServices = activeCategory ? servicesByCategory[activeCategory] || [] : [];
   
   const [showLoginModal, setShowLoginModal] = useState<boolean>(false);
   const [authModalMode, setAuthModalMode] = useState<'login' | 'signup'>('login');
@@ -102,8 +141,7 @@ export default function BookAllServicesPage() {
         const data = await response.json();
         
         if (data.success) {
-          // Only show active services
-          setServices(data.data.filter((s: Service) => s.isActive));
+          setServices(data.data);
         }
       } catch (err) {
         console.error('Error fetching services:', err);
@@ -114,6 +152,21 @@ export default function BookAllServicesPage() {
 
     fetchServices();
   }, []);
+
+  useEffect(() => {
+    if (!selectedCategory && defaultCategory) {
+      setSelectedCategory(defaultCategory);
+      return;
+    }
+
+    if (
+      selectedCategory &&
+      !servicesByCategory[selectedCategory]?.length &&
+      defaultCategory
+    ) {
+      setSelectedCategory(defaultCategory);
+    }
+  }, [selectedCategory, defaultCategory, servicesByCategory]);
 
   // Fetch employees for selected service
   useEffect(() => {
@@ -557,202 +610,265 @@ export default function BookAllServicesPage() {
         </div>
       </header>
 
-      <main className="pt-20 sm:pt-24 pb-8 sm:pb-12 px-3 sm:px-8">
-        <div className="max-w-6xl mx-auto">
-          {/* Hero Section */}
-          <div className="text-center mb-6 sm:mb-12">
-            <p className="text-[9px] sm:text-[10px] font-black uppercase tracking-[0.3em] sm:tracking-[0.4em] text-rose-600 mb-2 sm:mb-4">
-              Amor & Amar
-            </p>
-            <h1 className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-black tracking-tight text-neutral-800 uppercase leading-tight mb-2 sm:mb-4">
-              Reserva Tu Experiencia
-            </h1>
-            <p className="text-neutral-500 font-medium text-sm sm:text-lg max-w-2xl mx-auto px-4">
-              Elige el tratamiento perfecto para ti y reserva en minutos
-            </p>
-          </div>
+      <main className={cn(
+        "pt-16 sm:pt-20 pb-8 sm:pb-12 px-3 sm:px-8 lg:pb-6 lg:flex lg:flex-col",
+        bookingStep === 1 && "lg:h-[calc(100vh-64px)] lg:overflow-hidden"
+      )}>
+        <div className="max-w-6xl mx-auto lg:flex lg:flex-col lg:h-full lg:min-h-0">
+          {/* Hero + Progress */}
+          <div className="mb-6 sm:mb-8 lg:mb-4 lg:flex lg:items-center lg:justify-between lg:gap-10">
+            <div className="text-center lg:text-left">
+              <p className="text-[10px] sm:text-[11px] font-medium uppercase tracking-[0.3em] text-emerald-500/80 mb-2">
+                Amor & Amar
+              </p>
+              <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-semibold tracking-tight text-stone-800 leading-tight mb-2">
+                Reserva tu experiencia
+              </h1>
+              <p className="text-stone-500 font-medium text-sm sm:text-base max-w-2xl mx-auto lg:mx-0">
+                Elige con calma, compara detalles y reserva en minutos.
+              </p>
+            </div>
 
-          {/* Progress Indicator */}
-          <div className="flex items-center justify-center gap-2 sm:gap-4 mb-4 sm:mb-8">
-            {[1, 2, 3, 4].map((step) => (
-              <div key={step} className="flex items-center gap-2 sm:gap-4">
-                <div className={cn(
-                  "w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-black text-xs sm:text-sm transition-all",
-                  bookingStep >= step 
-                    ? "bg-rose-600 text-white" 
-                    : "bg-neutral-100 text-neutral-400"
-                )}>
-                  {bookingStep > step ? (
-                    <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                    </svg>
-                  ) : step}
-                </div>
-                {step < 4 && (
-                  <div className={cn(
-                    "w-6 sm:w-12 md:w-16 h-0.5 sm:h-1 rounded-full transition-all",
-                    bookingStep > step ? "bg-rose-600" : "bg-neutral-100"
-                  )} />
-                )}
+            <div className="mt-6 lg:mt-0 flex flex-col items-center lg:items-end">
+              <div className="flex items-center justify-center gap-2 sm:gap-4 mb-3 lg:mb-2">
+                {[1, 2, 3, 4].map((step) => (
+                  <div key={step} className="flex items-center gap-2 sm:gap-4">
+                    <div className={cn(
+                      "w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-semibold text-xs sm:text-sm transition-all",
+                      bookingStep >= step 
+                        ? "bg-emerald-500 text-white" 
+                        : "bg-stone-100 text-stone-400"
+                    )}>
+                      {bookingStep > step ? (
+                        <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                      ) : step}
+                    </div>
+                    {step < 4 && (
+                      <div className={cn(
+                        "w-6 sm:w-12 md:w-16 h-0.5 sm:h-1 rounded-full transition-all",
+                        bookingStep > step ? "bg-emerald-400" : "bg-stone-100"
+                      )} />
+                    )}
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
 
-          {/* Step Labels - Hidden on very small screens, shown compactly on mobile */}
-          <div className="hidden xs:flex justify-center gap-4 sm:gap-8 md:gap-16 mb-6 sm:mb-12 text-center">
-            <span className={cn("text-[8px] sm:text-[10px] font-black uppercase tracking-wider sm:tracking-widest", bookingStep === 1 ? "text-rose-600" : "text-neutral-400")}>Servicio</span>
-            <span className={cn("text-[8px] sm:text-[10px] font-black uppercase tracking-wider sm:tracking-widest", bookingStep === 2 ? "text-rose-600" : "text-neutral-400")}>Datos</span>
-            <span className={cn("text-[8px] sm:text-[10px] font-black uppercase tracking-wider sm:tracking-widest", bookingStep === 3 ? "text-rose-600" : "text-neutral-400")}>Fecha</span>
-            <span className={cn("text-[8px] sm:text-[10px] font-black uppercase tracking-wider sm:tracking-widest", bookingStep === 4 ? "text-rose-600" : "text-neutral-400")}>Pago</span>
+              {/* Step Labels - Hidden on very small screens, shown compactly on mobile */}
+              <div className="hidden xs:flex justify-center gap-4 sm:gap-8 md:gap-16 text-center">
+                <span className={cn("text-[9px] sm:text-[10px] font-medium tracking-wide", bookingStep === 1 ? "text-emerald-600" : "text-stone-400")}>Servicio</span>
+                <span className={cn("text-[9px] sm:text-[10px] font-medium tracking-wide", bookingStep === 2 ? "text-emerald-600" : "text-stone-400")}>Datos</span>
+                <span className={cn("text-[9px] sm:text-[10px] font-medium tracking-wide", bookingStep === 3 ? "text-emerald-600" : "text-stone-400")}>Fecha</span>
+                <span className={cn("text-[9px] sm:text-[10px] font-medium tracking-wide", bookingStep === 4 ? "text-emerald-600" : "text-stone-400")}>Pago</span>
+              </div>
+            </div>
           </div>
 
           {/* Main Content Card */}
-          <div className="bg-white rounded-[24px] sm:rounded-[40px] shadow-xl sm:shadow-2xl overflow-hidden border border-neutral-100">
-            <div className="p-4 sm:p-8 md:p-12">
+          <div className="bg-white rounded-[24px] sm:rounded-[40px] shadow-xl sm:shadow-2xl overflow-hidden border border-neutral-100 lg:flex lg:flex-col lg:flex-1 lg:min-h-0">
+            <div className="p-4 sm:p-6 lg:p-6 lg:flex lg:flex-col lg:min-h-0">
               
               {/* Step 1: Select Service */}
               {bookingStep === 1 && (
-                <div className="space-y-8">
-                  <div className="text-center mb-8">
-                    <h2 className="text-2xl font-black text-neutral-800 uppercase tracking-tight">Nuestros Servicios</h2>
+                <div className="space-y-6 lg:space-y-4 lg:flex lg:flex-col lg:min-h-0">
+                  <div className="text-center mb-4">
+                    <p className="text-xs font-medium text-stone-500 tracking-wide mb-2">Explora con calma</p>
+                    <h2 className="text-xl sm:text-2xl font-semibold text-stone-800">Nuestros servicios</h2>
                   </div>
 
                   {services.length === 0 ? (
                     <div className="text-center py-12 sm:py-16">
-                      <div className="w-16 h-16 sm:w-20 sm:h-20 bg-neutral-50 rounded-[20px] sm:rounded-[24px] flex items-center justify-center mx-auto mb-4 sm:mb-6">
-                        <svg className="w-8 h-8 sm:w-10 sm:h-10 text-neutral-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <div className="w-16 h-16 sm:w-20 sm:h-20 bg-stone-50 rounded-[20px] sm:rounded-[24px] flex items-center justify-center mx-auto mb-4 sm:mb-6">
+                        <svg className="w-8 h-8 sm:w-10 sm:h-10 text-stone-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
                         </svg>
                       </div>
-                      <p className="text-neutral-500 font-medium text-sm sm:text-base">No hay servicios disponibles en este momento</p>
+                      <p className="text-stone-500 font-medium text-sm sm:text-base">No hay servicios disponibles en este momento</p>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
-                      {services.map((service) => (
-                        <button
-                          key={service.id}
-                          onClick={() => selectService(service)}
-                          className="group p-5 sm:p-8 rounded-[20px] sm:rounded-[32px] text-left transition-all border-2 border-neutral-100 bg-white hover:border-rose-300 hover:shadow-xl active:scale-[0.98] relative overflow-hidden"
-                        >
-                          <div className="absolute top-0 left-0 h-1 w-0 bg-rose-600 group-hover:w-full transition-all duration-300" />
-                          
-                          <div className="mb-3 sm:mb-4">
-                            <span className="px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg bg-neutral-50 text-neutral-500 text-[9px] sm:text-[10px] font-black uppercase tracking-wider sm:tracking-widest">
-                              {formatCategory(service.category)}
-                            </span>
-                          </div>
-                          
-                          <h3 className="text-lg sm:text-xl font-black text-neutral-800 uppercase tracking-tight mb-1.5 sm:mb-2 group-hover:text-rose-600 transition-colors">
-                            {service.serviceName}
-                          </h3>
-                          
-                          <p className="text-xs sm:text-sm text-neutral-500 font-medium leading-relaxed mb-4 sm:mb-6 line-clamp-2">
-                            {service.description}
-                          </p>
-
-                          {/* Therapists on Stage 1 */}
-                          {service.employees && service.employees.length > 0 && (
-                            <div className="flex flex-wrap gap-1.5 mb-6">
-                              {service.employees.map((emp) => (
-                                <div
-                                  key={emp.id}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    selectService(service, emp.id);
-                                  }}
-                                  role="button"
-                                  tabIndex={0}
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter' || e.key === ' ') {
-                                      e.stopPropagation();
-                                      e.preventDefault();
-                                      selectService(service, emp.id);
-                                    }
-                                  }}
-                                  className="px-2 py-0.5 rounded-md bg-rose-50 text-rose-600 text-[9px] font-bold uppercase tracking-wider border border-rose-100 hover:bg-rose-600 hover:text-white transition-all cursor-pointer"
-                                >
-                                  {emp.firstName}
-                                </div>
-                              ))}
+                    <div className="relative lg:flex-1 lg:min-h-0">
+                      <div className="absolute -top-10 right-6 h-28 w-28 rounded-full bg-emerald-100/60 blur-2xl" />
+                      <div className="absolute bottom-8 left-4 h-24 w-24 rounded-full bg-amber-100/70 blur-2xl" />
+                      <div className="relative rounded-[28px] border border-stone-100 bg-gradient-to-br from-stone-50 via-white to-emerald-50/40 p-4 sm:p-6 lg:h-full lg:flex lg:flex-col">
+                        <div className="grid gap-6 lg:grid-cols-[minmax(220px,260px)_1fr] lg:flex-1 lg:min-h-0">
+                          <div className="space-y-3 lg:min-h-0">
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="font-medium text-stone-500 tracking-wide">Navega por grupos</span>
+                              <span className="text-stone-400">{availableCategories.length} grupos</span>
                             </div>
-                          )}
-                          
-                          <div className="flex items-end justify-between pt-3 sm:pt-4 border-t border-neutral-100">
-                            <div>
-                              <p className="text-xl sm:text-2xl font-black text-rose-600 tracking-tight">{formatCurrency(service.price)}</p>
-                              <p className="text-[9px] sm:text-[10px] font-bold text-neutral-400 uppercase tracking-wider sm:tracking-widest mt-0.5 sm:mt-1">{service.duration} min</p>
+                            <div className="sm:hidden">
+                              <select
+                                value={activeCategory || ''}
+                                onChange={(event) => setSelectedCategory(event.target.value)}
+                                className="w-full rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm font-medium text-stone-700 focus:border-emerald-300 focus:outline-none"
+                              >
+                                {availableCategories.map((category) => (
+                                  <option key={category} value={category}>
+                                    {formatServiceCategory(category)}
+                                  </option>
+                                ))}
+                              </select>
                             </div>
-                            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-neutral-50 flex items-center justify-center group-hover:bg-rose-600 transition-colors">
-                              <svg className="w-4 h-4 sm:w-5 sm:h-5 text-neutral-400 group-hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                              </svg>
+                            <div className="hidden sm:flex gap-3 overflow-x-auto pb-2 lg:flex-1 lg:min-h-0 lg:flex-col lg:overflow-y-auto lg:pb-0 lg:pr-2">
+                              {categoryHighlights.map((item) => {
+                                const isActive = item.category === activeCategory;
+                                const priceLabel = item.availableCount === 0
+                                  ? 'No disponible'
+                                  : item.hasPricing
+                                    ? `Desde ${formatCurrency(item.minPrice)}`
+                                    : 'Ver opciones';
+                                const durationLabel = item.hasDurations
+                                  ? `${item.minDuration}-${item.maxDuration} min`
+                                  : '';
+                                const countLabel = item.availableCount === item.count
+                                  ? String(item.count)
+                                  : `${item.availableCount}/${item.count}`;
+
+                                return (
+                                  <button
+                                    key={item.category}
+                                    onClick={() => setSelectedCategory(item.category)}
+                                    className={cn(
+                                      "min-w-[220px] rounded-[20px] border px-4 py-3 text-left transition-all",
+                                      isActive
+                                        ? "border-emerald-200 bg-white shadow-sm"
+                                        : "border-stone-200 bg-white/60 hover:border-emerald-200"
+                                    )}
+                                  >
+                                    <div className="flex items-start justify-between gap-2">
+                                      <span className="text-sm font-semibold text-stone-700">
+                                        {formatServiceCategory(item.category)}
+                                      </span>
+                                      <span className="text-xs text-stone-400">{countLabel}</span>
+                                    </div>
+                                    <div className="mt-2 flex items-center justify-between text-xs text-stone-500">
+                                      <span>{priceLabel}</span>
+                                      {durationLabel && <span>{durationLabel}</span>}
+                                    </div>
+                                    <div
+                                      className={cn(
+                                        "mt-3 h-1 rounded-full bg-gradient-to-r",
+                                        isActive
+                                          ? "from-emerald-400/70 via-emerald-300/60 to-transparent"
+                                          : "from-stone-200 to-transparent"
+                                      )}
+                                    />
+                                  </button>
+                                );
+                              })}
+                            </div>
+                            {categoryHighlights.length > 6 && (
+                              <div className="hidden lg:flex items-center justify-center text-[11px] text-stone-400">
+                                Desliza para ver más grupos
+                              </div>
+                            )}
+                          </div>
+                          <div className="rounded-[24px] border border-stone-100 bg-white/90 p-4 sm:p-6 shadow-sm backdrop-blur-sm lg:flex lg:flex-col lg:min-h-0">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                              <div>
+                                <p className="text-xs font-medium text-stone-400 tracking-wide">Grupo seleccionado</p>
+                                <h3 className="text-lg sm:text-xl font-semibold text-stone-800">
+                                  {activeCategory ? formatServiceCategory(activeCategory) : 'Elige un grupo'}
+                                </h3>
+                              </div>
+                              <div className="text-xs text-stone-400">
+                                {activeServices.filter((service) => service.isActive).length} disponibles · {activeServices.length} totales
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 lg:gap-4 lg:flex-1 lg:min-h-0 lg:overflow-y-auto lg:pr-2">
+                              {activeServices.map((service) => {
+                                const hasEmployees = (service.employees?.length ?? 0) > 0;
+                                const isActive = service.isActive;
+                                const canBook = isActive && hasEmployees;
+
+                                return (
+                                  <button
+                                    key={service.id}
+                                    onClick={() => canBook && selectService(service)}
+                                    disabled={!canBook}
+                                    className={cn(
+                                      "group rounded-[18px] border border-stone-100 bg-white p-4 text-left transition-all",
+                                      canBook
+                                        ? "hover:border-emerald-200 hover:shadow-md"
+                                        : "cursor-not-allowed opacity-70"
+                                    )}
+                                  >
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div>
+                                      <p className="text-sm font-semibold text-stone-800">
+                                        {service.serviceName}
+                                      </p>
+                                      <p className="text-xs text-stone-400 mt-1 line-clamp-2">
+                                        {service.description || 'Detalles disponibles al reservar.'}
+                                      </p>
+                                    </div>
+                                    <div className="text-right">
+                                      <p className="text-sm font-semibold text-emerald-700">
+                                        {formatCurrency(service.price)}
+                                      </p>
+                                      <p className="text-[11px] text-stone-400">{service.duration} min</p>
+                                    </div>
+                                  </div>
+
+                                  {service.employees && service.employees.length > 0 ? (
+                                    <div className="mt-3 flex flex-wrap gap-1.5">
+                                      {service.employees.map((emp) => (
+                                        <div
+                                          key={emp.id}
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            selectService(service, emp.id);
+                                          }}
+                                          role="button"
+                                          tabIndex={0}
+                                          onKeyDown={(e) => {
+                                            if (e.key === 'Enter' || e.key === ' ') {
+                                              e.stopPropagation();
+                                              e.preventDefault();
+                                              selectService(service, emp.id);
+                                            }
+                                          }}
+                                          className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-medium border border-emerald-100 hover:bg-emerald-100 transition-all cursor-pointer"
+                                        >
+                                          {emp.firstName}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <div className="mt-3">
+                                      <span className="px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 text-[10px] font-medium border border-amber-100">
+                                        Sin especialista asignado
+                                      </span>
+                                    </div>
+                                  )}
+
+                                  <div className="mt-3 flex items-center justify-between text-xs text-stone-400">
+                                    <span className="rounded-full bg-stone-100 px-2 py-1 text-[10px] font-medium text-stone-500">
+                                      {formatServiceCategory(service.category)}
+                                    </span>
+                                    {canBook ? (
+                                      <span className="inline-flex items-center gap-1 text-emerald-600 text-[11px] font-medium">
+                                        Elegir
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                        </svg>
+                                      </span>
+                                    ) : !isActive ? (
+                                      <span className="text-stone-400 text-[11px] font-medium">
+                                        Oculto
+                                      </span>
+                                    ) : (
+                                      <span className="text-amber-600 text-[11px] font-medium">
+                                        No disponible
+                                      </span>
+                                    )}
+                                  </div>
+                                  </button>
+                                );
+                              })}
                             </div>
                           </div>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Account Benefits Banner */}
-                  {!user && (
-                    <div className="bg-gradient-to-r from-rose-600 to-rose-700 rounded-[32px] p-8 text-white relative overflow-hidden">
-                      <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -mr-20 -mt-20" />
-                      <div className="relative">
-                        <div className="flex items-start gap-4 mb-6">
-                          <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center flex-shrink-0">
-                            <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7" />
-                            </svg>
-                          </div>
-                          <div>
-                            <h3 className="text-xl font-black uppercase tracking-tight mb-1">¡Únete a Amor Amar!</h3>
-                            <p className="text-white/80 text-sm font-medium">Crea tu cuenta gratis y disfruta de beneficios exclusivos</p>
-                          </div>
-                        </div>
-                        
-                        <div className="grid grid-cols-2 gap-4 mb-6">
-                          <div className="flex items-center gap-2">
-                            <svg className="w-5 h-5 text-white/80" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                            </svg>
-                            <span className="text-xs font-bold uppercase tracking-widest">Gestiona tus citas</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <svg className="w-5 h-5 text-white/80" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                            </svg>
-                            <span className="text-xs font-bold uppercase tracking-widest">Acumula puntos</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <svg className="w-5 h-5 text-white/80" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                            </svg>
-                            <span className="text-xs font-bold uppercase tracking-widest">Ofertas VIP</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <svg className="w-5 h-5 text-white/80" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                            </svg>
-                            <span className="text-xs font-bold uppercase tracking-widest">Historial completo</span>
-                          </div>
-                        </div>
-
-                        <div className="flex flex-col sm:flex-row gap-3">
-                          <button
-                            onClick={() => openAuthModal('signup')}
-                            className="flex-1 px-6 py-4 bg-white text-rose-600 font-black uppercase tracking-widest text-xs rounded-xl hover:bg-neutral-100 transition-all flex items-center justify-center gap-2"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-                            </svg>
-                            Crear Cuenta Gratis
-                          </button>
-                          <button
-                            onClick={() => openAuthModal('login')}
-                            className="px-6 py-4 bg-white/20 text-white font-bold uppercase tracking-widest text-xs rounded-xl hover:bg-white/30 transition-all"
-                          >
-                            Ya tengo cuenta
-                          </button>
                         </div>
                       </div>
                     </div>
@@ -1248,4 +1364,3 @@ export default function BookAllServicesPage() {
     </div>
   );
 }
-

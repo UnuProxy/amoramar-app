@@ -1,15 +1,16 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/shared/components/Button';
 import { Input } from '@/shared/components/Input';
-import { createEmployee, updateEmployee, createUser } from '@/shared/lib/firestore';
+import { createEmployee, updateEmployee, createUser, getEmployeeServices, getServices, createEmployeeService, deleteEmployeeService } from '@/shared/lib/firestore';
 import { uploadEmployeeProfileImage, deleteEmployeeProfileImage } from '@/shared/lib/storage';
 import { createUserWithEmailAndPassword, signOut } from 'firebase/auth';
 import { getSecondaryAuth } from '@/shared/lib/firebase';
-import type { Employee, EmployeeFormData, EmploymentType } from '@/shared/lib/types';
+import type { Employee, EmployeeFormData, EmploymentType, Service } from '@/shared/lib/types';
+import { formatServiceCategory, getOrderedServiceCategories } from '@/shared/lib/serviceCategories';
 
 interface EmployeeFormProps {
   employee?: Employee;
@@ -24,6 +25,9 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
   const [profileImageFile, setProfileImageFile] = useState<File | null>(null);
   const [profileImagePreview, setProfileImagePreview] = useState<string | undefined>(employee?.profileImage || undefined);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [services, setServices] = useState<Service[]>([]);
+  const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
+  const [servicesLoading, setServicesLoading] = useState(false);
 
   const {
     register,
@@ -61,6 +65,49 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
         },
   });
 
+  useEffect(() => {
+    const loadServices = async () => {
+      setServicesLoading(true);
+      try {
+        const servicesData = await getServices();
+        setServices(servicesData);
+
+        if (employee?.id) {
+          const assignments = await getEmployeeServices(employee.id);
+          const assignedIds = assignments
+            .filter((assignment) => assignment.isOffered && assignment.serviceId)
+            .map((assignment) => assignment.serviceId);
+          setSelectedServiceIds(assignedIds);
+        }
+      } catch (err) {
+        console.error('Error fetching services:', err);
+      } finally {
+        setServicesLoading(false);
+      }
+    };
+
+    loadServices();
+  }, [employee?.id]);
+
+  const servicesByCategory = useMemo(() => {
+    const grouped = services.reduce<Record<string, Service[]>>((acc, service) => {
+      const category = service.category || 'other';
+      if (!acc[category]) {
+        acc[category] = [];
+      }
+      acc[category].push(service);
+      return acc;
+    }, {});
+    Object.values(grouped).forEach((items) => {
+      items.sort((a, b) => a.serviceName.localeCompare(b.serviceName));
+    });
+    return grouped;
+  }, [services]);
+
+  const visibleCategories = useMemo(() => {
+    return getOrderedServiceCategories(services);
+  }, [services]);
+
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -77,6 +124,37 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
   const handleRemoveImage = () => {
     setProfileImageFile(null);
     setProfileImagePreview(undefined);
+  };
+
+  const toggleService = (serviceId: string) => {
+    setSelectedServiceIds((prev) =>
+      prev.includes(serviceId)
+        ? prev.filter((id) => id !== serviceId)
+        : [...prev, serviceId]
+    );
+  };
+
+  const syncEmployeeServices = async (employeeId: string) => {
+    const existingAssignments = await getEmployeeServices(employeeId);
+    const existingServiceIds = existingAssignments
+      .filter((assignment) => assignment.serviceId)
+      .map((assignment) => assignment.serviceId);
+
+    for (const assignment of existingAssignments) {
+      if (assignment.serviceId && !selectedServiceIds.includes(assignment.serviceId)) {
+        await deleteEmployeeService(assignment.id);
+      }
+    }
+
+    for (const serviceId of selectedServiceIds) {
+      if (!existingServiceIds.includes(serviceId)) {
+        await createEmployeeService({
+          employeeId,
+          serviceId,
+          isOffered: true,
+        });
+      }
+    }
   };
 
   const onSubmit = async (data: EmployeeFormData) => {
@@ -120,6 +198,8 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
           province: data.province,
           postalCode: data.postalCode,
         });
+
+        await syncEmployeeServices(employee.id);
       } else {
         // Create new employee with user account
         const tempPassword = Math.random().toString(36).slice(-10) + 'Aa1!';
@@ -169,6 +249,8 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
           postalCode: data.postalCode,
           status: 'active',
         });
+
+        await syncEmployeeServices(employeeId);
 
         // Upload profile image if selected
         if (profileImageFile) {
@@ -488,6 +570,45 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
             )}
           </div>
         </div>
+      </div>
+
+      <div>
+        <label className="block text-xs font-light tracking-wide text-primary-600 uppercase mb-2">
+          Assigned Services
+        </label>
+        {servicesLoading ? (
+          <p className="text-xs text-primary-500">Loading services...</p>
+        ) : services.length === 0 ? (
+          <p className="text-xs text-primary-500">No services available yet.</p>
+        ) : (
+          <div className="space-y-4">
+            {visibleCategories.map((category) => (
+              <div key={category} className="border border-primary-200 rounded-sm p-4 bg-white">
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-primary-500">
+                  {formatServiceCategory(category)}
+                </p>
+                <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {(servicesByCategory[category] || []).map((service) => (
+                    <label key={service.id} className="flex items-start gap-3">
+                      <input
+                        type="checkbox"
+                        checked={selectedServiceIds.includes(service.id)}
+                        onChange={() => toggleService(service.id)}
+                        className="mt-0.5 rounded border-primary-300 text-accent-500 focus:ring-accent-500"
+                      />
+                      <span className="text-sm text-primary-900 font-light">
+                        {service.serviceName}
+                        <span className="block text-[10px] text-primary-400 uppercase tracking-wider">
+                          {service.duration} min
+                        </span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-4">

@@ -108,22 +108,21 @@ export interface Employee {
 }
 
 // Service Types
-export type ServiceCategory = 
-  | 'nails' 
-  | 'hair' 
-  | 'balayage' 
-  | 'air-touch' 
-  | 'babylight' 
-  | 'filler-therapy' 
-  | 'brows-lashes' 
-  | 'makeup'
-  | 'haircut' 
-  | 'styling' 
-  | 'coloring' 
-  | 'skincare' 
-  | 'massage' 
-  | 'facial' 
+export type DefaultServiceCategory = 
+  | 'nail-art-care-combinations'
+  | 'nail-art-care-manicure'
+  | 'professional-foot-services'
+  | 'foot-sole-treatments'
+  | 'lamination'
+  | 'brow-services'
+  | 'lash-extensions'
+  | 'lash-extension-refill'
+  | 'lash-extension-removal'
+  | 'semi-permanent-makeup'
+  | 'professional-makeup'
   | 'other';
+
+export type ServiceCategory = DefaultServiceCategory | (string & {});
 
 export interface Service {
   id: string;

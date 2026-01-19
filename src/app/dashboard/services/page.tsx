@@ -1,12 +1,13 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { getServices, getEmployees, getEmployeeServices } from '@/shared/lib/firestore';
-import { Button } from '@/shared/components/Button';
+import React, { useState, useEffect, useMemo } from 'react';
+import { getServices, getEmployees, getEmployeeServices, updateService, createService } from '@/shared/lib/firestore';
 import { Loading } from '@/shared/components/Loading';
 import Link from 'next/link';
 import { formatCurrency, cn } from '@/shared/lib/utils';
+import { formatServiceCategory, getOrderedServiceCategories } from '@/shared/lib/serviceCategories';
 import type { Service, Employee, EmployeeService } from '@/shared/lib/types';
+import { DEFAULT_SERVICES } from '@/shared/lib/defaultServices';
 
 export default function ServicesPage() {
   const [services, setServices] = useState<Service[]>([]);
@@ -15,6 +16,62 @@ export default function ServicesPage() {
   const [loading, setLoading] = useState(true);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [copiedGeneral, setCopiedGeneral] = useState(false);
+  const [editingServiceId, setEditingServiceId] = useState<string | null>(null);
+  const [editValues, setEditValues] = useState<{ duration: string; price: string; category: string }>({
+    duration: '',
+    price: '',
+    category: 'other',
+  });
+  const [editError, setEditError] = useState<string | null>(null);
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
+  const [importMessage, setImportMessage] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'hidden'>('all');
+  const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>({});
+
+  const categoryOptions = useMemo(
+    () => getOrderedServiceCategories(services, { includeEmptyDefaults: true }),
+    [services]
+  );
+
+  const filteredServices = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    return services.filter((service) => {
+      if (statusFilter === 'active' && !service.isActive) return false;
+      if (statusFilter === 'hidden' && service.isActive) return false;
+      if (!term) return true;
+
+      const categoryLabel = formatServiceCategory(service.category || 'other').toLowerCase();
+      return (
+        service.serviceName.toLowerCase().includes(term) ||
+        (service.description || '').toLowerCase().includes(term) ||
+        categoryLabel.includes(term)
+      );
+    });
+  }, [services, searchTerm, statusFilter]);
+
+  const servicesByCategory = useMemo(() => {
+    const grouped = filteredServices.reduce<Record<string, Service[]>>((acc, service) => {
+      const category = service.category || 'other';
+      if (!acc[category]) {
+        acc[category] = [];
+      }
+      acc[category].push(service);
+      return acc;
+    }, {});
+
+    Object.values(grouped).forEach((items) => {
+      items.sort((a, b) => a.serviceName.localeCompare(b.serviceName));
+    });
+
+    return grouped;
+  }, [filteredServices]);
+
+  const orderedCategories = useMemo(
+    () => getOrderedServiceCategories(filteredServices),
+    [filteredServices]
+  );
 
   const fetchServices = async () => {
     setLoading(true);
@@ -99,6 +156,116 @@ export default function ServicesPage() {
     }
   };
 
+  const startQuickEdit = (service: Service) => {
+    setEditingServiceId(service.id);
+    setEditValues({
+      duration: String(service.duration ?? ''),
+      price: String(service.price ?? ''),
+      category: service.category || 'other',
+    });
+    setEditError(null);
+  };
+
+  const cancelQuickEdit = () => {
+    setEditingServiceId(null);
+    setEditValues({ duration: '', price: '', category: 'other' });
+    setEditError(null);
+  };
+
+  const handleQuickSave = async (serviceId: string) => {
+    const durationValue = Number.parseInt(editValues.duration, 10);
+    const priceValue = Number.parseFloat(editValues.price);
+    const categoryValue = editValues.category.trim();
+
+    if (Number.isNaN(durationValue) || durationValue < 15) {
+      setEditError('Duration must be at least 15 minutes.');
+      return;
+    }
+
+    if (Number.isNaN(priceValue) || priceValue < 0) {
+      setEditError('Price must be a valid number.');
+      return;
+    }
+
+    if (!categoryValue) {
+      setEditError('Category is required.');
+      return;
+    }
+
+    setSavingId(serviceId);
+    setEditError(null);
+
+    try {
+      await updateService(serviceId, {
+        duration: durationValue,
+        price: priceValue,
+        category: categoryValue,
+      });
+
+      setServices((prev) =>
+        prev.map((service) =>
+          service.id === serviceId
+            ? { ...service, duration: durationValue, price: priceValue, category: categoryValue }
+            : service
+        )
+      );
+      cancelQuickEdit();
+    } catch (error: any) {
+      setEditError(error?.message || 'Could not update service.');
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const importDefaultServices = async () => {
+    const confirmed = window.confirm(
+      'Import the default service list? Existing services with the same name and category will be skipped.'
+    );
+    if (!confirmed) return;
+
+    setIsImporting(true);
+    setImportMessage(null);
+
+    try {
+      const existingKeys = new Set(
+        services.map((service) => `${service.category}|${service.serviceName}`.toLowerCase())
+      );
+      let createdCount = 0;
+      const salonId = 'default-salon-id';
+
+      for (const seed of DEFAULT_SERVICES) {
+        const key = `${seed.category}|${seed.serviceName}`.toLowerCase();
+        if (existingKeys.has(key)) continue;
+
+        await createService({
+          salonId,
+          serviceName: seed.serviceName,
+          description: seed.description,
+          duration: seed.duration,
+          price: seed.price,
+          category: seed.category,
+          isActive: true,
+          offersConsultation: false,
+          consultationDuration: 20,
+        });
+
+        existingKeys.add(key);
+        createdCount += 1;
+      }
+
+      await fetchServices();
+      setImportMessage(
+        createdCount > 0
+          ? `${createdCount} services imported.`
+          : 'All default services already exist.'
+      );
+    } catch (error: any) {
+      setImportMessage(error?.message || 'Could not import services.');
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
   const copyGeneralBookingLink = async () => {
     const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
     const link = `${baseUrl}/book`;
@@ -126,17 +293,17 @@ export default function ServicesPage() {
       {/* Header - Bold Premium */}
       <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-8">
         <div>
-          <h1 className="text-4xl font-bold text-primary-800 tracking-tight">
+          <h1 className="text-3xl font-semibold text-stone-800 tracking-tight">
             Services
           </h1>
-          <p className="text-primary-400 text-sm font-medium mt-2">
+          <p className="text-stone-500 text-sm font-medium mt-2">
             Services & Treatments Catalog
           </p>
         </div>
         <div className="flex flex-col sm:flex-row gap-3">
           <button
             onClick={fetchServices}
-            className="px-4 py-2.5 rounded-lg bg-white border border-neutral-200 text-neutral-600 hover:bg-neutral-50 transition-all flex items-center justify-center"
+            className="px-4 py-2.5 rounded-full bg-white border border-stone-200 text-stone-600 hover:bg-stone-50 transition-all flex items-center justify-center"
             title="Refresh list"
           >
             <svg className={cn("w-5 h-5", loading && "animate-spin")} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -144,12 +311,24 @@ export default function ServicesPage() {
             </svg>
           </button>
           <button
+            onClick={importDefaultServices}
+            className={cn(
+              "px-6 py-2.5 rounded-full text-sm font-medium transition-all flex items-center justify-center gap-2 border",
+              isImporting
+                ? "bg-stone-100 text-stone-400 border-stone-200"
+                : "bg-white text-stone-700 border-stone-200 hover:bg-stone-50"
+            )}
+            disabled={isImporting}
+          >
+            {isImporting ? 'Importing...' : 'Import List'}
+          </button>
+          <button
             onClick={copyGeneralBookingLink}
             className={cn(
-              "px-6 py-2.5 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2",
+              "px-6 py-2.5 rounded-full text-sm font-medium transition-all flex items-center justify-center gap-2 border",
               copiedGeneral
-                ? "bg-success-500 text-white"
-                : "bg-accent-50 text-accent-600 border border-accent-200 hover:bg-accent-500 hover:text-white"
+                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                : "bg-white text-emerald-700 border-emerald-200 hover:bg-emerald-50"
             )}
           >
             {copiedGeneral ? (
@@ -170,7 +349,7 @@ export default function ServicesPage() {
           </button>
           <Link href="/dashboard/services/new">
             <button
-              className="px-6 py-2.5 rounded-lg bg-primary-800 text-white text-sm font-semibold hover:bg-accent-600 transition-all flex items-center justify-center gap-2"
+              className="px-6 py-2.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-sm font-medium hover:bg-emerald-100 transition-all flex items-center justify-center gap-2"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -198,30 +377,78 @@ export default function ServicesPage() {
           <button
             onClick={copyGeneralBookingLink}
             className={cn(
-              "px-5 py-2.5 rounded-lg text-sm font-semibold transition-all whitespace-nowrap",
+              "px-5 py-2.5 rounded-full text-sm font-medium transition-all whitespace-nowrap border",
               copiedGeneral
-                ? "bg-success-500 text-white"
-                : "bg-accent-500 text-white hover:bg-accent-600"
+                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                : "bg-white text-emerald-700 border-emerald-200 hover:bg-emerald-50"
             )}
           >
             {copiedGeneral ? 'Copied!' : 'Copy Link'}
           </button>
         </div>
       </div>
+      {importMessage && (
+        <div className="bg-white border border-neutral-200 rounded-2xl px-6 py-4 text-sm text-neutral-700">
+          {importMessage}
+        </div>
+      )}
 
-      {/* Services List - Clean Professional */}
+      {/* Search + Filters */}
+      <div className="bg-white border border-neutral-200 rounded-2xl p-4 lg:p-6 shadow-sm space-y-4">
+        <div className="flex flex-col lg:flex-row lg:items-center gap-4">
+          <div className="flex-1">
+            <label className="block text-xs font-medium text-stone-500 tracking-wide mb-2">
+              Search Services
+            </label>
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              placeholder="Search by name, description, or group"
+              className="w-full rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm text-stone-700 focus:border-emerald-300 focus:outline-none"
+            />
+          </div>
+          <div className="w-full lg:w-56">
+            <label className="block text-xs font-medium text-stone-500 tracking-wide mb-2">
+              Status
+            </label>
+            <select
+              value={statusFilter}
+              onChange={(event) => setStatusFilter(event.target.value as 'all' | 'active' | 'hidden')}
+              className="w-full rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm font-medium text-stone-700 focus:border-emerald-300 focus:outline-none"
+            >
+              <option value="all">All services</option>
+              <option value="active">Only active</option>
+              <option value="hidden">Only hidden</option>
+            </select>
+          </div>
+          <div className="flex flex-wrap items-center gap-3 text-xs font-medium text-stone-500 tracking-wide">
+            <span className="px-3 py-2 rounded-full bg-stone-50 border border-stone-200 text-stone-600">
+              {filteredServices.length} total
+            </span>
+            <span className="px-3 py-2 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">
+              {filteredServices.filter((s) => s.isActive).length} active
+            </span>
+            <span className="px-3 py-2 rounded-full bg-stone-100 text-stone-500 border border-stone-200">
+              {filteredServices.filter((s) => !s.isActive).length} hidden
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Services List - Grouped */}
       <div className="bg-white border border-neutral-200 rounded-2xl overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="bg-neutral-50 border-b border-neutral-200">
-                <th className="px-6 py-4 text-left text-xs font-semibold text-neutral-600 uppercase">Treatment</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-neutral-600 uppercase">Therapists</th>
-                <th className="px-6 py-4 text-center text-xs font-semibold text-neutral-600 uppercase">Category</th>
-                <th className="px-6 py-4 text-center text-xs font-semibold text-neutral-600 uppercase">Duration</th>
-                <th className="px-6 py-4 text-center text-xs font-semibold text-neutral-600 uppercase">Price</th>
-                <th className="px-6 py-4 text-center text-xs font-semibold text-neutral-600 uppercase">Status</th>
-                <th className="px-6 py-4 text-right text-xs font-semibold text-neutral-600 uppercase">Action</th>
+                <th className="px-6 py-4 text-left text-[11px] font-medium text-stone-500 tracking-wide">Treatment</th>
+                <th className="px-6 py-4 text-left text-[11px] font-medium text-stone-500 tracking-wide">Therapists</th>
+                <th className="px-6 py-4 text-center text-[11px] font-medium text-stone-500 tracking-wide">Group</th>
+                <th className="px-6 py-4 text-center text-[11px] font-medium text-stone-500 tracking-wide">Duration</th>
+                <th className="px-6 py-4 text-center text-[11px] font-medium text-stone-500 tracking-wide">Price</th>
+                <th className="px-6 py-4 text-center text-[11px] font-medium text-stone-500 tracking-wide">Status</th>
+                <th className="px-6 py-4 text-right text-[11px] font-medium text-stone-500 tracking-wide">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-100">
@@ -236,94 +463,231 @@ export default function ServicesPage() {
                     <p className="text-lg font-semibold text-neutral-700">Empty Catalog</p>
                   </td>
                 </tr>
+              ) : filteredServices.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-6 py-16 text-center">
+                    <div className="w-16 h-16 bg-neutral-100 rounded-xl flex items-center justify-center mx-auto mb-4">
+                      <svg className="w-8 h-8 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                      </svg>
+                    </div>
+                    <p className="text-lg font-semibold text-neutral-700">No services match your filters</p>
+                    <p className="text-sm text-neutral-400 mt-2">Try clearing the search or status filter.</p>
+                  </td>
+                </tr>
               ) : (
-                services.map((service) => {
-                  const serviceEmployees = getServiceEmployees(service.id);
+                orderedCategories.map((category) => {
+                  const grouped = servicesByCategory[category] || [];
+                  if (!grouped.length) return null;
+                  const isCollapsed = collapsedCategories[category] ?? false;
+                  const activeCount = grouped.filter((service) => service.isActive).length;
+                  const hiddenCount = grouped.length - activeCount;
+
                   return (
-                    <tr key={service.id} className="hover:bg-neutral-50 transition-all group">
-                      <td className="px-10 py-10">
-                        <div className="space-y-1">
-                          <p className="text-2xl font-black text-neutral-900 uppercase tracking-tighter leading-none">{service.serviceName}</p>
-                          {service.description && (
-                            <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest truncate max-w-xs">{service.description}</p>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-10 py-10">
-                        {serviceEmployees.length > 0 ? (
-                          <div className="flex flex-wrap gap-2">
-                            {serviceEmployees.map((emp) => (
-                              <span
-                                key={emp.id}
-                                className="px-3 py-1.5 rounded-lg bg-neutral-100 text-neutral-700 text-[10px] font-black uppercase tracking-wider"
-                              >
-                                {emp.firstName}
-                              </span>
-                            ))}
-                          </div>
-                        ) : (
-                          <span className="text-[10px] font-bold text-neutral-300 uppercase tracking-widest">Sin asignar</span>
-                        )}
-                      </td>
-                      <td className="px-10 py-10 text-center">
-                      <span className="px-4 py-2 rounded-xl bg-neutral-100 text-neutral-500 text-[10px] font-black uppercase tracking-[0.2em]">
-                        {service.category || 'VARIOS'}
-                      </span>
-                    </td>
-                    <td className="px-10 py-10 text-center">
-                      <div className="flex flex-col items-center">
-                        <span className="text-xl font-black text-neutral-900 tabular-nums leading-none">{service.duration}</span>
-                        <span className="text-[10px] font-black text-neutral-400 uppercase tracking-widest mt-1">MIN</span>
-                      </div>
-                    </td>
-                    <td className="px-10 py-10 text-center">
-                      <p className="text-2xl font-black text-rose-600 tabular-nums leading-none">{formatCurrency(service.price)}</p>
-                    </td>
-                    <td className="px-10 py-10 text-center">
-                      <span className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-[0.3em] ${
-                        service.isActive ? 'bg-emerald-50 text-emerald-600' : 'bg-neutral-100 text-neutral-400'
-                      }`}>
-                        {service.isActive ? 'ACTIVO' : 'OCULTO'}
-                      </span>
-                    </td>
-                    <td className="px-10 py-10 text-right">
-                      <div className="flex items-center justify-end gap-3">
-                        <button
-                          onClick={() => copyBookingLink(service.id)}
-                          className={cn(
-                            "px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] transition-all flex items-center gap-2",
-                            copiedId === service.id
-                              ? "bg-emerald-50 text-emerald-600 border-2 border-emerald-200"
-                              : "border-2 border-rose-100 text-rose-500 hover:border-rose-600 hover:bg-rose-50"
-                          )}
-                          title="Copiar enlace de reserva directa"
-                        >
-                          {copiedId === service.id ? (
-                            <>
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                              </svg>
-                              ¡Copiado!
-                            </>
-                          ) : (
-                            <>
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                              </svg>
-                              Link
-                            </>
-                          )}
-                        </button>
-                        <Link href={`/dashboard/services/${service.id}`}>
+                    <React.Fragment key={category}>
+                      <tr className="bg-stone-50 border-y border-stone-200">
+                        <td colSpan={7} className="px-6 py-4">
                           <button
-                            className="px-8 py-4 rounded-2xl border-2 border-neutral-100 text-[10px] font-black text-neutral-400 hover:border-neutral-900 hover:text-neutral-900 transition-all uppercase tracking-[0.2em]"
+                            onClick={() =>
+                              setCollapsedCategories((prev) => ({
+                                ...prev,
+                                [category]: !isCollapsed,
+                              }))
+                            }
+                            className="w-full flex items-center gap-4 text-left"
                           >
-                            Edit
+                            <div className="flex items-center gap-3">
+                              <span className="text-sm font-semibold text-stone-700">
+                                {formatServiceCategory(category)}
+                              </span>
+                              <span className="text-xs text-stone-400">
+                                {grouped.length} total · {activeCount} active · {hiddenCount} hidden
+                              </span>
+                            </div>
+                            <span className="ml-auto flex items-center gap-2 text-xs font-medium text-stone-400">
+                              {isCollapsed ? 'Expand' : 'Collapse'}
+                              <svg
+                                className={cn("w-4 h-4 transition-transform", isCollapsed && "rotate-180")}
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                              </svg>
+                            </span>
                           </button>
-                        </Link>
-                      </div>
-                    </td>
-                  </tr>
+                        </td>
+                      </tr>
+                      {!isCollapsed &&
+                        grouped.map((service) => {
+                          const serviceEmployees = getServiceEmployees(service.id);
+                          const isEditing = editingServiceId === service.id;
+                          return (
+                            <tr key={service.id} className="hover:bg-neutral-50 transition-all group">
+                              <td className="px-10 py-10">
+                                <div className="space-y-1">
+                                  <p className="text-lg font-semibold text-stone-800 leading-snug">{service.serviceName}</p>
+                                  {service.description && (
+                                    <p className="text-xs text-stone-400 truncate max-w-xs">{service.description}</p>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="px-10 py-10">
+                                {serviceEmployees.length > 0 ? (
+                                  <div className="flex flex-wrap gap-2">
+                                    {serviceEmployees.map((emp) => (
+                                      <span
+                                        key={emp.id}
+                                        className="px-3 py-1 rounded-full bg-stone-100 text-stone-600 text-xs font-medium"
+                                      >
+                                        {emp.firstName}
+                                      </span>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <span className="text-xs text-stone-400">Sin asignar</span>
+                                )}
+                              </td>
+                              <td className="px-10 py-10 text-center">
+                                {isEditing ? (
+                                  <select
+                                    value={editValues.category}
+                                    onChange={(event) =>
+                                      setEditValues((prev) => ({ ...prev, category: event.target.value }))
+                                    }
+                                    className="w-56 rounded-xl border border-stone-200 bg-white px-3 py-2 text-center text-sm font-medium text-stone-700 focus:border-emerald-300 focus:outline-none"
+                                  >
+                                    {categoryOptions.map((cat) => (
+                                      <option key={cat} value={cat}>
+                                        {formatServiceCategory(cat)}
+                                      </option>
+                                    ))}
+                                  </select>
+                                ) : (
+                                  <span className="px-4 py-2 rounded-full bg-stone-100 text-stone-600 text-xs font-medium">
+                                    {formatServiceCategory(service.category || 'other')}
+                                  </span>
+                                )}
+                              </td>
+                              <td className="px-10 py-10 text-center">
+                                {isEditing ? (
+                                  <div className="flex flex-col items-center gap-2">
+                                    <input
+                                      type="number"
+                                      min={15}
+                                      value={editValues.duration}
+                                      onChange={(event) =>
+                                        setEditValues((prev) => ({ ...prev, duration: event.target.value }))
+                                      }
+                                      className="w-24 rounded-xl border border-stone-200 bg-white px-3 py-2 text-center text-sm font-medium text-stone-700 focus:border-emerald-300 focus:outline-none"
+                                    />
+                                    <span className="text-xs text-stone-400">min</span>
+                                  </div>
+                                ) : (
+                                  <div className="flex flex-col items-center">
+                                    <span className="text-lg font-semibold text-stone-700 tabular-nums leading-none">{service.duration}</span>
+                                    <span className="text-xs text-stone-400 mt-1">min</span>
+                                  </div>
+                                )}
+                              </td>
+                              <td className="px-10 py-10 text-center">
+                                {isEditing ? (
+                                  <div className="flex flex-col items-center gap-2">
+                                    <input
+                                      type="number"
+                                      min={0}
+                                      step="0.01"
+                                      value={editValues.price}
+                                      onChange={(event) =>
+                                        setEditValues((prev) => ({ ...prev, price: event.target.value }))
+                                      }
+                                      className="w-28 rounded-xl border border-stone-200 bg-white px-3 py-2 text-center text-sm font-medium text-stone-700 focus:border-emerald-300 focus:outline-none"
+                                    />
+                                    <span className="text-xs text-stone-400">EUR</span>
+                                  </div>
+                                ) : (
+                                  <p className="text-lg font-semibold text-emerald-700 tabular-nums leading-none">{formatCurrency(service.price)}</p>
+                                )}
+                              </td>
+                              <td className="px-10 py-10 text-center">
+                                <span className={`px-4 py-2 rounded-full text-xs font-medium ${
+                                  service.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-stone-100 text-stone-500'
+                                }`}>
+                                  {service.isActive ? 'Activo' : 'Oculto'}
+                                </span>
+                              </td>
+                              <td className="px-10 py-10 text-right">
+                                <div className="flex flex-col items-end gap-2">
+                                  <div className="flex items-center justify-end gap-3">
+                                    <button
+                                      onClick={() => copyBookingLink(service.id)}
+                                      className={cn(
+                                        "px-4 py-2 rounded-full text-xs font-medium transition-all flex items-center gap-2",
+                                        copiedId === service.id
+                                          ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                          : "bg-white border border-stone-200 text-stone-600 hover:bg-stone-50"
+                                      )}
+                                      title="Copiar enlace de reserva directa"
+                                    >
+                                      {copiedId === service.id ? (
+                                        <>
+                                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                          </svg>
+                                          ¡Copiado!
+                                        </>
+                                      ) : (
+                                        <>
+                                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                                          </svg>
+                                          Link
+                                        </>
+                                      )}
+                                    </button>
+                                    {isEditing ? (
+                                      <>
+                                        <button
+                                          onClick={() => handleQuickSave(service.id)}
+                                          className="px-4 py-2 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-medium hover:bg-emerald-200 transition-all"
+                                          disabled={savingId === service.id}
+                                        >
+                                          {savingId === service.id ? 'Saving' : 'Save'}
+                                        </button>
+                                        <button
+                                          onClick={cancelQuickEdit}
+                                          className="px-4 py-2 rounded-full border border-stone-200 text-xs font-medium text-stone-500 hover:bg-stone-50 transition-all"
+                                        >
+                                          Cancel
+                                        </button>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <button
+                                          onClick={() => startQuickEdit(service)}
+                                          className="px-4 py-2 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-medium hover:bg-emerald-100 transition-all"
+                                        >
+                                          Quick
+                                        </button>
+                                        <Link href={`/dashboard/services/${service.id}`}>
+                                          <button
+                                            className="px-4 py-2 rounded-full border border-stone-200 text-xs font-medium text-stone-600 hover:bg-stone-50 transition-all"
+                                          >
+                                            Edit
+                                          </button>
+                                        </Link>
+                                      </>
+                                    )}
+                                  </div>
+                                  {isEditing && editError && (
+                                    <span className="text-[10px] font-semibold text-rose-500 uppercase tracking-wider">{editError}</span>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                    </React.Fragment>
                   );
                 })
               )}
