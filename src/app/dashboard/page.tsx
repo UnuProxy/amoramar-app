@@ -1,8 +1,18 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { getBookings, getEmployees, getServices, updateBooking, getClients, deleteClient, getClientByEmail, deleteBooking } from '@/shared/lib/firestore';
-import { updateClient } from '@/shared/lib/firestore';
+import {
+  createClient,
+  deleteBooking,
+  deleteClient,
+  getBookings,
+  getClientByEmail,
+  getClients,
+  getEmployees,
+  getServices,
+  updateBooking,
+  updateClient,
+} from '@/shared/lib/firestore';
 import { Loading } from '@/shared/components/Loading';
 import { cn, formatDate, formatTime } from '@/shared/lib/utils';
 import type { Booking, Client, Employee, Service, TimeSlot, PaymentMethod } from '@/shared/lib/types';
@@ -62,6 +72,16 @@ export default function DashboardPage() {
   const [selectedClientEmail, setSelectedClientEmail] = useState<string | null>(null);
   const [bookingModalOpen, setBookingModalOpen] = useState(false);
   const bookingModalShouldRender = useDelayedRender(bookingModalOpen, 220);
+  const [clientModalOpen, setClientModalOpen] = useState(false);
+  const clientModalShouldRender = useDelayedRender(clientModalOpen, 220);
+  const [clientForm, setClientForm] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+  });
+  const [clientSaving, setClientSaving] = useState(false);
+  const [clientError, setClientError] = useState<string | null>(null);
   const [showPaymentMethodModal, setShowPaymentMethodModal] = useState(false);
   const [showClosingSaleModal, setShowClosingSaleModal] = useState(false);
   const [bookingToMarkPaid, setBookingToMarkPaid] = useState<Booking | null>(null);
@@ -186,11 +206,12 @@ export default function DashboardPage() {
   }, [activeTab, selectedClientEmail]);
 
   useEffect(() => {
-    document.body.style.overflow = bookingModalOpen ? 'hidden' : 'unset';
+    const shouldLock = bookingModalOpen || clientModalOpen;
+    document.body.style.overflow = shouldLock ? 'hidden' : 'unset';
     return () => {
       document.body.style.overflow = 'unset';
     };
-  }, [bookingModalOpen]);
+  }, [bookingModalOpen, clientModalOpen]);
 
   const loadEmployeesForService = async (serviceId: string, preselectId?: string) => {
     try {
@@ -290,6 +311,88 @@ export default function DashboardPage() {
     setBookingSlotsError(null);
     setBookingSlotsLoading(false);
     setBookingSaving(false);
+  };
+
+  const openClientModal = () => {
+    setClientError(null);
+    setClientForm({
+      firstName: '',
+      lastName: '',
+      email: '',
+      phone: '',
+    });
+    setClientModalOpen(true);
+  };
+
+  const closeClientModal = () => {
+    setClientModalOpen(false);
+    setClientSaving(false);
+    setClientError(null);
+  };
+
+  const handleCreateClient = async () => {
+    setClientError(null);
+    const firstName = clientForm.firstName.trim();
+    const lastName = clientForm.lastName.trim();
+    const email = clientForm.email.trim().toLowerCase();
+    const phone = clientForm.phone.trim();
+
+    if (!firstName || !lastName || !email || !phone) {
+      setClientError('Completa nombre, apellido, email y teléfono.');
+      return;
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setClientError('El email no es válido.');
+      return;
+    }
+
+    if (clients.some((client) => client.email?.toLowerCase() === email)) {
+      setClientError('Este cliente ya existe.');
+      return;
+    }
+
+    setClientSaving(true);
+
+    try {
+      const existing = await getClientByEmail(email);
+      if (existing) {
+        setClientError('Este cliente ya existe.');
+        return;
+      }
+
+      const newClient: Omit<Client, 'id'> = {
+        userId: '',
+        firstName,
+        lastName,
+        email,
+        phone,
+        totalSpent: 0,
+        totalBookings: 0,
+        favoriteServices: [],
+        favoriteEmployees: [],
+        notificationPreferences: {
+          email: true,
+          sms: false,
+          promotions: true,
+        },
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      const newClientId = await createClient(null, newClient);
+      const createdClient: Client = { id: newClientId, ...newClient };
+
+      setClients((prev) => [createdClient, ...prev]);
+      setSelectedClientEmail(email);
+      setSearchTerm('');
+      setClientModalOpen(false);
+    } catch (error) {
+      console.error('Error creating client:', error);
+      setClientError('No se pudo crear el cliente.');
+    } finally {
+      setClientSaving(false);
+    }
   };
 
   const handleBookingPatched = (bookingId: string, updates: Partial<Booking>) => {
@@ -1281,17 +1384,28 @@ export default function DashboardPage() {
             </div>
           ) : (
             <>
-              <div className="relative group">
-                <svg className="absolute left-8 top-1/2 -translate-y-1/2 w-6 h-6 text-neutral-400 group-focus-within:text-accent-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-                <input
-                  type="text"
-                  placeholder="BUSCAR CLIENTE POR NOMBRE, EMAIL O TELÉFONO..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-20 pr-8 py-8 bg-white border border-neutral-100 rounded-[40px] text-2xl font-black uppercase tracking-tight text-neutral-900 focus:border-accent-600 focus:shadow-2xl transition-all outline-none shadow-sm placeholder:text-neutral-200"
-                />
+              <div className="flex flex-col lg:flex-row gap-6 lg:items-center">
+                <div className="relative group flex-1">
+                  <svg className="absolute left-8 top-1/2 -translate-y-1/2 w-6 h-6 text-neutral-400 group-focus-within:text-accent-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                  <input
+                    type="text"
+                    placeholder="BUSCAR CLIENTE POR NOMBRE, EMAIL O TELÉFONO..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-20 pr-8 py-8 bg-white border border-neutral-100 rounded-[40px] text-2xl font-black uppercase tracking-tight text-neutral-900 focus:border-accent-600 focus:shadow-2xl transition-all outline-none shadow-sm placeholder:text-neutral-200"
+                  />
+                </div>
+                <button
+                  onClick={openClientModal}
+                  className="px-8 py-6 rounded-[32px] bg-neutral-900 text-white text-[10px] font-black uppercase tracking-[0.3em] shadow-2xl hover:bg-accent-600 transition-all w-full lg:w-auto flex items-center justify-center gap-3"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+                  </svg>
+                  Nuevo cliente
+                </button>
               </div>
 
               <div className="bg-white border border-neutral-100 rounded-[48px] overflow-hidden shadow-sm">
@@ -1562,6 +1676,112 @@ export default function DashboardPage() {
             }
             onBookingPatched={handleBookingPatched}
           />
+        </div>
+      )}
+
+      {/* Client Modal - Profile Only */}
+      {clientModalShouldRender && (
+        <div
+          className={cn(
+            'fixed inset-0 z-[95] flex items-center justify-center bg-neutral-900/90 backdrop-blur-xl p-4 transition-opacity duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]',
+            clientModalOpen ? 'opacity-100' : 'opacity-0'
+          )}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            className={cn(
+              'w-full max-w-2xl bg-white rounded-[40px] shadow-2xl overflow-hidden border-2 border-white/20 transform transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]',
+              clientModalOpen ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-3 scale-[0.97]'
+            )}
+          >
+            <div className="px-10 py-8 flex items-center justify-between border-b border-neutral-100">
+              <div>
+                <h2 className="text-2xl font-black text-neutral-900 tracking-tight uppercase">Nuevo cliente</h2>
+                <p className="text-neutral-500 font-bold uppercase tracking-widest text-xs mt-1">Perfil sin reserva</p>
+              </div>
+              <button
+                onClick={closeClientModal}
+                className="w-12 h-12 rounded-2xl bg-neutral-100 text-neutral-400 hover:bg-neutral-900 hover:text-white transition-all flex items-center justify-center"
+                disabled={clientSaving}
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="p-10 space-y-6 max-h-[70vh] overflow-y-auto no-scrollbar">
+              {clientError && (
+                <div className="px-4 py-3 rounded-2xl bg-accent-50 text-accent-600 text-xs font-black uppercase tracking-[0.2em]">
+                  {clientError}
+                </div>
+              )}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="block text-xs font-black text-neutral-400 uppercase tracking-widest">Nombre</label>
+                  <input
+                    type="text"
+                    value={clientForm.firstName}
+                    onChange={(e) => setClientForm((prev) => ({ ...prev, firstName: e.target.value }))}
+                    className="w-full px-6 py-5 bg-neutral-50 border-2 border-neutral-100 rounded-2xl text-neutral-900 font-bold focus:border-accent-500 transition-all outline-none"
+                    placeholder="NOMBRE"
+                    disabled={clientSaving}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-xs font-black text-neutral-400 uppercase tracking-widest">Apellido</label>
+                  <input
+                    type="text"
+                    value={clientForm.lastName}
+                    onChange={(e) => setClientForm((prev) => ({ ...prev, lastName: e.target.value }))}
+                    className="w-full px-6 py-5 bg-neutral-50 border-2 border-neutral-100 rounded-2xl text-neutral-900 font-bold focus:border-accent-500 transition-all outline-none"
+                    placeholder="APELLIDO"
+                    disabled={clientSaving}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-xs font-black text-neutral-400 uppercase tracking-widest">Email</label>
+                  <input
+                    type="email"
+                    value={clientForm.email}
+                    onChange={(e) => setClientForm((prev) => ({ ...prev, email: e.target.value }))}
+                    className="w-full px-6 py-5 bg-neutral-50 border-2 border-neutral-100 rounded-2xl text-neutral-900 font-bold focus:border-accent-500 transition-all outline-none"
+                    placeholder="EMAIL"
+                    disabled={clientSaving}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-xs font-black text-neutral-400 uppercase tracking-widest">Teléfono</label>
+                  <input
+                    type="tel"
+                    value={clientForm.phone}
+                    onChange={(e) => setClientForm((prev) => ({ ...prev, phone: e.target.value }))}
+                    className="w-full px-6 py-5 bg-neutral-50 border-2 border-neutral-100 rounded-2xl text-neutral-900 font-bold focus:border-accent-500 transition-all outline-none"
+                    placeholder="TELÉFONO"
+                    disabled={clientSaving}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="px-10 py-8 bg-neutral-50 border-t border-neutral-100 flex items-center justify-end gap-4">
+              <button
+                onClick={closeClientModal}
+                className="px-8 py-4 text-sm font-bold text-neutral-400 uppercase tracking-widest hover:text-neutral-900 transition-colors"
+                disabled={clientSaving}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleCreateClient}
+                className="px-12 py-4 text-sm font-black text-white bg-accent-600 rounded-2xl hover:bg-accent-700 hover:scale-[1.02] active:scale-[0.98] transition-all shadow-[0_10px_24px_rgba(230,57,70,0.2)] disabled:opacity-50 uppercase tracking-[0.2em]"
+                disabled={clientSaving}
+              >
+                {clientSaving ? 'GUARDANDO...' : 'CREAR CLIENTE'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

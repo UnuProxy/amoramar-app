@@ -73,6 +73,15 @@ const navigation = [
     ),
   },
   {
+    name: 'Admins',
+    href: '/dashboard/admins/new',
+    icon: (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 12a4 4 0 100-8 4 4 0 000 8zm0 0c-3.866 0-7 2.239-7 5v2h14v-2c0-2.761-3.134-5-7-5z" />
+    </svg>
+    ),
+  },
+  {
     name: 'Services',
     href: '/dashboard/services',
     icon: (
