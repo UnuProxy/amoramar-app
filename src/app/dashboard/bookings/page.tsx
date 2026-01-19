@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { getBookings, getEmployees, getServices } from '@/shared/lib/firestore';
 import type { Booking, Employee, Service } from '@/shared/lib/types';
 import { formatTime, cn } from '@/shared/lib/utils';
+import { useLanguage } from '@/shared/context/LanguageContext';
+import type { Language } from '@/shared/lib/i18n';
 import { Loading } from '@/shared/components/Loading';
 import {
   ChevronLeft,
@@ -30,12 +32,28 @@ type StatusFilter = 'all' | Booking['status'];
 // DATE UTILITIES
 // ============================================================================
 
-const DAYS_ES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const DAYS_FULL_ES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-const MONTHS_ES = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December'
-];
+const DAYS_SHORT_BY_INDEX: Record<Language, string[]> = {
+  en: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+  es: ['Dom', 'Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab'],
+};
+const DAYS_FULL_BY_INDEX: Record<Language, string[]> = {
+  en: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
+  es: ['Domingo', 'Lunes', 'Martes', 'Miercoles', 'Jueves', 'Viernes', 'Sabado'],
+};
+const MONTHS_BY_INDEX: Record<Language, string[]> = {
+  en: [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December',
+  ],
+  es: [
+    'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
+  ],
+};
+const WEEKDAY_HEADERS: Record<Language, string[]> = {
+  en: ['M', 'T', 'W', 'T', 'F', 'S', 'S'],
+  es: ['L', 'M', 'X', 'J', 'V', 'S', 'D'],
+};
 
 const toDateKey = (date: Date): string => {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
@@ -79,12 +97,21 @@ const getMonthDays = (year: number, month: number): (Date | null)[] => {
   return days;
 };
 
-const formatDateLong = (date: Date): string => {
-  return `${DAYS_FULL_ES[date.getDay()]}, ${date.getDate()} de ${MONTHS_ES[date.getMonth()]}`;
+const formatDateLong = (date: Date, language: Language): string => {
+  const dayName = DAYS_FULL_BY_INDEX[language][date.getDay()];
+  const monthName = MONTHS_BY_INDEX[language][date.getMonth()];
+  if (language === 'es') {
+    return `${dayName}, ${date.getDate()} de ${monthName}`;
+  }
+  return `${dayName}, ${monthName} ${date.getDate()}`;
 };
 
-const formatDateShort = (date: Date): string => {
-  return `${date.getDate()} ${MONTHS_ES[date.getMonth()].substring(0, 3)}`;
+const formatDateShort = (date: Date, language: Language): string => {
+  const monthShort = MONTHS_BY_INDEX[language][date.getMonth()].substring(0, 3);
+  if (language === 'es') {
+    return `${date.getDate()} ${monthShort}`;
+  }
+  return `${monthShort} ${date.getDate()}`;
 };
 
 // ============================================================================
@@ -154,6 +181,7 @@ const MiniCalendar: React.FC<MiniCalendarProps> = ({
   currentMonth,
   onMonthChange,
 }) => {
+  const { t, language } = useLanguage();
   const days = getMonthDays(currentMonth.getFullYear(), currentMonth.getMonth());
 
   const prevMonth = () => {
@@ -187,7 +215,7 @@ const MiniCalendar: React.FC<MiniCalendarProps> = ({
           <ChevronLeft className="w-5 h-5 text-stone-600" />
         </button>
         <h3 className="text-sm font-semibold text-stone-900 tracking-wide">
-          {MONTHS_ES[currentMonth.getMonth()]} {currentMonth.getFullYear()}
+          {MONTHS_BY_INDEX[language][currentMonth.getMonth()]} {currentMonth.getFullYear()}
         </h3>
         <button
           onClick={nextMonth}
@@ -199,7 +227,7 @@ const MiniCalendar: React.FC<MiniCalendarProps> = ({
 
       {/* Day Headers */}
       <div className="grid grid-cols-7 mb-2">
-        {['L', 'M', 'X', 'J', 'V', 'S', 'D'].map((day) => (
+        {WEEKDAY_HEADERS[language].map((day) => (
           <div key={day} className="text-center text-[10px] font-bold text-stone-400 uppercase tracking-wider py-1">
             {day}
           </div>
@@ -272,7 +300,7 @@ const MiniCalendar: React.FC<MiniCalendarProps> = ({
         </div>
         <div className="flex items-center gap-2 text-[10px] font-bold text-rose-600 uppercase tracking-wider">
           <div className="w-3 h-3 rounded-sm bg-rose-500 shadow-sm" />
-          <span>Pending payments</span>
+          <span>{t('pending_payments')}</span>
         </div>
       </div>
     </div>
@@ -300,6 +328,7 @@ const MobileWeekStrip: React.FC<MobileWeekStripProps> = ({
   onPrevWeek,
   onNextWeek,
 }) => {
+  const { language } = useLanguage();
   const weekDays = getWeekDays(selectedDate);
 
   return (
@@ -340,7 +369,7 @@ const MobileWeekStrip: React.FC<MobileWeekStripProps> = ({
                   'text-[9px] font-bold uppercase tracking-wider',
                   isSelected ? 'text-stone-400' : 'text-stone-400'
                 )}>
-                  {DAYS_ES[day.getDay()]}
+                  {DAYS_SHORT_BY_INDEX[language][day.getDay()]}
                 </span>
                 <span className={cn(
                   'text-lg font-bold',
@@ -397,6 +426,7 @@ const DesktopWeekStrip: React.FC<DesktopWeekStripProps> = ({
   onPrevWeek,
   onNextWeek,
 }) => {
+  const { language } = useLanguage();
   const weekDays = getWeekDays(selectedDate);
 
   return (
@@ -436,8 +466,8 @@ const DesktopWeekStrip: React.FC<DesktopWeekStripProps> = ({
                 'text-[10px] font-bold uppercase tracking-wider',
                 isSelected ? 'text-stone-400' : 'text-stone-400'
               )}>
-                {DAYS_ES[day.getDay()]}
-              </span>
+                  {DAYS_SHORT_BY_INDEX[language][day.getDay()]}
+                </span>
               <span className={cn(
                 'text-xl font-bold mt-1',
                 isSelected ? 'text-white' : 'text-stone-900'
@@ -453,7 +483,7 @@ const DesktopWeekStrip: React.FC<DesktopWeekStripProps> = ({
                     ? 'bg-rose-600 text-white'
                     : 'bg-emerald-100 text-emerald-700'
                 )}>
-                  {count} booking{count !== 1 ? 's' : ''}
+                    {count} {language === 'es' ? (count === 1 ? 'reserva' : 'reservas') : (count === 1 ? 'booking' : 'bookings')}
                 </span>
               )}
             </button>
@@ -488,30 +518,38 @@ const BookingCard: React.FC<BookingCardProps> = ({
   employeeName,
   compact = false,
 }) => {
+  const { t } = useLanguage();
   const getStatusConfig = (status: Booking['status']) => {
     switch (status) {
       case 'confirmed':
-        return { label: 'Confirmada', bg: 'bg-emerald-500', text: 'text-white' };
+        return { label: t('confirmed'), bg: 'bg-emerald-500', text: 'text-white' };
       case 'completed':
-        return { label: 'Completada', bg: 'bg-stone-700', text: 'text-white' };
+        return { label: t('completed'), bg: 'bg-stone-700', text: 'text-white' };
       case 'cancelled':
-        return { label: 'Cancelada', bg: 'bg-red-500', text: 'text-white' };
+        return { label: t('cancelled'), bg: 'bg-red-500', text: 'text-white' };
       default:
-        return { label: 'Pendiente', bg: 'bg-amber-400', text: 'text-amber-900' };
+        return { label: t('pending'), bg: 'bg-amber-400', text: 'text-amber-900' };
     }
   };
 
   const getPaymentStatus = () => {
     if (booking.paymentStatus === 'paid' || booking.depositPaid) {
-      return { label: 'Pagado', color: 'text-emerald-600' };
+      return { label: t('paid'), color: 'text-emerald-600' };
     }
     if (booking.paymentStatus === 'refunded') {
-      return { label: 'Reembolsado', color: 'text-stone-500' };
+      return { label: t('refunded'), color: 'text-stone-500' };
     }
     if (booking.paymentStatus === 'failed') {
-      return { label: 'Fallido', color: 'text-red-500' };
+      return { label: t('failed'), color: 'text-red-500' };
     }
-    return { label: 'Pendiente', color: 'text-amber-600' };
+    return { label: t('pending'), color: 'text-amber-600' };
+  };
+
+  const getCreatedByLabel = () => {
+    if (booking.createdByName) return booking.createdByName;
+    if (booking.createdByRole === 'owner') return t('role_owner');
+    if (booking.createdByRole === 'employee') return t('employee');
+    return t('client');
   };
 
   const status = getStatusConfig(booking.status);
@@ -527,7 +565,7 @@ const BookingCard: React.FC<BookingCardProps> = ({
           <div className="text-base lg:text-lg font-bold text-stone-900">{formatTime(booking.bookingTime)}</div>
         </div>
         <div className="flex-1 min-w-0">
-          <div className="font-semibold text-stone-900 truncate text-sm lg:text-base">{booking.clientName || 'Sin nombre'}</div>
+          <div className="font-semibold text-stone-900 truncate text-sm lg:text-base">{booking.clientName || t('no_name')}</div>
           <div className="text-xs lg:text-sm text-stone-500 truncate">{serviceName}</div>
         </div>
         <div className="flex-shrink-0 flex items-center gap-2">
@@ -561,7 +599,7 @@ const BookingCard: React.FC<BookingCardProps> = ({
             <User className="w-4 h-4 lg:w-5 lg:h-5 text-stone-500" />
           </div>
           <div className="min-w-0">
-            <div className="font-semibold text-stone-900 text-sm lg:text-base truncate">{booking.clientName || 'Sin nombre'}</div>
+            <div className="font-semibold text-stone-900 text-sm lg:text-base truncate">{booking.clientName || t('no_name')}</div>
             <div className="text-xs lg:text-sm text-stone-500 truncate">{booking.clientEmail}</div>
             {booking.clientPhone && (
               <div className="text-xs lg:text-sm text-stone-500">{booking.clientPhone}</div>
@@ -576,7 +614,7 @@ const BookingCard: React.FC<BookingCardProps> = ({
           </div>
           <div className="min-w-0">
             <div className="font-semibold text-stone-900 text-sm lg:text-base truncate">{serviceName}</div>
-            <div className="text-xs lg:text-sm text-stone-500">con {employeeName}</div>
+            <div className="text-xs lg:text-sm text-stone-500">{t('with')} {employeeName}</div>
           </div>
         </div>
 
@@ -587,7 +625,7 @@ const BookingCard: React.FC<BookingCardProps> = ({
             <span className={cn('text-xs lg:text-sm font-medium', payment.color)}>{payment.label}</span>
           </div>
           <div className="text-[9px] lg:text-[10px] text-stone-400 uppercase tracking-wide truncate ml-2">
-            By: {booking.createdByName || booking.createdByRole || 'Client'}
+            {t('by')}: {getCreatedByLabel()}
           </div>
         </div>
       </div>
@@ -598,7 +636,7 @@ const BookingCard: React.FC<BookingCardProps> = ({
           href={`/dashboard/bookings/${booking.id}`}
           className="flex items-center justify-center gap-2 w-full py-2.5 lg:py-3 bg-stone-100 hover:bg-stone-200 active:bg-stone-300 rounded-xl text-sm font-semibold text-stone-700 transition-colors"
         >
-          View details
+          {t('view_details')}
           <ArrowRight className="w-4 h-4" />
         </Link>
       </div>
@@ -623,6 +661,7 @@ const DatePickerModal: React.FC<DatePickerModalProps> = ({
   selectedDate,
   onSelectDate,
 }) => {
+  const { t, language } = useLanguage();
   const [viewDate, setViewDate] = useState(selectedDate);
 
   useEffect(() => {
@@ -655,7 +694,7 @@ const DatePickerModal: React.FC<DatePickerModalProps> = ({
       <div className="relative bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl w-full sm:max-w-md p-5 sm:p-6 animate-in slide-in-from-bottom sm:fade-in sm:zoom-in-95 duration-300 max-h-[85vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-5 sm:mb-6">
-          <h2 className="text-lg sm:text-xl font-bold text-stone-900">Select date</h2>
+          <h2 className="text-lg sm:text-xl font-bold text-stone-900">{t('select_date')}</h2>
           <button
             onClick={onClose}
             className="p-2 hover:bg-stone-100 rounded-lg transition-colors"
@@ -677,7 +716,7 @@ const DatePickerModal: React.FC<DatePickerModalProps> = ({
             <ChevronLeft className="w-5 h-5 text-stone-600" />
           </button>
           <h3 className="text-base sm:text-lg font-semibold text-stone-900">
-            {MONTHS_ES[viewDate.getMonth()]} {viewDate.getFullYear()}
+            {MONTHS_BY_INDEX[language][viewDate.getMonth()]} {viewDate.getFullYear()}
           </h3>
           <button
             onClick={() => {
@@ -693,7 +732,7 @@ const DatePickerModal: React.FC<DatePickerModalProps> = ({
 
         {/* Day Headers */}
         <div className="grid grid-cols-7 mb-2">
-          {['L', 'M', 'X', 'J', 'V', 'S', 'D'].map((day) => (
+          {WEEKDAY_HEADERS[language].map((day) => (
             <div key={day} className="text-center text-xs font-bold text-stone-400 uppercase tracking-wider py-2">
               {day}
             </div>
@@ -735,7 +774,7 @@ const DatePickerModal: React.FC<DatePickerModalProps> = ({
             onClick={() => handleSelect(new Date())}
             className="flex-1 py-3 bg-stone-100 hover:bg-stone-200 active:bg-stone-300 rounded-xl text-sm font-semibold text-stone-700 transition-colors"
           >
-            Hoy
+            {t('today')}
           </button>
           <button
             onClick={() => {
@@ -745,7 +784,7 @@ const DatePickerModal: React.FC<DatePickerModalProps> = ({
             }}
             className="flex-1 py-3 bg-stone-100 hover:bg-stone-200 active:bg-stone-300 rounded-xl text-sm font-semibold text-stone-700 transition-colors"
           >
-            Mañana
+            {t('tomorrow')}
           </button>
         </div>
       </div>
@@ -780,6 +819,7 @@ const FiltersContent: React.FC<FiltersContentProps> = ({
   onClear,
   hasActiveFilters,
 }) => {
+  const { t } = useLanguage();
   return (
     <div className="space-y-5">
       {/* Search */}
@@ -789,7 +829,7 @@ const FiltersContent: React.FC<FiltersContentProps> = ({
           type="text"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          placeholder="Search client, service..."
+          placeholder={t('search_client_service')}
           className="w-full pl-10 pr-4 py-3 bg-stone-50 border border-stone-200 rounded-xl text-sm placeholder:text-stone-400 focus:outline-none focus:border-stone-400"
         />
         {searchTerm && (
@@ -804,14 +844,14 @@ const FiltersContent: React.FC<FiltersContentProps> = ({
 
       {/* Status Filter */}
       <div className="space-y-2">
-        <label className="text-[10px] font-bold text-stone-500 uppercase tracking-wider">Status</label>
+        <label className="text-[10px] font-bold text-stone-500 uppercase tracking-wider">{t('status')}</label>
         <div className="flex flex-wrap gap-2">
           {[
-            { id: 'all', label: 'All' },
-            { id: 'confirmed', label: 'Confirmed' },
-            { id: 'pending', label: 'Pending' },
-            { id: 'completed', label: 'Completed' },
-            { id: 'cancelled', label: 'Cancelled' },
+            { id: 'all', label: t('all') },
+            { id: 'confirmed', label: t('confirmed') },
+            { id: 'pending', label: t('pending') },
+            { id: 'completed', label: t('completed') },
+            { id: 'cancelled', label: t('cancelled') },
           ].map((status) => (
             <button
               key={status.id}
@@ -831,13 +871,13 @@ const FiltersContent: React.FC<FiltersContentProps> = ({
 
       {/* Employee Filter */}
       <div className="space-y-2">
-        <label className="text-[10px] font-bold text-stone-500 uppercase tracking-wider">Employee</label>
+        <label className="text-[10px] font-bold text-stone-500 uppercase tracking-wider">{t('employee')}</label>
         <select
           value={employeeFilter}
           onChange={(e) => setEmployeeFilter(e.target.value)}
           className="w-full px-3 py-3 bg-stone-50 border border-stone-200 rounded-xl text-sm focus:outline-none focus:border-stone-400"
         >
-          <option value="all">All</option>
+          <option value="all">{t('all')}</option>
           {employees.map((emp) => (
             <option key={emp.id} value={emp.id}>
               {emp.firstName} {emp.lastName}
@@ -852,7 +892,7 @@ const FiltersContent: React.FC<FiltersContentProps> = ({
           onClick={onClear}
           className="w-full py-3 text-sm font-semibold text-red-600 hover:bg-red-50 active:bg-red-100 rounded-lg transition-colors"
         >
-          Limpiar filtros
+          {t('clear_filters')}
         </button>
       )}
     </div>
@@ -864,6 +904,7 @@ const FiltersContent: React.FC<FiltersContentProps> = ({
 // ============================================================================
 
 export default function BookingsPage() {
+  const { t, language } = useLanguage();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [services, setServices] = useState<Service[]>([]);
@@ -907,11 +948,17 @@ export default function BookingsPage() {
   }, []);
 
   // Helpers
-  const getServiceName = useCallback((serviceId: string) => 
-    services.find((s) => s.id === serviceId)?.serviceName || 'Service', [services]);
+  const getServiceName = useCallback(
+    (serviceId: string) =>
+      services.find((s) => s.id === serviceId)?.serviceName || t('service'),
+    [services, t]
+  );
   
-  const getEmployeeName = useCallback((employeeId: string) => 
-    employees.find((e) => e.id === employeeId)?.firstName || 'Employee', [employees]);
+  const getEmployeeName = useCallback(
+    (employeeId: string) =>
+      employees.find((e) => e.id === employeeId)?.firstName || t('employee'),
+    [employees, t]
+  );
 
   // Booking counts by date
   const bookingCounts = useMemo(() => {
@@ -1077,8 +1124,8 @@ export default function BookingsPage() {
           {/* Mobile Header */}
           <div className="flex lg:hidden items-center justify-between">
             <div>
-              <h1 className="text-xl font-bold text-stone-900">Bookings</h1>
-              <p className="text-xs text-stone-500">{formatDateShort(selectedDate)}</p>
+              <h1 className="text-xl font-bold text-stone-900">{t('bookings')}</h1>
+              <p className="text-xs text-stone-500">{formatDateShort(selectedDate, language)}</p>
             </div>
             <div className="flex items-center gap-2">
               {!isToday(selectedDate) && (
@@ -1086,7 +1133,7 @@ export default function BookingsPage() {
                   onClick={goToToday}
                   className="px-3 py-2 bg-amber-100 text-amber-700 rounded-lg text-xs font-semibold"
                 >
-                  Hoy
+                  {t('today')}
                 </button>
               )}
               <button
@@ -1114,15 +1161,15 @@ export default function BookingsPage() {
           <div className="hidden lg:flex items-center justify-between">
             <div className="flex items-center gap-6">
               <div>
-                <h1 className="text-2xl font-bold text-stone-900 tracking-tight">Bookings</h1>
-                <p className="text-sm text-stone-500">{formatDateLong(selectedDate)}</p>
+                <h1 className="text-2xl font-bold text-stone-900 tracking-tight">{t('bookings')}</h1>
+                <p className="text-sm text-stone-500">{formatDateLong(selectedDate, language)}</p>
               </div>
               {!isToday(selectedDate) && (
                 <button
                   onClick={goToToday}
                   className="px-4 py-2 bg-amber-100 hover:bg-amber-200 text-amber-700 rounded-lg text-sm font-semibold transition-colors"
                 >
-                  Go to today
+                  {t('go_to_today')}
                 </button>
               )}
             </div>
@@ -1132,7 +1179,7 @@ export default function BookingsPage() {
                 className="flex items-center gap-2 px-4 py-2.5 bg-stone-100 hover:bg-stone-200 rounded-xl text-sm font-semibold text-stone-700 transition-colors"
               >
                 <Calendar className="w-4 h-4" />
-                Go to date
+                {t('go_to_date')}
               </button>
               <div className="flex items-center bg-stone-100 rounded-xl p-1">
                 <button
@@ -1144,7 +1191,7 @@ export default function BookingsPage() {
                       : 'text-stone-500 hover:text-stone-700'
                   )}
                 >
-                  Day
+                  {t('day')}
                 </button>
                 <button
                   onClick={() => setViewMode('week')}
@@ -1155,14 +1202,14 @@ export default function BookingsPage() {
                       : 'text-stone-500 hover:text-stone-700'
                   )}
                 >
-                  Week
+                  {t('week')}
                 </button>
               </div>
               <Link
                 href="/dashboard"
                 className="px-4 py-2.5 border border-stone-200 hover:border-stone-400 rounded-xl text-sm font-semibold text-stone-600 transition-colors"
               >
-                Dashboard
+                {t('dashboard')}
               </Link>
             </div>
           </div>
@@ -1184,7 +1231,7 @@ export default function BookingsPage() {
             )}
           >
             <LayoutGrid className="w-4 h-4" />
-            Día
+            {t('day')}
           </button>
           <button
             onClick={() => setViewMode('week')}
@@ -1196,7 +1243,7 @@ export default function BookingsPage() {
             )}
           >
             <List className="w-4 h-4" />
-            Semana
+            {t('week')}
           </button>
         </div>
       </div>
@@ -1252,7 +1299,7 @@ export default function BookingsPage() {
             <div className="bg-white rounded-2xl border border-stone-200 p-5 shadow-sm">
               <h3 className="text-sm font-semibold text-stone-900 flex items-center gap-2 mb-4">
                 <Filter className="w-4 h-4" />
-                Filters
+                {t('filters')}
               </h3>
               <FiltersContent
                 searchTerm={searchTerm}
@@ -1269,17 +1316,17 @@ export default function BookingsPage() {
 
             {/* Keyboard Shortcuts */}
             <div className="bg-stone-100 rounded-2xl p-4 text-[11px] text-stone-500 space-y-1">
-              <div className="font-semibold text-stone-700 mb-2">Keyboard shortcuts</div>
+              <div className="font-semibold text-stone-700 mb-2">{t('keyboard_shortcuts')}</div>
               <div className="flex justify-between">
-                <span>Previous/Next day</span>
+                <span>{t('previous_next_day')}</span>
                 <span className="font-mono">← →</span>
               </div>
               <div className="flex justify-between">
-                <span>Previous/Next week</span>
+                <span>{t('previous_next_week')}</span>
                 <span className="font-mono">⇧← ⇧→</span>
               </div>
               <div className="flex justify-between">
-                <span>Go to today</span>
+                <span>{t('go_to_today')}</span>
                 <span className="font-mono">T</span>
               </div>
             </div>
@@ -1296,7 +1343,7 @@ export default function BookingsPage() {
                   <div className="flex-shrink-0">
                     <div className="text-xl lg:text-2xl font-bold text-stone-900">{filteredBookings.length}</div>
                     <div className="text-[10px] lg:text-xs text-stone-500 whitespace-nowrap">
-                      {viewMode === 'day' ? 'today' : 'week'}
+                      {viewMode === 'day' ? t('today').toLowerCase() : t('week').toLowerCase()}
                     </div>
                   </div>
                   <div className="w-px h-8 lg:h-10 bg-stone-200 flex-shrink-0" />
@@ -1304,19 +1351,19 @@ export default function BookingsPage() {
                     <div className="text-xl lg:text-2xl font-bold text-emerald-600">
                       {filteredBookings.filter((b) => b.status === 'confirmed').length}
                     </div>
-                    <div className="text-[10px] lg:text-xs text-stone-500">confirmed</div>
+                    <div className="text-[10px] lg:text-xs text-stone-500">{t('confirmed').toLowerCase()}</div>
                   </div>
                   <div className="w-px h-8 lg:h-10 bg-stone-200 flex-shrink-0" />
                   <div className="flex-shrink-0">
                     <div className="text-xl lg:text-2xl font-bold text-amber-600">
                       {filteredBookings.filter((b) => b.status === 'pending').length}
                     </div>
-                    <div className="text-[10px] lg:text-xs text-stone-500">pending</div>
+                    <div className="text-[10px] lg:text-xs text-stone-500">{t('pending').toLowerCase()}</div>
                   </div>
                 </div>
                 {hasActiveFilters && (
                   <span className="hidden sm:block text-xs text-stone-500 flex-shrink-0 ml-4">
-                    Filters activos
+                    {t('filters_active')}
                   </span>
                 )}
               </div>
@@ -1331,9 +1378,9 @@ export default function BookingsPage() {
                     <div className="w-14 h-14 lg:w-16 lg:h-16 bg-stone-100 rounded-full flex items-center justify-center mx-auto mb-4">
                       <Calendar className="w-7 h-7 lg:w-8 lg:h-8 text-stone-400" />
                     </div>
-                    <h3 className="text-base lg:text-lg font-semibold text-stone-900 mb-1">No bookings</h3>
+                    <h3 className="text-base lg:text-lg font-semibold text-stone-900 mb-1">{t('no_bookings')}</h3>
                     <p className="text-sm text-stone-500">
-                      No bookings for this day
+                      {t('no_bookings_day')}
                     </p>
                   </div>
                 ) : (
@@ -1357,9 +1404,9 @@ export default function BookingsPage() {
                     <div className="w-14 h-14 lg:w-16 lg:h-16 bg-stone-100 rounded-full flex items-center justify-center mx-auto mb-4">
                       <Calendar className="w-7 h-7 lg:w-8 lg:h-8 text-stone-400" />
                     </div>
-                    <h3 className="text-base lg:text-lg font-semibold text-stone-900 mb-1">No bookings this week</h3>
+                    <h3 className="text-base lg:text-lg font-semibold text-stone-900 mb-1">{t('no_bookings_week')}</h3>
                     <p className="text-sm text-stone-500">
-                      No bookings match the filters
+                      {t('no_bookings_filters')}
                     </p>
                   </div>
                 ) : (
@@ -1396,7 +1443,7 @@ export default function BookingsPage() {
                                 'text-[9px] lg:text-[10px] font-bold uppercase',
                                 isDaySelected ? 'text-white/70' : 'text-stone-400'
                               )}>
-                                {DAYS_ES[day.getDay()]}
+                                {DAYS_SHORT_BY_INDEX[language][day.getDay()]}
                               </span>
                               <span className={cn(
                                 'text-base lg:text-lg font-bold',
@@ -1410,13 +1457,15 @@ export default function BookingsPage() {
                                 'font-semibold text-sm lg:text-base',
                                 isDaySelected ? 'text-white' : 'text-stone-900'
                               )}>
-                                {DAYS_FULL_ES[day.getDay()]}
+                                {DAYS_FULL_BY_INDEX[language][day.getDay()]}
                               </div>
                               <div className={cn(
                                 'text-xs lg:text-sm',
                                 isDaySelected ? 'text-white/70' : 'text-stone-500'
                               )}>
-                                {day.getDate()} de {MONTHS_ES[day.getMonth()]}
+                                {language === 'es'
+                                  ? `${day.getDate()} de ${MONTHS_BY_INDEX[language][day.getMonth()]}`
+                                  : `${MONTHS_BY_INDEX[language][day.getMonth()]} ${day.getDate()}`}
                               </div>
                             </div>
                           </div>
@@ -1428,7 +1477,10 @@ export default function BookingsPage() {
                               ? 'bg-emerald-100 text-emerald-700'
                               : 'bg-stone-100 text-stone-400'
                           )}>
-                            {dayBookings.length} booking{dayBookings.length !== 1 ? 's' : ''}
+                            {dayBookings.length}{' '}
+                            {language === 'es'
+                              ? dayBookings.length === 1 ? 'reserva' : 'reservas'
+                              : dayBookings.length === 1 ? 'booking' : 'bookings'}
                           </div>
                         </button>
 
@@ -1472,7 +1524,7 @@ export default function BookingsPage() {
       <Drawer
         isOpen={showFiltersDrawer}
         onClose={() => setShowFiltersDrawer(false)}
-        title="Filters"
+        title={t('filters')}
       >
         <FiltersContent
           searchTerm={searchTerm}
@@ -1491,7 +1543,7 @@ export default function BookingsPage() {
       <Drawer
         isOpen={showCalendarDrawer}
         onClose={() => setShowCalendarDrawer(false)}
-        title="Calendar"
+        title={t('calendar')}
       >
         <div className="space-y-4">
           <MiniCalendar
@@ -1510,13 +1562,13 @@ export default function BookingsPage() {
               }}
               className="flex-1 py-3 bg-amber-100 hover:bg-amber-200 active:bg-amber-300 rounded-xl text-sm font-semibold text-amber-700 transition-colors"
             >
-              Go to today
+              {t('go_to_today')}
             </button>
             <button
               onClick={() => setShowDatePicker(true)}
               className="flex-1 py-3 bg-stone-100 hover:bg-stone-200 active:bg-stone-300 rounded-xl text-sm font-semibold text-stone-700 transition-colors"
             >
-              Select date
+              {t('select_date')}
             </button>
           </div>
         </div>

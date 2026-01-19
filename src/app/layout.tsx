@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { AuthProvider } from '@/shared/context/AuthContext';
+import { LanguageProvider } from '@/shared/context/LanguageContext';
+import { LanguageToggle } from '@/shared/components/LanguageToggle';
 
 export const metadata: Metadata = {
   title: 'Amor Amar - Management Dashboard',
@@ -44,9 +46,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="font-sans">
-        <AuthProvider>
-          {children}
-        </AuthProvider>
+        <LanguageProvider>
+          <AuthProvider>
+            {children}
+            <LanguageToggle />
+          </AuthProvider>
+        </LanguageProvider>
       </body>
     </html>
   );

@@ -5,12 +5,14 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/shared/hooks/useAuth';
+import { useLanguage } from '@/shared/context/LanguageContext';
 import { getEmployees } from '@/shared/lib/firestore';
 import { cn } from '@/shared/lib/utils';
 import type { Employee } from '@/shared/lib/types';
 
 const LogoutButton = () => {
   const { logout } = useAuth();
+  const { t } = useLanguage();
   const router = useRouter();
 
   const handleLogout = async () => {
@@ -30,76 +32,10 @@ const LogoutButton = () => {
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
       </svg>
-      Logout
+      {t('logout')}
     </button>
   );
 };
-
-const navigation = [
-  {
-    name: 'Overview',
-    href: '/dashboard',
-    icon: (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-    </svg>
-    ),
-  },
-  {
-    name: 'End of Day',
-    href: '/dashboard/end-of-day',
-    icon: (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-    </svg>
-    ),
-  },
-  {
-    name: 'Financial',
-    href: '/dashboard/financial',
-    icon: (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-    </svg>
-    ),
-  },
-  {
-    name: 'Employees',
-    href: '/dashboard/employees',
-    icon: (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-    </svg>
-    ),
-  },
-  {
-    name: 'Admins',
-    href: '/dashboard/admins/new',
-    icon: (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 12a4 4 0 100-8 4 4 0 000 8zm0 0c-3.866 0-7 2.239-7 5v2h14v-2c0-2.761-3.134-5-7-5z" />
-    </svg>
-    ),
-  },
-  {
-    name: 'Services',
-    href: '/dashboard/services',
-    icon: (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-    </svg>
-    ),
-  },
-  {
-    name: 'Bookings',
-    href: '/dashboard/bookings',
-    icon: (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-    </svg>
-    ),
-  },
-];
 
 interface SidebarProps {
   mobileMenuOpen?: boolean;
@@ -112,9 +48,76 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const pathname = usePathname();
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [internalMobileMenuOpen, setInternalMobileMenuOpen] = useState(false);
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const navigation = [
+    {
+      name: t('overview'),
+      href: '/dashboard',
+      icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+      </svg>
+      ),
+    },
+    {
+      name: t('end_of_day'),
+      href: '/dashboard/end-of-day',
+      icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+      </svg>
+      ),
+    },
+    {
+      name: t('financial'),
+      href: '/dashboard/financial',
+      icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+      ),
+    },
+    {
+      name: t('employees'),
+      href: '/dashboard/employees',
+      icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+      </svg>
+      ),
+    },
+    {
+      name: t('admins'),
+      href: '/dashboard/admins/new',
+      icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 12a4 4 0 100-8 4 4 0 000 8zm0 0c-3.866 0-7 2.239-7 5v2h14v-2c0-2.761-3.134-5-7-5z" />
+      </svg>
+      ),
+    },
+    {
+      name: t('services'),
+      href: '/dashboard/services',
+      icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+      </svg>
+      ),
+    },
+    {
+      name: t('bookings'),
+      href: '/dashboard/bookings',
+      icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+      </svg>
+      ),
+    },
+  ];
 
   const mobileMenuOpen = externalMobileMenuOpen !== undefined ? externalMobileMenuOpen : internalMobileMenuOpen;
 
@@ -144,7 +147,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   }, [user]);
 
   const getDisplayName = () => {
-    if (loading) return 'Loading...';
+    if (loading) return t('loading');
     if (!user) return 'User';
     
     if (user.role === 'employee' && employee) {
@@ -155,9 +158,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   const getDisplayRole = () => {
-    if (!user) return 'Admin Panel';
-    if (user.role === 'employee') return 'Employee';
-    return 'Salon Owner';
+    if (!user) return t('admin_panel');
+    if (user.role === 'employee') return t('role_employee');
+    return t('role_owner');
   };
 
   return (
@@ -193,7 +196,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <h1 className="text-xl font-bold text-neutral-900">
               Amor Amar
             </h1>
-            <p className="text-xs text-neutral-500 mt-1">Business Management</p>
+            <p className="text-xs text-neutral-500 mt-1">{t('business_management')}</p>
           </Link>
         </div>
 

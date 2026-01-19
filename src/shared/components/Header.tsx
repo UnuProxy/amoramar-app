@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { useAuth } from '@/shared/hooks/useAuth';
+import { useLanguage } from '@/shared/context/LanguageContext';
 import { Button } from './Button';
 import { useRouter } from 'next/navigation';
 
@@ -11,6 +12,7 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({ title }) => {
   const { user, logout } = useAuth();
+  const { t } = useLanguage();
   const router = useRouter();
 
   const handleLogout = async () => {
@@ -35,7 +37,7 @@ export const Header: React.FC<HeaderProps> = ({ title }) => {
                 {user.email}
               </span>
               <Button variant="outline" size="sm" onClick={handleLogout}>
-                Logout
+                {t('logout')}
               </Button>
             </div>
           )}
@@ -44,6 +46,5 @@ export const Header: React.FC<HeaderProps> = ({ title }) => {
     </header>
   );
 };
-
 
 
