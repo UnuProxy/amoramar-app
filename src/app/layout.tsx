@@ -35,7 +35,7 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
-  themeColor: '#111827',
+  themeColor: '#fcfaf7',
 };
 
 export default function RootLayout({
@@ -45,7 +45,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="font-sans">
+      <body className="font-sans bg-background text-primary-900">
         <LanguageProvider>
           <AuthProvider>
             {children}

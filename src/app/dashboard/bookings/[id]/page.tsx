@@ -310,8 +310,8 @@ export default function BookingDetailPage() {
     <div className="space-y-8 pb-16">
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <div className="space-y-1">
-          <h1 className="text-3xl sm:text-4xl font-black text-neutral-900 tracking-tight">Detalles de la Reserva</h1>
-          <p className="text-neutral-500 text-sm font-medium">Ficha completa del cliente y la cita</p>
+          <h1 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">Detalles de la Reserva</h1>
+          <p className="text-slate-500 text-sm font-medium">Ficha completa del cliente y la cita</p>
         </div>
         <Button variant="outline" onClick={() => router.push('/dashboard/bookings')}>
           Volver
@@ -319,7 +319,7 @@ export default function BookingDetailPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="p-4 rounded-2xl bg-gradient-to-br from-neutral-900 to-neutral-800 text-white shadow-lg">
+        <div className="p-4 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-800 text-white shadow-lg">
           <p className="text-xs uppercase tracking-[0.25em] text-white/60 mb-2">Estado</p>
           <div className="flex items-center justify-between">
             <span className="text-xl font-black">{booking.status.toUpperCase()}</span>
@@ -347,27 +347,27 @@ export default function BookingDetailPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white border border-neutral-100 rounded-3xl shadow-md p-6 space-y-4">
-          <h2 className="text-xl font-black text-neutral-900 tracking-tight">Información del Cliente</h2>
+        <div className="bg-white border border-slate-100 rounded-3xl shadow-md p-6 space-y-4">
+          <h2 className="text-xl font-black text-slate-900 tracking-tight">Información del Cliente</h2>
           <div className="space-y-3">
-            <div className="p-4 rounded-2xl bg-neutral-50 border border-neutral-100">
-              <p className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.2em]">Nombre</p>
-              <p className="text-lg font-semibold text-neutral-900 mt-1">{booking.clientName}</p>
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Nombre</p>
+              <p className="text-lg font-semibold text-slate-900 mt-1">{booking.clientName}</p>
             </div>
-            <div className="p-4 rounded-2xl bg-neutral-50 border border-neutral-100">
-              <p className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.2em]">Correo</p>
-              <p className="text-lg font-semibold text-neutral-900 mt-1">{booking.clientEmail}</p>
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Correo</p>
+              <p className="text-lg font-semibold text-slate-900 mt-1">{booking.clientEmail}</p>
             </div>
-            <div className="p-4 rounded-2xl bg-neutral-50 border border-neutral-100">
-              <p className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.2em]">Teléfono</p>
-              <p className="text-lg font-semibold text-neutral-900 mt-1">{booking.clientPhone}</p>
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Teléfono</p>
+              <p className="text-lg font-semibold text-slate-900 mt-1">{booking.clientPhone}</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white border border-neutral-100 rounded-3xl shadow-md p-6 space-y-4">
+        <div className="bg-white border border-slate-100 rounded-3xl shadow-md p-6 space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-black text-neutral-900 tracking-tight">Detalles de la Cita</h2>
+            <h2 className="text-xl font-black text-slate-900 tracking-tight">Detalles de la Cita</h2>
             {booking?.status !== 'completed' && booking?.status !== 'cancelled' && !isEditingDateTime && (
               <Button
                 variant="outline"
@@ -383,23 +383,23 @@ export default function BookingDetailPage() {
             )}
           </div>
           <div className="space-y-3">
-            <div className="p-4 rounded-2xl bg-neutral-50 border border-neutral-100">
-              <p className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.2em]">Servicio</p>
-              <p className="text-lg font-semibold text-neutral-900 mt-1">{service?.serviceName}</p>
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Servicio</p>
+              <p className="text-lg font-semibold text-slate-900 mt-1">{service?.serviceName}</p>
             </div>
-            <div className="p-4 rounded-2xl bg-neutral-50 border border-neutral-100 grid grid-cols-2 gap-3">
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 grid grid-cols-2 gap-3">
               <div>
-                <p className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.2em]">Precio</p>
-                <p className="text-base font-semibold text-neutral-900 mt-1">{service ? formatCurrency(service.price) : '—'}</p>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Precio</p>
+                <p className="text-base font-semibold text-slate-900 mt-1">{service ? formatCurrency(service.price) : '—'}</p>
               </div>
               <div>
-                <p className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.2em]">Duración</p>
-                <p className="text-base font-semibold text-neutral-900 mt-1">{service ? `${service.duration} min` : '—'}</p>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Duración</p>
+                <p className="text-base font-semibold text-slate-900 mt-1">{service ? `${service.duration} min` : '—'}</p>
               </div>
             </div>
-            <div className="p-4 rounded-2xl bg-neutral-50 border border-neutral-100">
-              <p className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.2em]">Empleado</p>
-              <p className="text-lg font-semibold text-neutral-900 mt-1">{employee ? `${employee.firstName} ${employee.lastName}` : '—'}</p>
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Empleado</p>
+              <p className="text-lg font-semibold text-slate-900 mt-1">{employee ? `${employee.firstName} ${employee.lastName}` : '—'}</p>
             </div>
             
             {/* Date/Time Section - Editable */}
@@ -408,25 +408,25 @@ export default function BookingDetailPage() {
                 <p className="text-[10px] font-black text-blue-700 uppercase tracking-[0.2em]">Cambiar Fecha y Hora</p>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-[10px] font-black text-neutral-500 uppercase tracking-[0.2em] block mb-2">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] block mb-2">
                       Nueva Fecha
                     </label>
                     <input
                       type="date"
                       value={newBookingDate}
                       onChange={(e) => setNewBookingDate(e.target.value)}
-                      className="w-full px-3 py-2 bg-white border-2 border-neutral-200 rounded-xl text-neutral-900 font-medium focus:border-accent-500 outline-none transition"
+                      className="w-full px-3 py-2 bg-white border-2 border-slate-200 rounded-xl text-slate-900 font-medium focus:border-sky-500 outline-none transition"
                     />
                   </div>
                   <div>
-                    <label className="text-[10px] font-black text-neutral-500 uppercase tracking-[0.2em] block mb-2">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] block mb-2">
                       Nueva Hora
                     </label>
                     <input
                       type="time"
                       value={newBookingTime}
                       onChange={(e) => setNewBookingTime(e.target.value)}
-                      className="w-full px-3 py-2 bg-white border-2 border-neutral-200 rounded-xl text-neutral-900 font-medium focus:border-accent-500 outline-none transition"
+                      className="w-full px-3 py-2 bg-white border-2 border-slate-200 rounded-xl text-slate-900 font-medium focus:border-sky-500 outline-none transition"
                     />
                   </div>
                 </div>
@@ -453,21 +453,21 @@ export default function BookingDetailPage() {
                 </div>
               </div>
             ) : (
-              <div className="p-4 rounded-2xl bg-neutral-50 border border-neutral-100 grid grid-cols-2 gap-3">
+              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 grid grid-cols-2 gap-3">
                 <div>
-                  <p className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.2em]">Fecha</p>
-                  <p className="text-base font-semibold text-neutral-900 mt-1">{formatDate(booking.bookingDate)}</p>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Fecha</p>
+                  <p className="text-base font-semibold text-slate-900 mt-1">{formatDate(booking.bookingDate)}</p>
                 </div>
                 <div>
-                  <p className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.2em]">Hora</p>
-                  <p className="text-base font-semibold text-neutral-900 mt-1">{formatTime(booking.bookingTime)}</p>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Hora</p>
+                  <p className="text-base font-semibold text-slate-900 mt-1">{formatTime(booking.bookingTime)}</p>
                 </div>
               </div>
             )}
             
-            <div className="p-4 rounded-2xl bg-neutral-50 border border-neutral-100 grid grid-cols-2 gap-3">
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 grid grid-cols-2 gap-3">
               <div>
-                <p className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.2em]">Estado</p>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Estado</p>
                 <span
                   className={cn(
                     "inline-flex px-2 py-1 rounded-full text-[10px] font-black uppercase tracking-[0.15em] mt-1",
@@ -476,18 +476,18 @@ export default function BookingDetailPage() {
                       : booking.status === 'completed'
                       ? 'bg-success-600 text-white'
                       : booking.status === 'pending'
-                      ? 'bg-warning-500 text-primary-900'
+                      ? 'bg-warning-500 text-slate-900'
                       : booking.status === 'no-show'
                       ? 'bg-amber-500 text-white'
-                      : 'bg-accent-500 text-white'
+                      : 'bg-sky-500 text-white'
                   )}
                 >
                   {booking.status === 'no-show' ? 'No Presentado' : booking.status}
                 </span>
               </div>
               <div>
-                <p className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.2em]">Creada por</p>
-                <p className="text-sm font-semibold text-neutral-900 mt-1">{getCreatedByLabel(booking)}</p>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Creada por</p>
+                <p className="text-sm font-semibold text-slate-900 mt-1">{getCreatedByLabel(booking)}</p>
               </div>
             </div>
           </div>
@@ -495,11 +495,11 @@ export default function BookingDetailPage() {
       </div>
 
       {/* Additional Services Section */}
-      <div className="bg-white border border-neutral-100 rounded-3xl shadow-md p-6 space-y-4">
+      <div className="bg-white border border-slate-100 rounded-3xl shadow-md p-6 space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-black text-neutral-900 tracking-tight">Servicios de la Cita</h2>
-            <p className="text-xs text-neutral-500 mt-1">Servicio principal y servicios adicionales</p>
+            <h2 className="text-lg font-black text-slate-900 tracking-tight">Servicios de la Cita</h2>
+            <p className="text-xs text-slate-500 mt-1">Servicio principal y servicios adicionales</p>
           </div>
           {booking?.status !== 'completed' && booking?.status !== 'cancelled' && (
             <Button
@@ -528,12 +528,12 @@ export default function BookingDetailPage() {
         {/* Additional Services List */}
         {booking?.additionalServices && booking.additionalServices.length > 0 && (
           <div className="space-y-2">
-            <p className="text-[10px] font-black text-neutral-500 uppercase tracking-[0.2em]">Servicios Adicionales</p>
+            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Servicios Adicionales</p>
             {booking.additionalServices.map((item) => (
-              <div key={item.id} className="p-4 rounded-2xl bg-neutral-50 border border-neutral-200 flex items-center justify-between group">
+              <div key={item.id} className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between group">
                 <div className="flex-1">
-                  <p className="text-sm font-bold text-neutral-900">{item.serviceName}</p>
-                  <p className="text-xs text-neutral-500 mt-1">
+                  <p className="text-sm font-bold text-slate-900">{item.serviceName}</p>
+                  <p className="text-xs text-slate-500 mt-1">
                     Agregado: {new Date(item.addedAt).toLocaleString('es-ES', { 
                       day: '2-digit', 
                       month: '2-digit', 
@@ -544,7 +544,7 @@ export default function BookingDetailPage() {
                   </p>
                 </div>
                 <div className="flex items-center gap-3">
-                  <p className="text-lg font-black text-neutral-900">{formatCurrency(item.price)}</p>
+                  <p className="text-lg font-black text-slate-900">{formatCurrency(item.price)}</p>
                   {booking?.status !== 'completed' && booking?.status !== 'cancelled' && (
                     <button
                       onClick={() => {
@@ -567,15 +567,15 @@ export default function BookingDetailPage() {
 
         {/* Add Service Form */}
         {showAddService && (
-          <div className="p-5 rounded-2xl bg-gradient-to-br from-neutral-50 to-white border-2 border-neutral-200 space-y-4">
+          <div className="p-5 rounded-2xl bg-gradient-to-br from-slate-50 to-white border-2 border-slate-200 space-y-4">
             <div className="flex gap-3 mb-4">
               <button
                 onClick={() => setNewServiceType('catalog')}
                 className={cn(
                   "flex-1 px-4 py-2 rounded-xl text-sm font-bold transition-all",
                   newServiceType === 'catalog'
-                    ? "bg-neutral-900 text-white"
-                    : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                    ? "bg-slate-900 text-white"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                 )}
               >
                 Del Catálogo
@@ -585,8 +585,8 @@ export default function BookingDetailPage() {
                 className={cn(
                   "flex-1 px-4 py-2 rounded-xl text-sm font-bold transition-all",
                   newServiceType === 'custom'
-                    ? "bg-neutral-900 text-white"
-                    : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                    ? "bg-slate-900 text-white"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                 )}
               >
                 Servicio Personalizado
@@ -595,13 +595,13 @@ export default function BookingDetailPage() {
 
             {newServiceType === 'catalog' ? (
               <div className="space-y-3">
-                <label className="text-[10px] font-black text-neutral-500 uppercase tracking-[0.2em]">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">
                   Seleccionar Servicio
                 </label>
                 <select
                   value={selectedServiceId}
                   onChange={(e) => setSelectedServiceId(e.target.value)}
-                  className="w-full px-4 py-3 bg-white border-2 border-neutral-200 rounded-xl text-neutral-900 font-medium focus:border-accent-500 outline-none transition"
+                  className="w-full px-4 py-3 bg-white border-2 border-slate-200 rounded-xl text-slate-900 font-medium focus:border-sky-500 outline-none transition"
                 >
                   <option value="">Selecciona un servicio...</option>
                   {availableServices.map((s) => (
@@ -614,7 +614,7 @@ export default function BookingDetailPage() {
             ) : (
               <div className="space-y-3">
                 <div>
-                  <label className="text-[10px] font-black text-neutral-500 uppercase tracking-[0.2em]">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">
                     Nombre del Servicio
                   </label>
                   <input
@@ -622,11 +622,11 @@ export default function BookingDetailPage() {
                     value={customServiceName}
                     onChange={(e) => setCustomServiceName(e.target.value)}
                     placeholder="Ej. Tratamiento especial, Producto adicional"
-                    className="w-full px-4 py-3 mt-2 bg-white border-2 border-neutral-200 rounded-xl text-neutral-900 font-medium focus:border-accent-500 outline-none transition"
+                    className="w-full px-4 py-3 mt-2 bg-white border-2 border-slate-200 rounded-xl text-slate-900 font-medium focus:border-sky-500 outline-none transition"
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] font-black text-neutral-500 uppercase tracking-[0.2em]">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">
                     Precio (€)
                   </label>
                   <input
@@ -636,7 +636,7 @@ export default function BookingDetailPage() {
                     value={customServicePrice}
                     onChange={(e) => setCustomServicePrice(e.target.value)}
                     placeholder="0.00"
-                    className="w-full px-4 py-3 mt-2 bg-white border-2 border-neutral-200 rounded-xl text-neutral-900 font-medium focus:border-accent-500 outline-none transition"
+                    className="w-full px-4 py-3 mt-2 bg-white border-2 border-slate-200 rounded-xl text-slate-900 font-medium focus:border-sky-500 outline-none transition"
                   />
                 </div>
               </div>
@@ -654,29 +654,29 @@ export default function BookingDetailPage() {
         )}
 
         {/* Total Price */}
-        <div className="pt-4 border-t-2 border-neutral-200">
+        <div className="pt-4 border-t-2 border-slate-200">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-[10px] font-black text-neutral-500 uppercase tracking-[0.2em]">Total</p>
-              <p className="text-xs text-neutral-500 mt-1">
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Total</p>
+              <p className="text-xs text-slate-500 mt-1">
                 {service ? 1 : 0} servicio{(booking?.additionalServices?.length || 0) > 0 ? ` + ${booking?.additionalServices?.length} adicional${(booking?.additionalServices?.length || 0) > 1 ? 'es' : ''}` : ''}
               </p>
             </div>
-            <div className="text-3xl font-black text-neutral-900">
+            <div className="text-3xl font-black text-slate-900">
               {formatCurrency(calculateTotalPrice())}
             </div>
           </div>
         </div>
       </div>
 
-      <div className="bg-white border border-neutral-100 rounded-3xl shadow-md p-6 space-y-4">
+      <div className="bg-white border border-slate-100 rounded-3xl shadow-md p-6 space-y-4">
         <details className="group">
           <summary className="cursor-pointer list-none flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-black text-neutral-900 tracking-tight">Notas de Tinte y Fórmulas</h2>
-              <p className="text-xs text-neutral-500 mt-1">Información confidencial del cliente</p>
+              <h2 className="text-lg font-black text-slate-900 tracking-tight">Notas de Tinte y Fórmulas</h2>
+              <p className="text-xs text-slate-500 mt-1">Información confidencial del cliente</p>
             </div>
-            <svg className="w-5 h-5 text-neutral-400 transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-5 h-5 text-slate-400 transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
           </summary>
@@ -690,7 +690,7 @@ export default function BookingDetailPage() {
             )}
 
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-neutral-500 uppercase tracking-[0.2em]">
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">
                 Agregar nueva fórmula
               </label>
               <div className="flex gap-2">
@@ -698,7 +698,7 @@ export default function BookingDetailPage() {
                   type="text"
                   value={newHistoryEntry}
                   onChange={(e) => setNewHistoryEntry(e.target.value)}
-                  className="flex-1 px-3 py-2 text-sm bg-neutral-50 border border-neutral-200 rounded-xl text-neutral-900 font-medium focus:border-accent-500 outline-none transition"
+                  className="flex-1 px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-medium focus:border-sky-500 outline-none transition"
                   placeholder="Ej. Wella 6/7 + 6%"
                 />
                 <Button
@@ -783,17 +783,17 @@ export default function BookingDetailPage() {
 
             {clientProfile?.hairColorHistory && clientProfile.hairColorHistory.length > 0 && (
               <div className="space-y-2">
-                <p className="text-[10px] font-black text-neutral-500 uppercase tracking-[0.2em]">Historial</p>
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Historial</p>
                 <div className="space-y-1.5 max-h-60 overflow-y-auto">
                   {[...clientProfile.hairColorHistory]
                     .sort((a, b) => b.date.localeCompare(a.date))
                     .map((entry, idx) => (
                       <div
                         key={`${entry.date}-${idx}`}
-                        className="p-2.5 rounded-lg bg-neutral-50 border border-neutral-100 flex items-center justify-between text-sm"
+                        className="p-2.5 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-between text-sm"
                       >
-                        <span className="font-medium text-neutral-700">{entry.note}</span>
-                        <span className="text-xs text-neutral-500 font-semibold ml-3">{new Date(entry.date).toLocaleDateString()}</span>
+                        <span className="font-medium text-slate-700">{entry.note}</span>
+                        <span className="text-xs text-slate-500 font-semibold ml-3">{new Date(entry.date).toLocaleDateString()}</span>
                       </div>
                     ))}
                 </div>
@@ -805,8 +805,8 @@ export default function BookingDetailPage() {
 
       {/* Status Actions - No-Show Option */}
       {booking?.status !== 'completed' && booking?.status !== 'cancelled' && booking?.status !== 'no-show' && (
-        <div className="bg-white border border-neutral-100 rounded-3xl shadow-md p-6">
-          <h2 className="text-xl font-black text-neutral-900 tracking-tight mb-4">Acciones Rápidas</h2>
+        <div className="bg-white border border-slate-100 rounded-3xl shadow-md p-6">
+          <h2 className="text-xl font-black text-slate-900 tracking-tight mb-4">Acciones Rápidas</h2>
           <div className="flex flex-wrap gap-3">
             {booking.status !== 'confirmed' && (
               <Button
@@ -853,7 +853,7 @@ export default function BookingDetailPage() {
       )}
 
       {/* Audit Trail */}
-      <div className="bg-white border border-neutral-100 rounded-3xl shadow-md p-6">
+      <div className="bg-white border border-slate-100 rounded-3xl shadow-md p-6">
         <div className="flex items-center gap-3 mb-6">
           <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center">
             <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -861,8 +861,8 @@ export default function BookingDetailPage() {
             </svg>
           </div>
           <div>
-            <h2 className="text-xl font-black text-neutral-900 tracking-tight">Historial de Modificaciones</h2>
-            <p className="text-xs text-neutral-500 mt-1">Registro completo de cambios en esta reserva</p>
+            <h2 className="text-xl font-black text-slate-900 tracking-tight">Historial de Modificaciones</h2>
+            <p className="text-xs text-slate-500 mt-1">Registro completo de cambios en esta reserva</p>
           </div>
         </div>
         <AuditTrailPanel modifications={booking?.modifications || []} />

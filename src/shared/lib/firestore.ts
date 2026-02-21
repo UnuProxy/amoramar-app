@@ -411,6 +411,29 @@ export const getBooking = async (bookingId: string): Promise<Booking | null> => 
   return null;
 };
 
+export const getBookingByPaymentIntentId = async (paymentIntentId: string): Promise<Booking | null> => {
+  const database = checkDb();
+  if (!database) return null;
+  const coll = bookingsCollection();
+  if (!coll) return null;
+
+  const q = query(coll, where('paymentIntentId', '==', paymentIntentId), limit(1));
+  const snap = await getDocs(q);
+  const docSnap = snap.docs[0];
+  if (!docSnap || !docSnap.exists()) return null;
+  const data = docSnap.data() as Record<string, any>;
+  return {
+    id: docSnap.id,
+    ...data,
+    bookingDate: data.bookingDate,
+    bookingTime: data.bookingTime,
+    createdAt: timestampToDate(data.createdAt),
+    updatedAt: timestampToDate(data.updatedAt),
+    cancelledAt: data.cancelledAt ? timestampToDate(data.cancelledAt) : undefined,
+    completedAt: data.completedAt ? timestampToDate(data.completedAt) : undefined,
+  } as Booking;
+};
+
 export const getBookings = async (filters?: {
   salonId?: string;
   employeeId?: string;

@@ -5,9 +5,81 @@ import { getServices, getEmployees, getEmployeeServices, updateService, createSe
 import { Loading } from '@/shared/components/Loading';
 import Link from 'next/link';
 import { formatCurrency, cn } from '@/shared/lib/utils';
-import { formatServiceCategory, getOrderedServiceCategories } from '@/shared/lib/serviceCategories';
+import { formatServiceCategory } from '@/shared/lib/serviceCategories';
 import type { Service, Employee, EmployeeService } from '@/shared/lib/types';
 import { DEFAULT_SERVICES } from '@/shared/lib/defaultServices';
+
+type MajorGroupKey = 'manicure' | 'pedicure-care' | 'combinations' | 'hair';
+
+type ServiceSubgroup = {
+  key: string;
+  label: string;
+  services: Service[];
+};
+
+const MAJOR_GROUP_ORDER: MajorGroupKey[] = ['manicure', 'pedicure-care', 'combinations', 'hair'];
+
+const MAJOR_GROUP_LABELS: Record<MajorGroupKey, string> = {
+  manicure: '1. Manicura / Nails',
+  'pedicure-care': '2. Pedicura & Care',
+  combinations: '3. Manicura & Pedicura — Combinaciones / Combinations',
+  hair: '4. Hair',
+};
+
+const getMajorGroupForService = (service: Service): MajorGroupKey => {
+  const category = service.category || 'other';
+  const serviceName = service.serviceName.toLowerCase();
+
+  if (category === 'manicure' || category === 'nail-art-care-manicure') return 'manicure';
+  if (category === 'pedicure-care' || category === 'professional-foot-services' || category === 'foot-sole-treatments') return 'pedicure-care';
+  if (category === 'nail-art-care-combinations') return 'combinations';
+  if (String(category).startsWith('hair-')) return 'hair';
+
+  if (serviceName.includes('pedicure') || serviceName.includes('planta') || serviceName.includes('sole') || serviceName.includes('foot')) return 'pedicure-care';
+  if (serviceName.includes('combo') || serviceName.includes('combin')) return 'combinations';
+  if (serviceName.includes('manicure') || serviceName.includes('gel') || serviceName.includes('nail')) return 'manicure';
+  return 'hair';
+};
+
+const getServiceSubgroup = (service: Service): { key: string; label: string } => {
+  const category = service.category || 'other';
+  const name = service.serviceName.toLowerCase();
+
+  if (category === 'manicure' || category === 'nail-art-care-manicure') {
+    if (name.includes('relleno') || name.includes('refill')) return { key: 'gel-refill', label: 'Gel refill / Relleno con gel' };
+    if (name.includes('extension')) return { key: 'extensions', label: 'Extensions / Extensiones' };
+    if (name.includes('french glass') || name.includes('french interior')) return { key: 'special-techniques', label: 'Special techniques / Tecnicas especiales' };
+    if (name.includes('retirada') || name.includes('removal')) return { key: 'removal', label: 'Removal / Retirada' };
+    if (name.includes('higien')) return { key: 'hygienic', label: 'Hygienic manicure / Manicura higienica' };
+    return { key: 'semi-permanent', label: 'Semi-permanent gel polish / Esmaltado semipermanente' };
+  }
+
+  if (category === 'pedicure-care' || category === 'professional-foot-services' || category === 'foot-sole-treatments') {
+    if (name.includes('planta') || name.includes('sole') || name.includes('peeling') || name.includes('queratol') || name.includes('cleaning')) {
+      return { key: 'sole-treatments', label: 'Sole treatments / Planta del pie' };
+    }
+    return { key: 'pedicure-nails', label: 'Pedicure nails / Pedicura unas' };
+  }
+
+  if (category === 'nail-art-care-combinations') {
+    if (name.includes('sin limpieza') || name.includes('without cleaning')) {
+      return { key: 'without-cleaning', label: 'Combinations without sole cleaning' };
+    }
+    return { key: 'with-cleaning', label: 'Combinations with sole cleaning' };
+  }
+
+  if (String(category).startsWith('hair-')) {
+    if (category === 'hair-haircuts-styling') return { key: 'haircuts-styling', label: 'Haircuts & Styling' };
+    if (category === 'hair-color') return { key: 'color', label: 'Color' };
+    if (category === 'hair-bleach-highlights') return { key: 'bleach-highlights', label: 'Bleach & Highlights / Decoloracion y mechas' };
+    if (category === 'hair-treatments-signature') return { key: 'treatments-signature', label: 'Treatments & Signature' };
+    if (category === 'hair-men') return { key: 'mens-services', label: "Men's Services" };
+    if (category === 'hair-kids') return { key: 'kids-cuts', label: 'Kids Cuts' };
+    if (category === 'hair-extensions') return { key: 'extensions', label: 'Extensions' };
+  }
+
+  return { key: 'general', label: 'General services' };
+};
 
 export default function ServicesPage() {
   const [services, setServices] = useState<Service[]>([]);
@@ -30,11 +102,6 @@ export default function ServicesPage() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'hidden'>('all');
   const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>({});
 
-  const categoryOptions = useMemo(
-    () => getOrderedServiceCategories(services, { includeEmptyDefaults: true }),
-    [services]
-  );
-
   const filteredServices = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
     return services.filter((service) => {
@@ -43,35 +110,55 @@ export default function ServicesPage() {
       if (!term) return true;
 
       const categoryLabel = formatServiceCategory(service.category || 'other').toLowerCase();
+      const majorGroupLabel = MAJOR_GROUP_LABELS[getMajorGroupForService(service)].toLowerCase();
+      const subgroupLabel = getServiceSubgroup(service).label.toLowerCase();
       return (
         service.serviceName.toLowerCase().includes(term) ||
         (service.description || '').toLowerCase().includes(term) ||
-        categoryLabel.includes(term)
+        categoryLabel.includes(term) ||
+        majorGroupLabel.includes(term) ||
+        subgroupLabel.includes(term)
       );
     });
   }, [services, searchTerm, statusFilter]);
 
-  const servicesByCategory = useMemo(() => {
-    const grouped = filteredServices.reduce<Record<string, Service[]>>((acc, service) => {
-      const category = service.category || 'other';
-      if (!acc[category]) {
-        acc[category] = [];
-      }
-      acc[category].push(service);
-      return acc;
-    }, {});
+  const servicesByMajorGroup = useMemo(() => {
+    return MAJOR_GROUP_ORDER.map((groupKey) => {
+      const groupServices = filteredServices
+        .filter((service) => getMajorGroupForService(service) === groupKey)
+        .sort((a, b) => a.serviceName.localeCompare(b.serviceName));
 
-    Object.values(grouped).forEach((items) => {
-      items.sort((a, b) => a.serviceName.localeCompare(b.serviceName));
+      const subgroupMap = groupServices.reduce<Record<string, ServiceSubgroup>>((acc, service) => {
+        const subgroup = getServiceSubgroup(service);
+        if (!acc[subgroup.key]) {
+          acc[subgroup.key] = { key: subgroup.key, label: subgroup.label, services: [] };
+        }
+        acc[subgroup.key].services.push(service);
+        return acc;
+      }, {});
+
+      const subgroups = Object.values(subgroupMap);
+      subgroups.forEach((subgroup) => subgroup.services.sort((a, b) => a.serviceName.localeCompare(b.serviceName)));
+
+      return {
+        key: groupKey,
+        label: MAJOR_GROUP_LABELS[groupKey],
+        services: groupServices,
+        subgroups,
+      };
     });
-
-    return grouped;
   }, [filteredServices]);
 
   const orderedCategories = useMemo(
-    () => getOrderedServiceCategories(filteredServices),
-    [filteredServices]
+    () => servicesByMajorGroup.map((group) => group.key),
+    [servicesByMajorGroup]
   );
+  const expandedCategoryCount = useMemo(
+    () => orderedCategories.filter((category) => !(collapsedCategories[category] ?? false)).length,
+    [orderedCategories, collapsedCategories]
+  );
+  const allExpanded = orderedCategories.length > 0 && expandedCategoryCount === orderedCategories.length;
+  const allCollapsed = orderedCategories.length > 0 && expandedCategoryCount === 0;
 
   const fetchServices = async () => {
     setLoading(true);
@@ -219,7 +306,7 @@ export default function ServicesPage() {
 
   const importDefaultServices = async () => {
     const confirmed = window.confirm(
-      'Import the default service list? Existing services with the same name and category will be skipped.'
+      'Sync the default service list? Missing services will be created, existing defaults updated, and services outside the default list will be hidden.'
     );
     if (!confirmed) return;
 
@@ -227,15 +314,48 @@ export default function ServicesPage() {
     setImportMessage(null);
 
     try {
-      const existingKeys = new Set(
-        services.map((service) => `${service.category}|${service.serviceName}`.toLowerCase())
+      const existingByKey = new Map(
+        services.map((service) => [
+          `${service.category}|${service.serviceName}`.toLowerCase(),
+          service,
+        ])
+      );
+      const defaultKeys = new Set(
+        DEFAULT_SERVICES.map((seed) => `${seed.category}|${seed.serviceName}`.toLowerCase())
       );
       let createdCount = 0;
+      let updatedCount = 0;
+      let hiddenCount = 0;
       const salonId = 'default-salon-id';
 
       for (const seed of DEFAULT_SERVICES) {
         const key = `${seed.category}|${seed.serviceName}`.toLowerCase();
-        if (existingKeys.has(key)) continue;
+        const existing = existingByKey.get(key);
+
+        if (existing) {
+          const needsUpdate =
+            existing.description !== seed.description ||
+            existing.duration !== seed.duration ||
+            existing.price !== seed.price ||
+            existing.category !== seed.category ||
+            existing.isActive !== true ||
+            (existing.offersConsultation ?? false) !== (seed.offersConsultation ?? false) ||
+            (existing.consultationDuration ?? 20) !== (seed.consultationDuration ?? 20);
+
+          if (needsUpdate) {
+            await updateService(existing.id, {
+              description: seed.description,
+              duration: seed.duration,
+              price: seed.price,
+              category: seed.category,
+              isActive: true,
+              offersConsultation: seed.offersConsultation ?? false,
+              consultationDuration: seed.consultationDuration ?? 20,
+            });
+            updatedCount += 1;
+          }
+          continue;
+        }
 
         await createService({
           salonId,
@@ -245,20 +365,24 @@ export default function ServicesPage() {
           price: seed.price,
           category: seed.category,
           isActive: true,
-          offersConsultation: false,
-          consultationDuration: 20,
+          offersConsultation: seed.offersConsultation ?? false,
+          consultationDuration: seed.consultationDuration ?? 20,
         });
 
-        existingKeys.add(key);
+        existingByKey.set(key, {} as Service);
         createdCount += 1;
       }
 
+      for (const service of services) {
+        const key = `${service.category}|${service.serviceName}`.toLowerCase();
+        if (!defaultKeys.has(key) && service.isActive) {
+          await updateService(service.id, { isActive: false });
+          hiddenCount += 1;
+        }
+      }
+
       await fetchServices();
-      setImportMessage(
-        createdCount > 0
-          ? `${createdCount} services imported.`
-          : 'All default services already exist.'
-      );
+      setImportMessage(`Sync complete: ${createdCount} created, ${updatedCount} updated, ${hiddenCount} hidden.`);
     } catch (error: any) {
       setImportMessage(error?.message || 'Could not import services.');
     } finally {
@@ -280,6 +404,15 @@ export default function ServicesPage() {
     }
   };
 
+  const setAllCategoriesCollapsed = (collapsed: boolean) => {
+    setCollapsedCategories(
+      orderedCategories.reduce<Record<string, boolean>>((acc, category) => {
+        acc[category] = collapsed;
+        return acc;
+      }, {})
+    );
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -293,17 +426,17 @@ export default function ServicesPage() {
       {/* Header - Bold Premium */}
       <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-8">
         <div>
-          <h1 className="text-3xl font-semibold text-stone-800 tracking-tight">
+          <h1 className="text-3xl font-semibold text-slate-800 tracking-tight">
             Services
           </h1>
-          <p className="text-stone-500 text-sm font-medium mt-2">
+          <p className="text-slate-500 text-sm font-medium mt-2">
             Services & Treatments Catalog
           </p>
         </div>
         <div className="flex flex-col sm:flex-row gap-3">
           <button
             onClick={fetchServices}
-            className="px-4 py-2.5 rounded-full bg-white border border-stone-200 text-stone-600 hover:bg-stone-50 transition-all flex items-center justify-center"
+            className="px-4 py-2.5 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all flex items-center justify-center"
             title="Refresh list"
           >
             <svg className={cn("w-5 h-5", loading && "animate-spin")} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -315,8 +448,8 @@ export default function ServicesPage() {
             className={cn(
               "px-6 py-2.5 rounded-full text-sm font-medium transition-all flex items-center justify-center gap-2 border",
               isImporting
-                ? "bg-stone-100 text-stone-400 border-stone-200"
-                : "bg-white text-stone-700 border-stone-200 hover:bg-stone-50"
+                ? "bg-slate-100 text-slate-400 border-slate-200"
+                : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
             )}
             disabled={isImporting}
           >
@@ -361,17 +494,17 @@ export default function ServicesPage() {
       </div>
 
       {/* Info Banner */}
-      <div className="bg-accent-50 rounded-2xl p-6 border border-accent-100">
+      <div className="bg-sky-50 rounded-2xl p-6 border border-sky-100">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-start gap-3">
-            <div className="w-10 h-10 bg-accent-100 rounded-lg flex items-center justify-center flex-shrink-0">
-              <svg className="w-5 h-5 text-accent-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-10 h-10 bg-sky-100 rounded-lg flex items-center justify-center flex-shrink-0">
+              <svg className="w-5 h-5 text-sky-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
               </svg>
             </div>
             <div>
-              <p className="font-semibold text-primary-800 mb-1">Booking Link for Clients</p>
-              <p className="text-sm text-primary-600">Share this link on your website, Instagram or WhatsApp. Clients will see all services and can book directly.</p>
+              <p className="font-semibold text-slate-800 mb-1">Booking Link for Clients</p>
+              <p className="text-sm text-slate-600">Share this link on your website, Instagram or WhatsApp. Clients will see all services and can book directly.</p>
             </div>
           </div>
           <button
@@ -388,16 +521,16 @@ export default function ServicesPage() {
         </div>
       </div>
       {importMessage && (
-        <div className="bg-white border border-neutral-200 rounded-2xl px-6 py-4 text-sm text-neutral-700">
+        <div className="bg-white border border-slate-200 rounded-2xl px-6 py-4 text-sm text-slate-700">
           {importMessage}
         </div>
       )}
 
       {/* Search + Filters */}
-      <div className="bg-white border border-neutral-200 rounded-2xl p-4 lg:p-6 shadow-sm space-y-4">
+      <div className="bg-white border border-slate-200 rounded-2xl p-4 lg:p-6 shadow-sm space-y-4">
         <div className="flex flex-col lg:flex-row lg:items-center gap-4">
           <div className="flex-1">
-            <label className="block text-xs font-medium text-stone-500 tracking-wide mb-2">
+            <label className="block text-xs font-medium text-slate-500 tracking-wide mb-2">
               Search Services
             </label>
             <input
@@ -405,31 +538,31 @@ export default function ServicesPage() {
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
               placeholder="Search by name, description, or group"
-              className="w-full rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm text-stone-700 focus:border-emerald-300 focus:outline-none"
+              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 focus:border-emerald-300 focus:outline-none"
             />
           </div>
           <div className="w-full lg:w-56">
-            <label className="block text-xs font-medium text-stone-500 tracking-wide mb-2">
+            <label className="block text-xs font-medium text-slate-500 tracking-wide mb-2">
               Status
             </label>
             <select
               value={statusFilter}
               onChange={(event) => setStatusFilter(event.target.value as 'all' | 'active' | 'hidden')}
-              className="w-full rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm font-medium text-stone-700 focus:border-emerald-300 focus:outline-none"
+              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-700 focus:border-emerald-300 focus:outline-none"
             >
               <option value="all">All services</option>
               <option value="active">Only active</option>
               <option value="hidden">Only hidden</option>
             </select>
           </div>
-          <div className="flex flex-wrap items-center gap-3 text-xs font-medium text-stone-500 tracking-wide">
-            <span className="px-3 py-2 rounded-full bg-stone-50 border border-stone-200 text-stone-600">
+          <div className="flex flex-wrap items-center gap-3 text-xs font-medium text-slate-500 tracking-wide">
+            <span className="px-3 py-2 rounded-full bg-slate-50 border border-slate-200 text-slate-600">
               {filteredServices.length} total
             </span>
             <span className="px-3 py-2 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">
               {filteredServices.filter((s) => s.isActive).length} active
             </span>
-            <span className="px-3 py-2 rounded-full bg-stone-100 text-stone-500 border border-stone-200">
+            <span className="px-3 py-2 rounded-full bg-slate-100 text-slate-500 border border-slate-200">
               {filteredServices.filter((s) => !s.isActive).length} hidden
             </span>
           </div>
@@ -437,139 +570,181 @@ export default function ServicesPage() {
       </div>
 
       {/* Services List - Grouped */}
-      <div className="bg-white border border-neutral-200 rounded-2xl overflow-hidden shadow-sm">
+      <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+        <div className="px-6 py-4 border-b border-slate-200 bg-slate-50/60 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <p className="text-sm font-semibold text-slate-700">Grouped by category</p>
+            <span className="text-xs text-slate-500">
+              {orderedCategories.length} groups · {expandedCategoryCount} expanded
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setAllCategoriesCollapsed(false)}
+              disabled={allExpanded}
+              className={cn(
+                "px-3 py-1.5 rounded-full text-xs font-medium border transition-all",
+                allExpanded
+                  ? "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"
+                  : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+              )}
+            >
+              Expand all
+            </button>
+            <button
+              onClick={() => setAllCategoriesCollapsed(true)}
+              disabled={allCollapsed}
+              className={cn(
+                "px-3 py-1.5 rounded-full text-xs font-medium border transition-all",
+                allCollapsed
+                  ? "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"
+                  : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+              )}
+            >
+              Collapse all
+            </button>
+          </div>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="bg-neutral-50 border-b border-neutral-200">
-                <th className="px-6 py-4 text-left text-[11px] font-medium text-stone-500 tracking-wide">Treatment</th>
-                <th className="px-6 py-4 text-left text-[11px] font-medium text-stone-500 tracking-wide">Therapists</th>
-                <th className="px-6 py-4 text-center text-[11px] font-medium text-stone-500 tracking-wide">Group</th>
-                <th className="px-6 py-4 text-center text-[11px] font-medium text-stone-500 tracking-wide">Duration</th>
-                <th className="px-6 py-4 text-center text-[11px] font-medium text-stone-500 tracking-wide">Price</th>
-                <th className="px-6 py-4 text-center text-[11px] font-medium text-stone-500 tracking-wide">Status</th>
-                <th className="px-6 py-4 text-right text-[11px] font-medium text-stone-500 tracking-wide">Action</th>
+              <tr className="bg-slate-50 border-b border-slate-200">
+                <th className="px-6 py-4 text-left text-[11px] font-medium text-slate-500 tracking-wide">Service</th>
+                <th className="px-6 py-4 text-left text-[11px] font-medium text-slate-500 tracking-wide">Assigned to</th>
+                <th className="px-6 py-4 text-center text-[11px] font-medium text-slate-500 tracking-wide">Time</th>
+                <th className="px-6 py-4 text-center text-[11px] font-medium text-slate-500 tracking-wide">Price</th>
+                <th className="px-6 py-4 text-center text-[11px] font-medium text-slate-500 tracking-wide">Status</th>
+                <th className="px-6 py-4 text-right text-[11px] font-medium text-slate-500 tracking-wide">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-neutral-100">
+            <tbody className="divide-y divide-slate-100">
               {services.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-16 text-center">
-                    <div className="w-16 h-16 bg-neutral-100 rounded-xl flex items-center justify-center mx-auto mb-4">
-                      <svg className="w-8 h-8 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <td colSpan={6} className="px-6 py-16 text-center">
+                    <div className="w-16 h-16 bg-slate-100 rounded-xl flex items-center justify-center mx-auto mb-4">
+                      <svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                       </svg>
                     </div>
-                    <p className="text-lg font-semibold text-neutral-700">Empty Catalog</p>
+                    <p className="text-lg font-semibold text-slate-700">Empty Catalog</p>
                   </td>
                 </tr>
               ) : filteredServices.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-16 text-center">
-                    <div className="w-16 h-16 bg-neutral-100 rounded-xl flex items-center justify-center mx-auto mb-4">
-                      <svg className="w-8 h-8 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <td colSpan={6} className="px-6 py-16 text-center">
+                    <div className="w-16 h-16 bg-slate-100 rounded-xl flex items-center justify-center mx-auto mb-4">
+                      <svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                       </svg>
                     </div>
-                    <p className="text-lg font-semibold text-neutral-700">No services match your filters</p>
-                    <p className="text-sm text-neutral-400 mt-2">Try clearing the search or status filter.</p>
+                    <p className="text-lg font-semibold text-slate-700">No services match your filters</p>
+                    <p className="text-sm text-slate-400 mt-2">Try clearing the search or status filter.</p>
                   </td>
                 </tr>
               ) : (
-                orderedCategories.map((category) => {
-                  const grouped = servicesByCategory[category] || [];
-                  if (!grouped.length) return null;
-                  const isCollapsed = collapsedCategories[category] ?? false;
-                  const activeCount = grouped.filter((service) => service.isActive).length;
-                  const hiddenCount = grouped.length - activeCount;
+                servicesByMajorGroup.map((group) => {
+                  const isCollapsed = collapsedCategories[group.key] ?? false;
+                  const activeCount = group.services.filter((service) => service.isActive).length;
+                  const hiddenCount = group.services.length - activeCount;
+                  const therapistCount = new Set(
+                    group.services.flatMap((service) => getServiceEmployees(service.id).map((employee) => employee.id))
+                  ).size;
 
                   return (
-                    <React.Fragment key={category}>
-                      <tr className="bg-stone-50 border-y border-stone-200">
-                        <td colSpan={7} className="px-6 py-4">
+                    <React.Fragment key={group.key}>
+                      <tr className="bg-slate-50 border-y border-slate-200">
+                        <td colSpan={6} className="px-6 py-4">
                           <button
                             onClick={() =>
                               setCollapsedCategories((prev) => ({
                                 ...prev,
-                                [category]: !isCollapsed,
+                                [group.key]: !isCollapsed,
                               }))
                             }
-                            className="w-full flex items-center gap-4 text-left"
+                            className="w-full flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-left"
                           >
-                            <div className="flex items-center gap-3">
-                              <span className="text-sm font-semibold text-stone-700">
-                                {formatServiceCategory(category)}
+                            <div className="flex items-start gap-3">
+                              <span className="mt-0.5 w-6 h-6 rounded-full border border-slate-300 bg-white text-slate-500 flex items-center justify-center">
+                                <svg
+                                  className={cn("w-3.5 h-3.5 transition-transform", isCollapsed && "-rotate-90")}
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                </svg>
                               </span>
-                              <span className="text-xs text-stone-400">
-                                {grouped.length} total · {activeCount} active · {hiddenCount} hidden
-                              </span>
+                              <div className="space-y-1">
+                                <span className="block text-sm font-semibold text-slate-700">
+                                  {group.label}
+                                </span>
+                                <span className="text-xs text-slate-500">
+                                  {group.services.length} services · {group.subgroups.length} subgroups · {therapistCount} therapists · {activeCount} active · {hiddenCount} hidden
+                                </span>
+                              </div>
                             </div>
-                            <span className="ml-auto flex items-center gap-2 text-xs font-medium text-stone-400">
-                              {isCollapsed ? 'Expand' : 'Collapse'}
-                              <svg
-                                className={cn("w-4 h-4 transition-transform", isCollapsed && "rotate-180")}
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                              </svg>
+                            <span
+                              className={cn(
+                                "inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium",
+                                isCollapsed
+                                  ? "border-slate-300 text-slate-500 bg-white"
+                                  : "border-emerald-200 text-emerald-700 bg-emerald-50"
+                              )}
+                            >
+                              {isCollapsed ? 'Collapsed' : 'Expanded'}
                             </span>
                           </button>
                         </td>
                       </tr>
+                      {!isCollapsed && group.services.length === 0 && (
+                        <tr>
+                          <td colSpan={6} className="px-8 py-6 text-sm text-slate-400">
+                            No services in this group.
+                          </td>
+                        </tr>
+                      )}
                       {!isCollapsed &&
-                        grouped.map((service) => {
-                          const serviceEmployees = getServiceEmployees(service.id);
-                          const isEditing = editingServiceId === service.id;
-                          return (
-                            <tr key={service.id} className="hover:bg-neutral-50 transition-all group">
-                              <td className="px-10 py-10">
+                        group.subgroups.map((subgroup) => (
+                          <React.Fragment key={`${group.key}-${subgroup.key}`}>
+                            <tr className="bg-slate-50/60 border-y border-slate-100">
+                              <td colSpan={6} className="px-8 py-3">
+                                <span className="text-xs font-semibold tracking-wide text-slate-600">
+                                  Subgroup: {subgroup.label} ({subgroup.services.length})
+                                </span>
+                              </td>
+                            </tr>
+                            {subgroup.services.map((service) => {
+                              const serviceEmployees = getServiceEmployees(service.id);
+                              const isEditing = editingServiceId === service.id;
+                              return (
+                                <tr key={service.id} className="hover:bg-slate-50/80 transition-all group">
+                              <td className="px-10 py-6">
                                 <div className="space-y-1">
-                                  <p className="text-lg font-semibold text-stone-800 leading-snug">{service.serviceName}</p>
+                                  <p className="text-base font-semibold text-slate-800 leading-snug">{service.serviceName}</p>
                                   {service.description && (
-                                    <p className="text-xs text-stone-400 truncate max-w-xs">{service.description}</p>
+                                    <p className="text-xs text-slate-400 truncate max-w-xs">{service.description}</p>
                                   )}
                                 </div>
                               </td>
-                              <td className="px-10 py-10">
+                              <td className="px-10 py-6">
                                 {serviceEmployees.length > 0 ? (
                                   <div className="flex flex-wrap gap-2">
                                     {serviceEmployees.map((emp) => (
                                       <span
                                         key={emp.id}
-                                        className="px-3 py-1 rounded-full bg-stone-100 text-stone-600 text-xs font-medium"
+                                        className="px-3 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-medium"
                                       >
                                         {emp.firstName}
                                       </span>
                                     ))}
                                   </div>
                                 ) : (
-                                  <span className="text-xs text-stone-400">Sin asignar</span>
-                                )}
-                              </td>
-                              <td className="px-10 py-10 text-center">
-                                {isEditing ? (
-                                  <select
-                                    value={editValues.category}
-                                    onChange={(event) =>
-                                      setEditValues((prev) => ({ ...prev, category: event.target.value }))
-                                    }
-                                    className="w-56 rounded-xl border border-stone-200 bg-white px-3 py-2 text-center text-sm font-medium text-stone-700 focus:border-emerald-300 focus:outline-none"
-                                  >
-                                    {categoryOptions.map((cat) => (
-                                      <option key={cat} value={cat}>
-                                        {formatServiceCategory(cat)}
-                                      </option>
-                                    ))}
-                                  </select>
-                                ) : (
-                                  <span className="px-4 py-2 rounded-full bg-stone-100 text-stone-600 text-xs font-medium">
-                                    {formatServiceCategory(service.category || 'other')}
+                                  <span className="inline-flex items-center rounded-full bg-rose-50 px-3 py-1 text-xs font-medium text-rose-700">
+                                    Needs therapist
                                   </span>
                                 )}
                               </td>
-                              <td className="px-10 py-10 text-center">
+                              <td className="px-10 py-6 text-center">
                                 {isEditing ? (
                                   <div className="flex flex-col items-center gap-2">
                                     <input
@@ -579,18 +754,18 @@ export default function ServicesPage() {
                                       onChange={(event) =>
                                         setEditValues((prev) => ({ ...prev, duration: event.target.value }))
                                       }
-                                      className="w-24 rounded-xl border border-stone-200 bg-white px-3 py-2 text-center text-sm font-medium text-stone-700 focus:border-emerald-300 focus:outline-none"
+                                      className="w-24 rounded-xl border border-slate-200 bg-white px-3 py-2 text-center text-sm font-medium text-slate-700 focus:border-emerald-300 focus:outline-none"
                                     />
-                                    <span className="text-xs text-stone-400">min</span>
+                                    <span className="text-xs text-slate-400">min</span>
                                   </div>
                                 ) : (
                                   <div className="flex flex-col items-center">
-                                    <span className="text-lg font-semibold text-stone-700 tabular-nums leading-none">{service.duration}</span>
-                                    <span className="text-xs text-stone-400 mt-1">min</span>
+                                    <span className="text-lg font-semibold text-slate-700 tabular-nums leading-none">{service.duration}</span>
+                                    <span className="text-xs text-slate-400 mt-1">min</span>
                                   </div>
                                 )}
                               </td>
-                              <td className="px-10 py-10 text-center">
+                              <td className="px-10 py-6 text-center">
                                 {isEditing ? (
                                   <div className="flex flex-col items-center gap-2">
                                     <input
@@ -601,22 +776,22 @@ export default function ServicesPage() {
                                       onChange={(event) =>
                                         setEditValues((prev) => ({ ...prev, price: event.target.value }))
                                       }
-                                      className="w-28 rounded-xl border border-stone-200 bg-white px-3 py-2 text-center text-sm font-medium text-stone-700 focus:border-emerald-300 focus:outline-none"
+                                      className="w-28 rounded-xl border border-slate-200 bg-white px-3 py-2 text-center text-sm font-medium text-slate-700 focus:border-emerald-300 focus:outline-none"
                                     />
-                                    <span className="text-xs text-stone-400">EUR</span>
+                                    <span className="text-xs text-slate-400">EUR</span>
                                   </div>
                                 ) : (
                                   <p className="text-lg font-semibold text-emerald-700 tabular-nums leading-none">{formatCurrency(service.price)}</p>
                                 )}
                               </td>
-                              <td className="px-10 py-10 text-center">
+                              <td className="px-10 py-6 text-center">
                                 <span className={`px-4 py-2 rounded-full text-xs font-medium ${
-                                  service.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-stone-100 text-stone-500'
+                                  service.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'
                                 }`}>
                                   {service.isActive ? 'Activo' : 'Oculto'}
                                 </span>
                               </td>
-                              <td className="px-10 py-10 text-right">
+                              <td className="px-10 py-6 text-right">
                                 <div className="flex flex-col items-end gap-2">
                                   <div className="flex items-center justify-end gap-3">
                                     <button
@@ -625,7 +800,7 @@ export default function ServicesPage() {
                                         "px-4 py-2 rounded-full text-xs font-medium transition-all flex items-center gap-2",
                                         copiedId === service.id
                                           ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                                          : "bg-white border border-stone-200 text-stone-600 hover:bg-stone-50"
+                                          : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
                                       )}
                                       title="Copiar enlace de reserva directa"
                                     >
@@ -656,7 +831,7 @@ export default function ServicesPage() {
                                         </button>
                                         <button
                                           onClick={cancelQuickEdit}
-                                          className="px-4 py-2 rounded-full border border-stone-200 text-xs font-medium text-stone-500 hover:bg-stone-50 transition-all"
+                                          className="px-4 py-2 rounded-full border border-slate-200 text-xs font-medium text-slate-500 hover:bg-slate-50 transition-all"
                                         >
                                           Cancel
                                         </button>
@@ -671,7 +846,7 @@ export default function ServicesPage() {
                                         </button>
                                         <Link href={`/dashboard/services/${service.id}`}>
                                           <button
-                                            className="px-4 py-2 rounded-full border border-stone-200 text-xs font-medium text-stone-600 hover:bg-stone-50 transition-all"
+                                            className="px-4 py-2 rounded-full border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-all"
                                           >
                                             Edit
                                           </button>
@@ -684,9 +859,11 @@ export default function ServicesPage() {
                                   )}
                                 </div>
                               </td>
-                            </tr>
-                          );
-                        })}
+                                </tr>
+                              );
+                            })}
+                          </React.Fragment>
+                        ))}
                     </React.Fragment>
                   );
                 })

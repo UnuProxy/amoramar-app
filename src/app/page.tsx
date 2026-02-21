@@ -3,8 +3,10 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/shared/hooks/useAuth';
+import { useLanguage } from '@/shared/context/LanguageContext';
 import { Loading } from '@/shared/components/Loading';
 import { ClientAuthModal } from '@/shared/components/ClientAuthModal';
+import { BrandLogo } from '@/shared/components/BrandLogo';
 import { formatCurrency } from '@/shared/lib/utils';
 import type { Service, Employee, BookingFormData } from '@/shared/lib/types';
 import { formatServiceCategory } from '@/shared/lib/serviceCategories';
@@ -37,6 +39,64 @@ type TimeSlot = {
   available: boolean;
 };
 
+type MajorGroupKey = 'manicure' | 'pedicure-care' | 'combinations' | 'hair';
+
+const MAJOR_GROUP_ORDER: MajorGroupKey[] = ['manicure', 'pedicure-care', 'combinations', 'hair'];
+
+const getMajorGroupForService = (service: Service): MajorGroupKey => {
+  const category = service.category || 'other';
+  const name = service.serviceName.toLowerCase();
+  if (category === 'manicure' || category === 'nail-art-care-manicure') return 'manicure';
+  if (category === 'pedicure-care' || category === 'professional-foot-services' || category === 'foot-sole-treatments') return 'pedicure-care';
+  if (category === 'nail-art-care-combinations') return 'combinations';
+  if (String(category).startsWith('hair-')) return 'hair';
+  if (name.includes('pedicure') || name.includes('foot') || name.includes('sole')) return 'pedicure-care';
+  if (name.includes('combo') || name.includes('combin')) return 'combinations';
+  if (name.includes('manicure') || name.includes('gel') || name.includes('nail')) return 'manicure';
+  return 'hair';
+};
+
+const getMajorGroupLabel = (key: MajorGroupKey, isSpanish: boolean): string => {
+  if (key === 'manicure') return isSpanish ? 'Manicura' : 'Nails / Manicure';
+  if (key === 'pedicure-care') return 'Pedicura & Care';
+  if (key === 'combinations') return 'Manicura & Pedicura — Combinaciones / Combinations';
+  return 'Hair';
+};
+
+const getSubgroupLabel = (service: Service, isSpanish: boolean): string => {
+  const category = service.category || 'other';
+  const name = service.serviceName.toLowerCase();
+  if (category === 'nail-art-care-combinations') {
+    return name.includes('sin limpieza') || name.includes('without cleaning')
+      ? (isSpanish ? 'Combinaciones sin limpieza de planta' : 'Combinations without sole cleaning')
+      : (isSpanish ? 'Combinaciones con limpieza de planta' : 'Combinations with sole cleaning');
+  }
+  if (category === 'pedicure-care' || category === 'professional-foot-services' || category === 'foot-sole-treatments') {
+    return name.includes('sole') || name.includes('planta') || name.includes('peeling') || name.includes('queratol')
+      ? (isSpanish ? 'Tratamientos de planta del pie' : 'Sole treatments')
+      : (isSpanish ? 'Pedicura uñas' : 'Pedicure nails');
+  }
+  if (category === 'manicure' || category === 'nail-art-care-manicure') {
+    if (name.includes('relleno') || name.includes('refill')) return isSpanish ? 'Relleno con gel' : 'Gel refill';
+    if (name.includes('extension')) return isSpanish ? 'Extensiones' : 'Extensions';
+    return isSpanish ? 'Manicura' : 'Manicure';
+  }
+  if (String(category).startsWith('hair-')) {
+    if (category === 'hair-haircuts-styling') return isSpanish ? 'Corte y peinado' : 'Haircuts & Styling';
+    if (category === 'hair-color') return 'Color';
+    if (category === 'hair-bleach-highlights') return isSpanish ? 'Decoloración y mechas' : 'Bleach & Highlights';
+    if (category === 'hair-treatments-signature') return isSpanish ? 'Tratamientos & Signature' : 'Treatments & Signature';
+    if (category === 'hair-men') return isSpanish ? 'Servicios para hombre' : "Men's Services";
+    if (category === 'hair-kids') return isSpanish ? 'Cortes infantiles' : 'Kids Cuts';
+    if (category === 'hair-extensions') return isSpanish ? 'Extensiones' : 'Extensions';
+  }
+  return isSpanish ? 'Servicios' : 'Services';
+};
+
+const isOnlineBookingRestricted = (service: Service): boolean => {
+  return service.category === 'hair-bleach-highlights';
+};
+
 const TESTIMONIALS = [
   { name: 'Sofia, Italy', text: 'I come back every month. The only place in Ibiza that truly understands wellness. Not just treatments—it feels like family.', service: 'Full Body Massage' },
   { name: 'Elena, Spain', text: 'My skin has never looked better. But what amazes me most is how they remember everything about me.', service: 'Jade Facial' },
@@ -61,6 +121,8 @@ function Row({ label, value }: { label: string; value?: string | null }) {
 export default function HomePage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
+  const { language } = useLanguage();
+  const isSpanish = language === 'es';
   const [services, setServices] = useState<Service[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [serviceEmployees, setServiceEmployees] = useState<Employee[]>([]);
@@ -79,6 +141,7 @@ export default function HomePage() {
   const [showLoginModal, setShowLoginModal] = useState<boolean>(false);
   const [bookingStep, setBookingStep] = useState<Step>(1);
   const [selectedService, setSelectedService] = useState<LandingService | null>(null);
+  const [selectedMajorGroup, setSelectedMajorGroup] = useState<MajorGroupKey | null>(null);
   const [formData, setFormData] = useState<FormData>({
     name: '', email: '', phone: '', date: '', time: '', employeeId: '',
   });
@@ -92,6 +155,46 @@ export default function HomePage() {
 
   // Check if we're in backoffice mode (client-side only)
   const [isBackofficeMode, setIsBackofficeMode] = useState(false);
+
+  const copy = {
+    navExperiences: isSpanish ? 'Experiencias' : 'Experiences',
+    navStory: isSpanish ? 'Nuestra Historia' : 'Our Story',
+    navReviews: isSpanish ? 'Reseñas' : 'Reviews',
+    navLogin: isSpanish ? 'INICIAR SESIÓN' : 'LOG IN',
+    navBook: isSpanish ? 'RESERVAR' : 'BOOK',
+    heroLocation: isSpanish ? 'IBIZA, ESPAÑA' : 'IBIZA, SPAIN',
+    heroWelcome: isSpanish ? 'BIENVENIDOS A' : 'WELCOME TO',
+    heroTagline: isSpanish ? 'Donde la belleza y el lujo se unen' : 'Where beauty and luxury meet',
+    heroBookCta: isSpanish ? 'RESERVA TU CITA' : 'BOOK YOUR APPOINTMENT',
+    heroDiscover: isSpanish ? 'DESCUBRE MÁS' : 'DISCOVER MORE',
+    heroDescription: isSpanish
+      ? 'Inspirados por la esencia de Ibiza, cada uno de nuestros tratamientos expresa una visión de cuidado personalizada.'
+      : 'Inspired by the essence of Ibiza, each treatment reflects a personalized care philosophy.',
+    loading: isSpanish ? 'Cargando...' : 'Loading...',
+    redirecting: isSpanish ? 'Redirigiendo...' : 'Redirecting...',
+    noServicesNow: isSpanish ? 'No hay servicios disponibles en este momento.' : 'No services are available right now.',
+    noEmployeesNow: isSpanish ? 'No hay empleados disponibles en este momento.' : 'No team members are available right now.',
+    experiencesTitle: isSpanish ? 'Experiencias' : 'Experiences',
+    experiencesSubtitle: isSpanish
+      ? 'Cada tratamiento está cuidadosamente diseñado. No apresurado. No de talla única. Creado para ti.'
+      : 'Every treatment is carefully designed. Never rushed. Never one-size-fits-all. Created for you.',
+    teamTitle: isSpanish ? 'Conoce al Equipo' : 'Meet the Team',
+    teamSubtitle: isSpanish
+      ? 'Las personas detrás de tu experiencia. Entrenadas. Reflexivas. Dedicadas a tu cuidado.'
+      : 'The people behind your experience. Skilled. Thoughtful. Dedicated to your care.',
+    therapist: isSpanish ? 'Terapeuta' : 'Therapist',
+    defaultBio: isSpanish ? 'Experto en belleza y cuidado personal.' : 'Expert in beauty and personal care.',
+    bookExperienceTitle: isSpanish ? 'Reserva de Experiencia' : 'Experience Booking',
+    stepOf: isSpanish ? 'Paso' : 'Step',
+    reserveFaster: isSpanish ? 'Reserva más rápido' : 'Book faster',
+    reserveFasterDesc: isSpanish
+      ? 'Inicia sesión y completaremos tus datos. Solo un click para confirmar.'
+      : 'Log in and we will prefill your details. Just one click to confirm.',
+    iHaveAccount: isSpanish ? 'Ya tengo cuenta' : 'I have an account',
+    createAccount: isSpanish ? 'Crear cuenta' : 'Create account',
+    bookingQuestion: isSpanish ? '¿Qué tratamiento te llama?' : 'Which treatment are you looking for?',
+    noServices: isSpanish ? 'No hay servicios disponibles.' : 'No services available.',
+  };
 
   useEffect(() => {
     // Check mode on client side only
@@ -186,7 +289,11 @@ export default function HomePage() {
             const slots = data.data?.slots || [];
             setAvailableSlots(slots);
             if (slots.length === 0) {
-              setSlotsError('No hay horarios disponibles para esta fecha. El terapeuta no tiene disponibilidad configurada.');
+              setSlotsError(
+                isSpanish
+                  ? 'No hay horarios disponibles para esta fecha. El terapeuta no tiene disponibilidad configurada.'
+                  : 'No slots are available for this date. The therapist has no configured availability.'
+              );
             }
           } else {
             setSlotsError(data.error || 'Error al cargar horarios');
@@ -273,6 +380,14 @@ export default function HomePage() {
   const openBooking = (svc?: Service) => {
     resetPaymentState();
     if (svc) {
+      if (isOnlineBookingRestricted(svc)) {
+        alert(
+          isSpanish
+            ? 'Este servicio requiere consulta previa y no se puede reservar online.'
+            : 'This service requires consultation and cannot be booked online.'
+        );
+        return;
+      }
       const landingService: LandingService = {
         id: svc.id,
         name: svc.serviceName,
@@ -284,9 +399,11 @@ export default function HomePage() {
         requiresApproval: false, // You can add this field to Service type if needed
       };
       setSelectedService(landingService);
+      setSelectedMajorGroup(getMajorGroupForService(svc));
       setBookingStep(2);
     } else {
       setSelectedService(null);
+      setSelectedMajorGroup(null);
       setBookingStep(1);
     }
     setFormData({ name: '', email: '', phone: '', date: '', time: '', employeeId: '' });
@@ -298,6 +415,7 @@ export default function HomePage() {
     resetPaymentState();
     setShowBooking(false);
     setSelectedService(null);
+    setSelectedMajorGroup(null);
     setBookingStep(1);
     setFormData({ name: '', email: '', phone: '', date: '', time: '', employeeId: '' });
     setAvailableSlots([]);
@@ -324,6 +442,43 @@ export default function HomePage() {
     return true;
   }, [bookingStep, selectedService, formData]);
 
+  const groupedBookingServices = useMemo(() => {
+    const groups = MAJOR_GROUP_ORDER.map((key) => {
+      const groupServices = services.filter((service) => getMajorGroupForService(service) === key);
+      const subgroupMap = new Map<string, Service[]>();
+      groupServices.forEach((service) => {
+        const subgroup = getSubgroupLabel(service, isSpanish);
+        subgroupMap.set(subgroup, [...(subgroupMap.get(subgroup) || []), service]);
+      });
+      return {
+        key,
+        label: getMajorGroupLabel(key, isSpanish),
+        services: groupServices,
+        subgroups: Array.from(subgroupMap.entries()).map(([label, entries]) => ({
+          label,
+          services: entries.sort((a, b) => a.serviceName.localeCompare(b.serviceName)),
+        })),
+      };
+    });
+    return groups;
+  }, [services, isSpanish]);
+
+  const activeMajorGroup = selectedMajorGroup && groupedBookingServices.some((group) => group.key === selectedMajorGroup)
+    ? selectedMajorGroup
+    : (groupedBookingServices[0]?.key || null);
+  const activeMajorGroupData = groupedBookingServices.find((group) => group.key === activeMajorGroup) || null;
+
+  useEffect(() => {
+    if (!showBooking) return;
+    if (!activeMajorGroup && groupedBookingServices[0]) {
+      setSelectedMajorGroup(groupedBookingServices[0].key);
+      return;
+    }
+    if (selectedMajorGroup && !groupedBookingServices.some((group) => group.key === selectedMajorGroup)) {
+      setSelectedMajorGroup(groupedBookingServices[0]?.key || null);
+    }
+  }, [showBooking, activeMajorGroup, groupedBookingServices, selectedMajorGroup]);
+
   // If in backoffice mode and not logged in, show loading while redirecting
   // This check must be AFTER all hooks are called
   if (isBackofficeMode && !user && !authLoading) {
@@ -340,7 +495,7 @@ export default function HomePage() {
     }
 
     if (!selectedService) {
-      throw new Error('Selecciona un servicio antes de pagar.');
+      throw new Error(isSpanish ? 'Selecciona un servicio antes de pagar.' : 'Select a service before paying.');
     }
 
     const response = await fetch('/api/payments/create-intent', {
@@ -358,7 +513,7 @@ export default function HomePage() {
 
     const result = await response.json();
     if (!result.success) {
-      throw new Error(result.error || 'No se pudo iniciar el pago');
+      throw new Error(result.error || (isSpanish ? 'No se pudo iniciar el pago' : 'Payment could not be started'));
     }
 
     setClientSecret(result.data.clientSecret);
@@ -370,7 +525,7 @@ export default function HomePage() {
   const handleSubmitBooking = async () => {
     if (!selectedService || !formData.employeeId) return;
     if (!stripePublicKey) {
-      alert('La pasarela de pago no está configurada. Contacta con soporte.');
+      alert(isSpanish ? 'La pasarela de pago no está configurada. Contacta con soporte.' : 'Payment gateway is not configured. Contact support.');
       return;
     }
 
@@ -383,7 +538,7 @@ export default function HomePage() {
         stripeRef.current = await loadStripe(stripePublicKey);
       }
       if (!stripeRef.current) {
-        throw new Error('No se pudo inicializar Stripe');
+        throw new Error(isSpanish ? 'No se pudo inicializar Stripe' : 'Stripe could not be initialized');
       }
       if (!elementsRef.current) {
         elementsRef.current = stripeRef.current.elements();
@@ -394,7 +549,7 @@ export default function HomePage() {
         cardElementRef.current = card;
       }
       if (!cardElementRef.current) {
-        throw new Error('El formulario de pago no está listo.');
+        throw new Error(isSpanish ? 'El formulario de pago no está listo.' : 'Payment form is not ready.');
       }
 
       const intent = await ensurePaymentIntent();
@@ -411,10 +566,10 @@ export default function HomePage() {
       });
 
       if (error || !paymentIntent) {
-        throw new Error(error?.message || 'El pago no pudo completarse');
+        throw new Error(error?.message || (isSpanish ? 'El pago no pudo completarse' : 'Payment could not be completed'));
       }
       if (paymentIntent.status !== 'succeeded') {
-        throw new Error('El pago no se completó. Inténtalo de nuevo.');
+        throw new Error(isSpanish ? 'El pago no se completó. Inténtalo de nuevo.' : 'Payment was not completed. Try again.');
       }
 
       const bookingData: BookingFormData = {
@@ -440,11 +595,11 @@ export default function HomePage() {
         setBookingSuccess(true);
         setPaymentError(null);
       } else {
-        throw new Error(result.error || 'No se pudo crear la reserva');
+        throw new Error(result.error || (isSpanish ? 'No se pudo crear la reserva' : 'Booking could not be created'));
       }
     } catch (error: any) {
       console.error('Booking error:', error);
-      setPaymentError(error.message || 'Error al procesar el pago');
+      setPaymentError(error.message || (isSpanish ? 'Error al procesar el pago' : 'Error processing payment'));
     } finally {
       setSubmitting(false);
       setPaymentLoading(false);
@@ -455,7 +610,7 @@ export default function HomePage() {
   if (authLoading || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white">
-        <Loading text="Cargando..." />
+        <Loading text={copy.loading} />
       </div>
     );
   }
@@ -465,7 +620,7 @@ export default function HomePage() {
   if (user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white">
-        <Loading text="Redirigiendo..." />
+        <Loading text={copy.redirecting} />
       </div>
     );
   }
@@ -499,25 +654,25 @@ export default function HomePage() {
       <header className="fixed inset-x-0 top-0 z-50 bg-white border-b border-neutral-200">
         <div className="mx-auto max-w-7xl px-4 sm:px-8">
           <div className="h-16 flex items-center justify-between">
-            <a href="#" className="text-lg font-light tracking-wider text-neutral-900">
-              AMOR AMAR
+            <a href="#" className="transition-opacity hover:opacity-80">
+              <BrandLogo className="h-11 w-36 sm:h-12 sm:w-40" priority />
             </a>
 
             <nav className="hidden md:flex items-center gap-12">
-              <a href="#experiences" className="text-sm text-neutral-700 hover:text-rose-600 transition font-light tracking-wide">Experiencias</a>
-              <a href="#story" className="text-sm text-neutral-700 hover:text-rose-600 transition font-light tracking-wide">Nuestra Historia</a>
-              <a href="#testimonials" className="text-sm text-neutral-700 hover:text-rose-600 transition font-light tracking-wide">Reseñas</a>
+              <a href="#experiences" className="text-sm text-neutral-700 hover:text-accent-600 transition font-light tracking-wide">{copy.navExperiences}</a>
+              <a href="#story" className="text-sm text-neutral-700 hover:text-accent-600 transition font-light tracking-wide">{copy.navStory}</a>
+              <a href="#testimonials" className="text-sm text-neutral-700 hover:text-accent-600 transition font-light tracking-wide">{copy.navReviews}</a>
               <button
                 onClick={login}
-                className="px-4 py-2 text-sm text-neutral-600 hover:text-rose-600 font-light border border-neutral-300 hover:border-rose-600 transition"
+                className="px-4 py-2 text-sm text-neutral-600 hover:text-accent-600 font-light border border-neutral-300 hover:border-accent-600 transition"
               >
-                INICIAR SESIÓN
+                {copy.navLogin}
               </button>
               <button
                 onClick={() => router.push('/book')}
-                className="px-6 py-2 bg-rose-700 text-white text-sm font-light tracking-wider hover:bg-rose-800 transition"
+                className="px-6 py-2 bg-accent-700 text-white text-sm font-light tracking-wider hover:bg-accent-800 transition"
               >
-                RESERVAR
+                {copy.navBook}
               </button>
             </nav>
 
@@ -530,12 +685,12 @@ export default function HomePage() {
         {mobileMenuOpen && (
           <div className="md:hidden border-t border-neutral-200 bg-white">
             <nav className="mx-auto max-w-7xl px-4 sm:px-8 py-6 flex flex-col gap-4">
-              <a onClick={() => setMobileMenuOpen(false)} href="#experiences" className="text-sm text-neutral-700 font-light">Experiencias</a>
-              <a onClick={() => setMobileMenuOpen(false)} href="#story" className="text-sm text-neutral-700 font-light">Nuestra Historia</a>
-              <a onClick={() => setMobileMenuOpen(false)} href="#testimonials" className="text-sm text-neutral-700 font-light">Reseñas</a>
-              <button onClick={login} className="text-sm text-neutral-600 font-light">Iniciar Sesión</button>
-              <button onClick={() => { setMobileMenuOpen(false); router.push('/book'); }} className="px-6 py-2 bg-rose-700 text-white text-sm font-light">
-                RESERVAR
+              <a onClick={() => setMobileMenuOpen(false)} href="#experiences" className="text-sm text-neutral-700 font-light">{copy.navExperiences}</a>
+              <a onClick={() => setMobileMenuOpen(false)} href="#story" className="text-sm text-neutral-700 font-light">{copy.navStory}</a>
+              <a onClick={() => setMobileMenuOpen(false)} href="#testimonials" className="text-sm text-neutral-700 font-light">{copy.navReviews}</a>
+              <button onClick={login} className="text-sm text-neutral-600 font-light">{copy.navLogin}</button>
+              <button onClick={() => { setMobileMenuOpen(false); router.push('/book'); }} className="px-6 py-2 bg-accent-700 text-white text-sm font-light">
+                {copy.navBook}
               </button>
             </nav>
           </div>
@@ -553,7 +708,7 @@ export default function HomePage() {
               className="w-full h-full object-cover"
             />
             {/* Dark Overlay for text readability */}
-            <div className="absolute inset-0 bg-gradient-to-br from-neutral-900/70 via-neutral-800/60 to-rose-950/70"></div>
+            <div className="absolute inset-0 bg-gradient-to-br from-neutral-900/70 via-neutral-800/60 to-accent-900/70"></div>
           </div>
 
           {/* Subtle Pattern Overlay */}
@@ -565,44 +720,44 @@ export default function HomePage() {
             <div className="max-w-4xl mx-auto text-center">
               {/* Location Badge */}
               <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full mb-6 hover:bg-white/15 transition-colors">
-                <svg className="w-4 h-4 text-rose-400" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" /></svg>
-                <span className="text-white/90 text-sm font-medium tracking-widest">IBIZA, ESPAÑA</span>
+                <svg className="w-4 h-4 text-accent-400" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" /></svg>
+                <span className="text-white/90 text-sm font-medium tracking-widest">{copy.heroLocation}</span>
               </div>
 
               {/* Main Headline */}
               <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-light tracking-tight mb-6 leading-tight">
-                <span className="text-white">BIENVENIDOS A</span>
+                <span className="text-white">{copy.heroWelcome}</span>
                 <br />
                 <span className="text-white">AMOR </span>
-                <span className="text-rose-400 text-5xl sm:text-6xl md:text-7xl lg:text-8xl">&</span>
+                <span className="text-accent-400 text-5xl sm:text-6xl md:text-7xl lg:text-8xl">&</span>
                 <span className="text-white"> AMAR</span>
               </h1>
 
               {/* Tagline */}
               <p className="text-lg sm:text-xl md:text-2xl text-white/90 font-light tracking-wide mb-10">
-                Donde la belleza y el lujo se unen
+                {copy.heroTagline}
               </p>
 
               {/* CTA Buttons - Made MUCH more prominent */}
               <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-8">
                 <button
                   onClick={() => router.push('/book')}
-                  className="group relative px-12 py-6 bg-rose-600 text-white text-base sm:text-lg font-bold tracking-widest hover:bg-rose-500 transition-all duration-300 overflow-hidden shadow-2xl hover:shadow-rose-500/60 hover:scale-105 w-full sm:w-auto"
+                  className="group relative px-12 py-6 bg-accent-600 text-white text-base sm:text-lg font-bold tracking-widest hover:bg-accent-500 transition-all duration-300 overflow-hidden shadow-2xl hover:shadow-accent-500/60 hover:scale-105 w-full sm:w-auto"
                 >
                   <span className="relative z-10 flex items-center justify-center gap-2">
-                    RESERVA TU CITA
+                    {copy.heroBookCta}
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                     </svg>
                   </span>
-                  <div className="absolute inset-0 bg-gradient-to-r from-rose-500 to-rose-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                  <div className="absolute inset-0 bg-gradient-to-r from-accent-500 to-accent-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                 </button>
                 <a 
                   href="#experiences" 
                   className="group px-12 py-6 border-2 border-white/50 text-white text-base sm:text-lg font-bold tracking-widest hover:bg-white hover:border-white hover:text-neutral-900 transition-all duration-300 text-center backdrop-blur-sm hover:scale-105 w-full sm:w-auto"
                 >
                   <span className="group-hover:text-neutral-900 transition-colors flex items-center justify-center gap-2">
-                    DESCUBRE MÁS
+                    {copy.heroDiscover}
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                     </svg>
@@ -612,7 +767,7 @@ export default function HomePage() {
 
               {/* Description - Moved below buttons */}
               <p className="text-sm sm:text-base text-white/60 font-light leading-relaxed max-w-2xl mx-auto">
-                Inspirados por la esencia de Ibiza, cada uno de nuestros tratamientos expresa una visión de cuidado personalizada.
+                {copy.heroDescription}
               </p>
             </div>
           </div>
@@ -629,16 +784,17 @@ export default function HomePage() {
         <section className="bg-white border-y border-neutral-200">
           <div className="mx-auto max-w-7xl px-4 sm:px-8 py-16">
             <div className="text-center">
-              <div className="inline-flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-rose-50 to-rose-100/50 rounded-full border border-rose-200 mb-4">
-                <svg className="w-6 h-6 text-rose-600" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
-                <span className="text-sm font-semibold text-rose-800 tracking-wider">EXCELENCIA EN BELLEZA</span>
+              <div className="inline-flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-accent-50 to-accent-100/50 rounded-full border border-accent-200 mb-4">
+                <svg className="w-6 h-6 text-accent-600" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
+                <span className="text-sm font-semibold text-accent-800 tracking-wider">{isSpanish ? 'EXCELENCIA EN BELLEZA' : 'BEAUTY EXCELLENCE'}</span>
               </div>
               <h2 className="text-3xl md:text-4xl font-light tracking-tight text-neutral-900 mb-4">
-                Reconocidos por nuestra dedicación al cuidado excepcional
+                {isSpanish ? 'Reconocidos por nuestra dedicación al cuidado excepcional' : 'Recognized for our dedication to exceptional care'}
               </h2>
               <p className="text-lg text-neutral-600 font-light max-w-3xl mx-auto">
-                En <strong className="font-medium">Amor Amar</strong>, cada tratamiento es una experiencia transformadora, 
-                diseñada con precisión y ejecutada con cuidado por terapeutas altamente cualificados.
+                {isSpanish
+                  ? <>En <strong className="font-medium">Amor Amar</strong>, cada tratamiento es una experiencia transformadora, diseñada con precisión y ejecutada con cuidado por terapeutas altamente cualificados.</>
+                  : <>At <strong className="font-medium">Amor Amar</strong>, each treatment is a transformative experience, designed with precision and delivered with care by highly qualified therapists.</>}
               </p>
             </div>
           </div>
@@ -649,62 +805,68 @@ export default function HomePage() {
           <div className="mx-auto max-w-7xl px-4 sm:px-8">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
               <div>
-                <div className="mb-8 h-1 w-20 bg-rose-700" />
+                <div className="mb-8 h-1 w-20 bg-accent-700" />
                 
                 <h2 className="text-6xl md:text-7xl font-light tracking-tight text-neutral-900 mb-8">
-                  Por qué<br />Amor Amar
+                  {isSpanish ? 'Por qué' : 'Why'}<br />Amor Amar
                 </h2>
 
                 <p className="text-lg text-neutral-700 font-light leading-relaxed mb-6">
-                  Soy terapeuta. Llegué a Ibiza hace años y noté algo: un lugar tan hermoso, tan lleno de personas hermosas, merecía algo más. No solo tratamientos, sino cuidado real. El tipo que cambia cómo te sientes.
+                  {isSpanish
+                    ? 'Soy terapeuta. Llegué a Ibiza hace años y noté algo: un lugar tan hermoso, tan lleno de personas hermosas, merecía algo más. No solo tratamientos, sino cuidado real. El tipo que cambia cómo te sientes.'
+                    : 'I am a therapist. I arrived in Ibiza years ago and noticed something: a place this beautiful, full of beautiful people, deserved more. Not just treatments, but real care. The kind that changes how you feel.'}
                 </p>
 
                 <p className="text-lg text-neutral-700 font-light leading-relaxed mb-6">
-                  Vi a personas llegar tensas, cargando el peso del mundo. Y las vi irse transformadas. Ligeras. Cuidadas. Ahí supe que esto tenía que existir.
+                  {isSpanish
+                    ? 'Vi a personas llegar tensas, cargando el peso del mundo. Y las vi irse transformadas. Ligeras. Cuidadas. Ahí supe que esto tenía que existir.'
+                    : 'I saw people arrive tense, carrying the weight of the world. Then I saw them leave transformed. Lighter. Cared for. That is when I knew this had to exist.'}
                 </p>
 
                 <p className="text-lg text-neutral-700 font-light leading-relaxed mb-12">
-                  Cada tratamiento en Amor Amar se basa en un principio: mereces cuidado genuino. No apresurado. No corporativo. No olvidable. Cuidado que realmente importa, porque tú importas.
+                  {isSpanish
+                    ? 'Cada tratamiento en Amor Amar se basa en un principio: mereces cuidado genuino. No apresurado. No corporativo. No olvidable. Cuidado que realmente importa, porque tú importas.'
+                    : 'Every treatment at Amor Amar is built on one principle: you deserve genuine care. Not rushed. Not corporate. Not forgettable. Care that truly matters, because you matter.'}
                 </p>
 
                 <div className="space-y-6">
                   <div className="flex gap-4">
                     <div className="text-2xl">💚</div>
                     <div>
-                      <p className="font-medium text-neutral-900 mb-1">Cuidado Genuino</p>
-                      <p className="text-sm text-neutral-600 font-light">Te recordamos. Tus preferencias. Tu historia. Atención personal, siempre.</p>
+                      <p className="font-medium text-neutral-900 mb-1">{isSpanish ? 'Cuidado Genuino' : 'Genuine Care'}</p>
+                      <p className="text-sm text-neutral-600 font-light">{isSpanish ? 'Te recordamos. Tus preferencias. Tu historia. Atención personal, siempre.' : 'We remember you. Your preferences. Your story. Personal attention, always.'}</p>
                     </div>
                   </div>
                   <div className="flex gap-4">
                     <div className="text-2xl">✨</div>
                     <div>
-                      <p className="font-medium text-neutral-900 mb-1">Creado por Expertos</p>
-                      <p className="text-sm text-neutral-600 font-light">Años de formación. Técnicas precisas. Cada detalle importa.</p>
+                      <p className="font-medium text-neutral-900 mb-1">{isSpanish ? 'Creado por Expertos' : 'Expert Crafted'}</p>
+                      <p className="text-sm text-neutral-600 font-light">{isSpanish ? 'Años de formación. Técnicas precisas. Cada detalle importa.' : 'Years of training. Precise techniques. Every detail matters.'}</p>
                     </div>
                   </div>
                   <div className="flex gap-4">
                     <div className="text-2xl">🏡</div>
                     <div>
-                      <p className="font-medium text-neutral-900 mb-1">Un Espacio Que Se Siente Bien</p>
-                      <p className="text-sm text-neutral-600 font-light">Calma. Reflexivo. Seguro. Diseñado para tu restauración completa.</p>
+                      <p className="font-medium text-neutral-900 mb-1">{isSpanish ? 'Un Espacio Que Se Siente Bien' : 'A Space That Feels Right'}</p>
+                      <p className="text-sm text-neutral-600 font-light">{isSpanish ? 'Calma. Reflexivo. Seguro. Diseñado para tu restauración completa.' : 'Calm. Thoughtful. Safe. Designed for your full restoration.'}</p>
                     </div>
                   </div>
                 </div>
               </div>
 
               <div className="relative">
-                <div className="aspect-square bg-rose-100 border-2 border-rose-200 overflow-hidden">
+                <div className="aspect-square bg-accent-100 border-2 border-accent-200 overflow-hidden">
                   <img 
                     src="/images/hero/FounderImage.jpg" 
-                    alt="Fundador de Amor Amar" 
+                    alt={isSpanish ? 'Fundador de Amor Amar' : 'Founder of Amor Amar'} 
                     className="w-full h-full object-cover"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-neutral-900/20 to-transparent" />
                 </div>
-                <div className="absolute -bottom-6 -right-6 bg-white border-2 border-rose-700 p-6 max-w-sm shadow-xl">
-                  <p className="text-sm font-light text-neutral-700 italic mb-3">"El lujo no es lo que te rodea. Es qué tan profundamente te cuidan."</p>
+                <div className="absolute -bottom-6 -right-6 bg-white border-2 border-accent-700 p-6 max-w-sm shadow-xl">
+                  <p className="text-sm font-light text-neutral-700 italic mb-3">{isSpanish ? '"El lujo no es lo que te rodea. Es qué tan profundamente te cuidan."' : '"Luxury is not what surrounds you. It is how deeply you are cared for."'}</p>
                   <p className="font-light text-neutral-900">— Amor Amar</p>
-                  <p className="text-xs text-neutral-500 mt-1">Fundador & Terapeuta</p>
+                  <p className="text-xs text-neutral-500 mt-1">{isSpanish ? 'Fundador & Terapeuta' : 'Founder & Therapist'}</p>
                 </div>
               </div>
             </div>
@@ -715,24 +877,24 @@ export default function HomePage() {
         <section id="testimonials" className="py-32 md:py-48 bg-white">
           <div className="mx-auto max-w-7xl px-4 sm:px-8">
             <div className="mb-16">
-              <div className="mb-6 h-1 w-20 bg-rose-700" />
+              <div className="mb-6 h-1 w-20 bg-accent-700" />
               <h2 className="text-6xl md:text-7xl font-light tracking-tight text-neutral-900 mb-6">
-                Lo Que Dicen<br />Los Invitados
+                {isSpanish ? 'Lo Que Dicen' : 'What Our'}<br />{isSpanish ? 'Los Invitados' : 'Guests Say'}
               </h2>
               <p className="text-lg text-neutral-700 font-light max-w-2xl">
-                Personas reales. Experiencias reales. Transformación real.
+                {isSpanish ? 'Personas reales. Experiencias reales. Transformación real.' : 'Real people. Real experiences. Real transformation.'}
               </p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {TESTIMONIALS.map((testimonial, idx) => (
-                <div key={idx} className="bg-neutral-50 border-l-4 border-rose-700 p-8 hover:shadow-lg transition">
+                <div key={idx} className="bg-neutral-50 border-l-4 border-accent-700 p-8 hover:shadow-lg transition">
                   <div className="flex items-center justify-between mb-4">
                     <p className="text-sm font-medium text-neutral-900">{testimonial.name}</p>
-                    <p className="text-xs text-rose-700 font-light tracking-widest">{testimonial.service}</p>
+                    <p className="text-xs text-accent-700 font-light tracking-widest">{testimonial.service}</p>
                   </div>
                   <p className="text-neutral-700 font-light leading-relaxed mb-4">"{testimonial.text}"</p>
-                  <div className="text-rose-700">★★★★★</div>
+                  <div className="text-accent-700">★★★★★</div>
                 </div>
               ))}
             </div>
@@ -743,30 +905,30 @@ export default function HomePage() {
         <section id="experiences" className="py-32 md:py-48 bg-neutral-50">
           <div className="mx-auto max-w-7xl px-4 sm:px-8">
             <div className="mb-24">
-              <div className="mb-6 h-1 w-20 bg-rose-700" />
+              <div className="mb-6 h-1 w-20 bg-accent-700" />
               <h2 className="text-6xl md:text-7xl font-light tracking-tight text-neutral-900 mb-8">
-                Experiencias
+                {copy.experiencesTitle}
               </h2>
               <p className="text-lg text-neutral-700 font-light max-w-2xl leading-relaxed">
-                Cada tratamiento está cuidadosamente diseñado. No apresurado. No de talla única. Creado para ti.
+                {copy.experiencesSubtitle}
               </p>
             </div>
 
             {landingServices.length === 0 ? (
-              <p className="text-neutral-600 font-light">No hay servicios disponibles en este momento.</p>
+              <p className="text-neutral-600 font-light">{copy.noServicesNow}</p>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 {landingServices.map((svc) => (
                   <button
                     key={svc.id}
                     onClick={() => router.push(`/book/${svc.id}`)}
-                    className="group text-left bg-white border-2 border-neutral-200 p-8 hover:border-rose-700 hover:shadow-xl transition duration-300 relative overflow-hidden"
+                    className="group text-left bg-white border-2 border-neutral-200 p-8 hover:border-accent-700 hover:shadow-xl transition duration-300 relative overflow-hidden"
                   >
-                    <div className="absolute top-0 left-0 h-1 w-0 bg-rose-700 group-hover:w-full transition-all duration-300" />
+                    <div className="absolute top-0 left-0 h-1 w-0 bg-accent-700 group-hover:w-full transition-all duration-300" />
                     
                     <div className="flex items-start justify-between mb-6">
                       <div>
-                        <h3 className="text-xl font-light text-neutral-900 tracking-wide mb-2 group-hover:text-rose-700 transition">{svc.name}</h3>
+                        <h3 className="text-xl font-light text-neutral-900 tracking-wide mb-2 group-hover:text-accent-700 transition">{svc.name}</h3>
                         <p className="text-xs tracking-widest text-neutral-600 uppercase">{svc.category}</p>
                       </div>
                     </div>
@@ -775,11 +937,11 @@ export default function HomePage() {
                     
                     <div className="flex items-baseline justify-between pt-6 border-t border-neutral-200">
                       <div className="text-right">
-                        <div className="text-2xl font-light text-rose-700">{svc.price}</div>
+                        <div className="text-2xl font-light text-accent-700">{svc.price}</div>
                         <div className="text-xs text-neutral-600 mt-1 font-light">{svc.duration}</div>
                       </div>
                       {svc.requiresApproval && (
-                        <span className="text-xs tracking-widest text-rose-700 uppercase font-light">Bespoke</span>
+                        <span className="text-xs tracking-widest text-accent-700 uppercase font-light">Bespoke</span>
                       )}
                     </div>
                   </button>
@@ -793,33 +955,33 @@ export default function HomePage() {
         <section className="py-32 md:py-48 bg-white">
           <div className="mx-auto max-w-7xl px-4 sm:px-8">
             <div className="mb-24">
-              <div className="mb-6 h-1 w-20 bg-rose-700" />
+              <div className="mb-6 h-1 w-20 bg-accent-700" />
               <h2 className="text-6xl md:text-7xl font-light tracking-tight text-neutral-900 mb-8">
-                Conoce al Equipo
+                {copy.teamTitle}
               </h2>
               <p className="text-lg text-neutral-700 font-light max-w-2xl">
-                Las personas detrás de tu experiencia. Entrenadas. Reflexivas. Dedicadas a tu cuidado.
+                {copy.teamSubtitle}
               </p>
             </div>
 
             {employees.length === 0 ? (
-              <p className="text-neutral-600 font-light">No hay empleados disponibles en este momento.</p>
+              <p className="text-neutral-600 font-light">{copy.noEmployeesNow}</p>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
                 {employees.map((member, idx) => (
                   <div key={member.id} className="text-center">
-                    <div className="aspect-square bg-rose-100 border-2 border-rose-200 mb-6 overflow-hidden rounded-full mx-auto max-w-[200px]">
+                    <div className="aspect-square bg-accent-100 border-2 border-accent-200 mb-6 overflow-hidden rounded-full mx-auto max-w-[200px]">
                       {member.profileImage ? (
                         <img src={member.profileImage} alt={member.firstName} className="w-full h-full object-cover" />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center text-4xl text-rose-700">
+                        <div className="w-full h-full flex items-center justify-center text-4xl text-accent-700">
                           {member.firstName[0]}{member.lastName[0]}
                         </div>
                       )}
                     </div>
                     <h3 className="text-2xl font-light text-neutral-900 mb-2">{member.firstName} {member.lastName}</h3>
-                    <p className="text-sm text-rose-700 font-light tracking-widest uppercase mb-4">Terapeuta</p>
-                    <p className="text-neutral-700 font-light leading-relaxed">{member.bio || 'Experto en belleza y cuidado personal.'}</p>
+                    <p className="text-sm text-accent-700 font-light tracking-widest uppercase mb-4">{copy.therapist}</p>
+                    <p className="text-neutral-700 font-light leading-relaxed">{member.bio || copy.defaultBio}</p>
                   </div>
                 ))}
               </div>
@@ -828,19 +990,19 @@ export default function HomePage() {
         </section>
 
         {/* CTA */}
-        <section className="py-32 md:py-48 bg-rose-700 text-white">
+        <section className="py-32 md:py-48 bg-accent-700 text-white">
           <div className="mx-auto max-w-4xl px-4 sm:px-8 text-center">
             <h2 className="text-6xl md:text-7xl font-light tracking-tight mb-8">
-              Listo para Sentirlo
+              {isSpanish ? 'Listo para Sentirlo' : 'Ready to Feel It'}
             </h2>
             <p className="text-xl text-white/90 font-light mb-12 max-w-2xl mx-auto leading-relaxed">
-              Sabes cuando algo es realmente correcto. Esto es eso.
+              {isSpanish ? 'Sabes cuando algo es realmente correcto. Esto es eso.' : 'You know when something feels truly right. This is it.'}
             </p>
             <button
               onClick={() => router.push('/book')}
-              className="px-10 py-4 bg-white text-rose-700 font-light tracking-wider hover:shadow-xl transition text-sm"
+              className="px-10 py-4 bg-white text-accent-700 font-light tracking-wider hover:shadow-xl transition text-sm"
             >
-              RESERVA TU EXPERIENCIA
+              {isSpanish ? 'RESERVA TU EXPERIENCIA' : 'BOOK YOUR EXPERIENCE'}
             </button>
           </div>
         </section>
@@ -851,38 +1013,38 @@ export default function HomePage() {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
               <div>
                 <h3 className="text-sm font-light tracking-widest text-white uppercase mb-4">Amor Amar</h3>
-                <p className="text-sm text-neutral-400 font-light">Bienestar en Ibiza. Cuidado. Precisión. Transformación.</p>
+                <p className="text-sm text-neutral-400 font-light">{isSpanish ? 'Bienestar en Ibiza. Cuidado. Precisión. Transformación.' : 'Wellness in Ibiza. Care. Precision. Transformation.'}</p>
               </div>
               <div>
-                <h4 className="text-sm font-light tracking-widest text-white uppercase mb-4">Tratamientos</h4>
+                <h4 className="text-sm font-light tracking-widest text-white uppercase mb-4">{isSpanish ? 'Tratamientos' : 'Treatments'}</h4>
                 <ul className="space-y-2 text-sm text-neutral-400 font-light">
-                  <li><a href="#experiences" className="hover:text-rose-400 transition">Todas las Experiencias</a></li>
-                  <li><a href="#experiences" className="hover:text-rose-400 transition">Para Parejas</a></li>
-                  <li><a href="#experiences" className="hover:text-rose-400 transition">Spa</a></li>
+                  <li><a href="#experiences" className="hover:text-accent-400 transition">{isSpanish ? 'Todas las Experiencias' : 'All Experiences'}</a></li>
+                  <li><a href="#experiences" className="hover:text-accent-400 transition">{isSpanish ? 'Para Parejas' : 'For Couples'}</a></li>
+                  <li><a href="#experiences" className="hover:text-accent-400 transition">Spa</a></li>
                 </ul>
               </div>
               <div>
-                <h4 className="text-sm font-light tracking-widest text-white uppercase mb-4">Empresa</h4>
+                <h4 className="text-sm font-light tracking-widest text-white uppercase mb-4">{isSpanish ? 'Empresa' : 'Company'}</h4>
                 <ul className="space-y-2 text-sm text-neutral-400 font-light">
-                  <li><a href="#story" className="hover:text-rose-400 transition">Nuestra Historia</a></li>
-                  <li><a href="#testimonials" className="hover:text-rose-400 transition">Reseñas</a></li>
-                  <li><a href="#" className="hover:text-rose-400 transition">Tarjetas Regalo</a></li>
+                  <li><a href="#story" className="hover:text-accent-400 transition">{copy.navStory}</a></li>
+                  <li><a href="#testimonials" className="hover:text-accent-400 transition">{copy.navReviews}</a></li>
+                  <li><a href="#" className="hover:text-accent-400 transition">{isSpanish ? 'Tarjetas Regalo' : 'Gift Cards'}</a></li>
                 </ul>
               </div>
               <div>
-                <h4 className="text-sm font-light tracking-widest text-white uppercase mb-4">Conectar</h4>
+                <h4 className="text-sm font-light tracking-widest text-white uppercase mb-4">{isSpanish ? 'Conectar' : 'Connect'}</h4>
                 <ul className="space-y-2 text-sm text-neutral-400 font-light">
-                  <li><a href="#" className="hover:text-rose-400 transition">Instagram</a></li>
-                  <li><a href="#" className="hover:text-rose-400 transition">Contacto</a></li>
-                  <li><a href="#" className="hover:text-rose-400 transition">WhatsApp</a></li>
+                  <li><a href="#" className="hover:text-accent-400 transition">Instagram</a></li>
+                  <li><a href="#" className="hover:text-accent-400 transition">{isSpanish ? 'Contacto' : 'Contact'}</a></li>
+                  <li><a href="#" className="hover:text-accent-400 transition">WhatsApp</a></li>
                 </ul>
               </div>
             </div>
             <div className="border-t border-neutral-700 pt-8 flex flex-col md:flex-row justify-between items-center text-sm text-neutral-500 font-light">
-              <p>&copy; 2024 Amor Amar. Creado con cuidado para Ibiza.</p>
+              <p>&copy; 2024 Amor Amar. {isSpanish ? 'Creado con cuidado para Ibiza.' : 'Crafted with care for Ibiza.'}</p>
               <div className="flex gap-8 mt-6 md:mt-0">
-                <a href="#" className="hover:text-rose-400 transition">Privacidad</a>
-                <a href="#" className="hover:text-rose-400 transition">Términos</a>
+                <a href="#" className="hover:text-accent-400 transition">{isSpanish ? 'Privacidad' : 'Privacy'}</a>
+                <a href="#" className="hover:text-accent-400 transition">{isSpanish ? 'Términos' : 'Terms'}</a>
               </div>
             </div>
           </div>
@@ -902,40 +1064,40 @@ export default function HomePage() {
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm p-0 sm:p-4">
           <div className="w-full max-w-2xl bg-white shadow-2xl flex flex-col h-full sm:h-auto sm:max-h-[90vh] sm:rounded-lg overflow-hidden">
             
-            <div className="sticky top-0 bg-rose-50 px-4 sm:px-8 py-4 sm:py-6 flex items-center justify-between border-b border-rose-200">
+            <div className="sticky top-0 bg-accent-50 px-4 sm:px-8 py-4 sm:py-6 flex items-center justify-between border-b border-accent-200">
               <div>
-                <p className="text-xs tracking-widest text-rose-700 uppercase font-medium">Reserva de Experiencia</p>
-                <p className="text-xs sm:text-sm text-neutral-700 mt-1 font-light">Paso {bookingStep} de 4</p>
+                <p className="text-xs tracking-widest text-accent-700 uppercase font-medium">{copy.bookExperienceTitle}</p>
+                <p className="text-xs sm:text-sm text-neutral-700 mt-1 font-light">{copy.stepOf} {bookingStep} / 4</p>
               </div>
               <button aria-label="Close" onClick={closeBooking} className="text-2xl text-neutral-400 hover:text-neutral-600 transition min-w-[44px] min-h-[44px] flex items-center justify-center">✕</button>
             </div>
 
-            <div className="h-1 bg-rose-200">
-              <div className="h-full bg-rose-700 transition-all duration-300" style={{ width: `${(bookingStep/4)*100}%` }} />
+            <div className="h-1 bg-accent-200">
+              <div className="h-full bg-accent-700 transition-all duration-300" style={{ width: `${(bookingStep/4)*100}%` }} />
             </div>
 
             <div className="px-4 sm:px-8 py-6 sm:py-8 space-y-6 max-h-[calc(90vh-180px)] overflow-y-auto flex-1">
 
               {!user && (
-                <div className="p-4 sm:p-5 rounded-2xl border border-rose-100 bg-rose-50/80 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div className="p-4 sm:p-5 rounded-2xl border border-accent-100 bg-accent-50/80 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                   <div>
-                    <p className="text-sm font-semibold text-neutral-900">Reserva más rápido</p>
+                    <p className="text-sm font-semibold text-neutral-900">{copy.reserveFaster}</p>
                     <p className="text-xs text-neutral-600">
-                      Inicia sesión y completaremos tus datos. Solo un click para confirmar.
+                      {copy.reserveFasterDesc}
                     </p>
                   </div>
                   <div className="flex gap-2">
                     <button
                       onClick={login}
-                      className="px-4 py-2 rounded-xl border border-rose-200 text-[11px] font-bold uppercase tracking-[0.18em] text-rose-700 hover:bg-rose-600 hover:text-white transition-all"
+                      className="px-4 py-2 rounded-xl border border-accent-200 text-[11px] font-bold uppercase tracking-[0.18em] text-accent-700 hover:bg-accent-600 hover:text-white transition-all"
                     >
-                      Ya tengo cuenta
+                      {copy.iHaveAccount}
                     </button>
                     <button
                       onClick={login}
-                      className="px-4 py-2 rounded-xl bg-rose-700 text-white text-[11px] font-bold uppercase tracking-[0.18em] hover:brightness-95 transition-all"
+                      className="px-4 py-2 rounded-xl bg-accent-700 text-white text-[11px] font-bold uppercase tracking-[0.18em] hover:brightness-95 transition-all"
                     >
-                      Crear cuenta
+                      {copy.createAccount}
                     </button>
                   </div>
                 </div>
@@ -943,25 +1105,67 @@ export default function HomePage() {
               
               {bookingStep === 1 && (
                 <div>
-                  <p className="text-sm font-light text-neutral-900 mb-6 tracking-wide">¿Qué tratamiento te llama?</p>
-                  {landingServices.length === 0 ? (
-                    <p className="text-neutral-600 font-light">No hay servicios disponibles.</p>
+                  <p className="text-sm font-light text-neutral-900 mb-6 tracking-wide">{copy.bookingQuestion}</p>
+                  {groupedBookingServices.length === 0 ? (
+                    <p className="text-neutral-600 font-light">{copy.noServices}</p>
                   ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      {landingServices.map((svc) => (
-                        <button
-                          key={svc.id}
-                          onClick={() => {
-                            const fullService = services.find(s => s.id === svc.id);
-                            if (fullService) openBooking(fullService);
-                          }}
-                          className={`p-4 border-2 text-left transition ${selectedService?.id === svc.id ? 'border-rose-700 bg-rose-50' : 'border-rose-200/50 bg-white hover:border-rose-400'}`}
-                        >
-                          <h4 className="font-light text-sm text-neutral-900 mb-1">{svc.name}</h4>
-                          <p className="text-xs text-neutral-600 mb-3 font-light">{svc.duration}</p>
-                          <p className="text-lg font-light text-rose-700">{svc.price}</p>
-                        </button>
-                      ))}
+                    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[220px_1fr]">
+                      <div className="space-y-2">
+                        {groupedBookingServices.map((group, index) => {
+                          const active = group.key === activeMajorGroup;
+                          return (
+                            <button
+                              key={group.key}
+                              onClick={() => setSelectedMajorGroup(group.key)}
+                              className={`w-full rounded-xl border px-3 py-3 text-left transition ${active ? 'border-accent-600 bg-accent-50' : 'border-accent-200 bg-white hover:border-accent-400'}`}
+                            >
+                              <p className="text-sm font-medium text-neutral-900">{index + 1}. {group.label}</p>
+                              <p className="text-xs text-neutral-500 mt-1">{group.services.length} {isSpanish ? 'servicios' : 'services'}</p>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <div className="space-y-5">
+                        <div className="text-xs text-neutral-600">
+                          {activeMajorGroupData?.label || (isSpanish ? 'Elige un grupo' : 'Choose a group')}
+                        </div>
+                        {activeMajorGroupData?.subgroups.map((subgroup) => (
+                          <div key={subgroup.label} className="space-y-2">
+                            <div className="flex items-center justify-between border-b border-neutral-200 pb-2">
+                              <h4 className="text-xs font-semibold tracking-[0.15em] uppercase text-neutral-600">{subgroup.label}</h4>
+                              <span className="text-xs text-neutral-400">{subgroup.services.length}</span>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              {subgroup.services.map((service) => {
+                                const isRestrictedOnline = isOnlineBookingRestricted(service);
+                                return (
+                                  <button
+                                    key={service.id}
+                                    onClick={() => !isRestrictedOnline && openBooking(service)}
+                                    disabled={isRestrictedOnline}
+                                    className={`p-4 border-2 text-left transition rounded-xl ${
+                                      isRestrictedOnline
+                                        ? 'border-amber-200 bg-amber-50/60 cursor-not-allowed'
+                                        : selectedService?.id === service.id
+                                          ? 'border-accent-700 bg-accent-50'
+                                          : 'border-accent-200/50 bg-white hover:border-accent-400'
+                                    }`}
+                                  >
+                                    <h4 className="font-light text-sm text-neutral-900 mb-1">{service.serviceName}</h4>
+                                    <p className="text-xs text-neutral-600 mb-3 font-light">{service.duration} min</p>
+                                    <p className="text-lg font-light text-accent-700">{formatCurrency(service.price)}</p>
+                                    {isRestrictedOnline ? (
+                                      <p className="mt-2 text-[11px] font-medium text-amber-700">
+                                        {isSpanish ? 'Consulta previa obligatoria • No disponible online' : 'Consultation required • Not available online'}
+                                      </p>
+                                    ) : null}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -969,44 +1173,46 @@ export default function HomePage() {
 
               {bookingStep === 2 && (
                 <div className="space-y-6">
-                  <div className="bg-rose-50 p-4 border-2 border-rose-200">
-                    <p className="text-sm text-neutral-700 font-light">Elegiste: <span className="font-medium text-neutral-900">{selectedService?.name}</span></p>
+                  <div className="bg-accent-50 p-4 border-2 border-accent-200">
+                    <p className="text-sm text-neutral-700 font-light">{isSpanish ? 'Elegiste:' : 'Selected:'} <span className="font-medium text-neutral-900">{selectedService?.name}</span></p>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-light text-neutral-900 mb-2">Tu Nombre</label>
+                    <label className="block text-sm font-light text-neutral-900 mb-2">{isSpanish ? 'Tu Nombre' : 'Your Name'}</label>
                     <input 
                       value={formData.name} 
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })} 
-                      placeholder="Tu nombre" 
-                      className="w-full border-2 border-rose-200 px-4 py-3 text-sm focus:outline-none focus:border-rose-700 transition font-light" 
+                      placeholder={isSpanish ? 'Tu nombre' : 'Your name'} 
+                      className="w-full border-2 border-accent-200 px-4 py-3 text-sm focus:outline-none focus:border-accent-700 transition font-light" 
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-light text-neutral-900 mb-2">Tu Correo</label>
+                    <label className="block text-sm font-light text-neutral-900 mb-2">{isSpanish ? 'Tu Correo' : 'Your Email'}</label>
                     <input 
                       type="email" 
                       value={formData.email} 
                       onChange={(e) => setFormData({ ...formData, email: e.target.value })} 
-                      placeholder="tu@correo.com" 
-                      className="w-full border-2 border-rose-200 px-4 py-3 text-sm focus:outline-none focus:border-rose-700 transition font-light" 
+                      placeholder={isSpanish ? 'tu@correo.com' : 'you@email.com'} 
+                      className="w-full border-2 border-accent-200 px-4 py-3 text-sm focus:outline-none focus:border-accent-700 transition font-light" 
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-light text-neutral-900 mb-2">Tu Teléfono</label>
+                    <label className="block text-sm font-light text-neutral-900 mb-2">{isSpanish ? 'Tu Teléfono' : 'Your Phone'}</label>
                     <input 
                       type="tel" 
                       value={formData.phone} 
                       onChange={(e) => setFormData({ ...formData, phone: e.target.value })} 
                       placeholder="+34 600 000000" 
-                      className="w-full border-2 border-rose-200 px-4 py-3 text-sm focus:outline-none focus:border-rose-700 transition font-light" 
+                      className="w-full border-2 border-accent-200 px-4 py-3 text-sm focus:outline-none focus:border-accent-700 transition font-light" 
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-light text-neutral-900 mb-3">Selecciona tu Terapeuta</label>
+                    <label className="block text-sm font-light text-neutral-900 mb-3">{isSpanish ? 'Selecciona tu Terapeuta' : 'Select your therapist'}</label>
                     {serviceEmployees.length === 0 ? (
                       <p className="text-neutral-600 font-light text-sm">
-                        {selectedService ? 'Cargando terapeutas disponibles...' : 'Primero selecciona un servicio'}
+                        {selectedService
+                          ? (isSpanish ? 'Cargando terapeutas disponibles...' : 'Loading available therapists...')
+                          : (isSpanish ? 'Primero selecciona un servicio' : 'Select a service first')}
                       </p>
                     ) : (
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1017,8 +1223,8 @@ export default function HomePage() {
                             onClick={() => setFormData({ ...formData, employeeId: emp.id })}
                             className={`p-4 border-2 rounded-lg transition text-left ${
                               formData.employeeId === emp.id
-                                ? 'border-rose-600 bg-rose-50'
-                                : 'border-rose-200 bg-white hover:border-rose-400'
+                                ? 'border-accent-600 bg-accent-50'
+                                : 'border-accent-200 bg-white hover:border-accent-400'
                             }`}
                           >
                             <div className="flex items-center gap-3">
@@ -1026,10 +1232,10 @@ export default function HomePage() {
                                 <img
                                   src={emp.profileImage}
                                   alt={`${emp.firstName} ${emp.lastName}`}
-                                  className="w-12 h-12 rounded-full object-cover border-2 border-rose-300"
+                                  className="w-12 h-12 rounded-full object-cover border-2 border-accent-300"
                                 />
                               ) : (
-                                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-rose-400 to-rose-600 flex items-center justify-center text-white font-semibold">
+                                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-accent-400 to-accent-600 flex items-center justify-center text-white font-semibold">
                                   {emp.firstName[0]}{emp.lastName[0]}
                                 </div>
                               )}
@@ -1042,7 +1248,7 @@ export default function HomePage() {
                                 )}
                               </div>
                               {formData.employeeId === emp.id && (
-                                <svg className="w-5 h-5 text-rose-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                <svg className="w-5 h-5 text-accent-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                                 </svg>
                               )}
@@ -1061,25 +1267,25 @@ export default function HomePage() {
               {bookingStep === 3 && (
                 <div className="space-y-6">
                   <div>
-                    <label className="block text-sm font-light text-neutral-900 mb-2">¿Qué día?</label>
+                    <label className="block text-sm font-light text-neutral-900 mb-2">{isSpanish ? '¿Qué día?' : 'Which day?'}</label>
                     <input 
                       type="date" 
                       value={formData.date} 
                       onChange={(e) => setFormData({ ...formData, date: e.target.value, time: '' })} 
                       min={new Date().toISOString().split('T')[0]}
-                      className="w-full border-2 border-rose-200 px-4 py-3 text-sm focus:outline-none focus:border-rose-700 transition font-light rounded-lg" 
+                      className="w-full border-2 border-accent-200 px-4 py-3 text-sm focus:outline-none focus:border-accent-700 transition font-light rounded-lg" 
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-light text-neutral-900 mb-3">¿Qué hora?</label>
+                    <label className="block text-sm font-light text-neutral-900 mb-3">{isSpanish ? '¿Qué hora?' : 'What time?'}</label>
                     {!formData.date || !selectedService || !formData.employeeId ? (
                       <div className="p-4 bg-neutral-50 border border-neutral-200 rounded-lg text-center">
-                        <p className="text-sm text-neutral-600 font-light">Selecciona una fecha para ver los horarios disponibles</p>
+                        <p className="text-sm text-neutral-600 font-light">{isSpanish ? 'Selecciona una fecha para ver los horarios disponibles' : 'Select a date to see available slots'}</p>
                       </div>
                     ) : loadingSlots ? (
                       <div className="flex flex-col items-center gap-3 py-8">
-                        <div className="w-8 h-8 border-3 border-rose-500 border-t-transparent rounded-full animate-spin" />
-                        <p className="text-sm text-neutral-600 font-light">Buscando horarios disponibles...</p>
+                        <div className="w-8 h-8 border-3 border-accent-500 border-t-transparent rounded-full animate-spin" />
+                        <p className="text-sm text-neutral-600 font-light">{isSpanish ? 'Buscando horarios disponibles...' : 'Looking for available slots...'}</p>
                       </div>
                     ) : slotsError ? (
                       <div className="p-5 bg-amber-50 border border-amber-200 rounded-lg text-center">
@@ -1087,19 +1293,19 @@ export default function HomePage() {
                           <span className="text-2xl">📅</span>
                         </div>
                         <p className="text-sm text-amber-800 font-medium">{slotsError}</p>
-                        <p className="text-xs text-amber-600 mt-2">Prueba seleccionando otra fecha</p>
+                        <p className="text-xs text-amber-600 mt-2">{isSpanish ? 'Prueba seleccionando otra fecha' : 'Try selecting another date'}</p>
                       </div>
                     ) : availableSlots.filter(slot => slot.available).length === 0 ? (
                       <div className="p-5 bg-neutral-50 border border-neutral-200 rounded-lg text-center">
                         <div className="w-12 h-12 mx-auto mb-3 bg-neutral-100 rounded-full flex items-center justify-center">
                           <span className="text-2xl">⏰</span>
                         </div>
-                        <p className="text-sm text-neutral-700 font-medium">Sin horarios disponibles</p>
-                        <p className="text-xs text-neutral-500 mt-2">Todos los horarios están ocupados. Prueba con otra fecha.</p>
+                        <p className="text-sm text-neutral-700 font-medium">{isSpanish ? 'Sin horarios disponibles' : 'No available slots'}</p>
+                        <p className="text-xs text-neutral-500 mt-2">{isSpanish ? 'Todos los horarios están ocupados. Prueba con otra fecha.' : 'All slots are booked. Try another date.'}</p>
                       </div>
                     ) : (
                       <>
-                        <p className="text-xs text-rose-600 mb-3">
+                        <p className="text-xs text-accent-600 mb-3">
                           ✓ {availableSlots.filter(s => s.available).length} horarios disponibles
                         </p>
                         <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
@@ -1109,8 +1315,8 @@ export default function HomePage() {
                               onClick={() => setFormData({ ...formData, time: slot.time })}
                               className={`py-3 text-sm font-medium rounded-lg transition-all ${
                                 formData.time === slot.time
-                                  ? 'bg-rose-600 text-white shadow-lg shadow-rose-500/30 scale-105'
-                                  : 'bg-white border border-rose-200 text-rose-800 hover:border-rose-400 hover:bg-rose-50'
+                                  ? 'bg-accent-600 text-white shadow-lg shadow-accent-500/30 scale-105'
+                                  : 'bg-white border border-accent-200 text-accent-800 hover:border-accent-400 hover:bg-accent-50'
                               }`}
                             >
                               {slot.time}
@@ -1127,52 +1333,52 @@ export default function HomePage() {
                 <div className="space-y-6">
                   {bookingSuccess ? (
                     <>
-                      <div className="bg-rose-50 p-6 border-2 border-rose-200 space-y-3">
-                        <Row label="Tratamiento" value={selectedService?.name} />
-                        <Row label="Fecha" value={formData.date} />
-                        <Row label="Hora" value={formData.time} />
-                        <Row label="Terapeuta" value={employees.find(e => e.id === formData.employeeId)?.firstName + ' ' + employees.find(e => e.id === formData.employeeId)?.lastName} />
-                        <div className="flex justify-between pt-4 border-t border-rose-300 font-light">
-                          <span className="text-neutral-900">Precio</span>
-                          <span className="text-rose-700 text-lg font-medium">{selectedService?.price ?? '—'}</span>
+                      <div className="bg-accent-50 p-6 border-2 border-accent-200 space-y-3">
+                        <Row label={isSpanish ? 'Tratamiento' : 'Service'} value={selectedService?.name} />
+                        <Row label={isSpanish ? 'Fecha' : 'Date'} value={formData.date} />
+                        <Row label={isSpanish ? 'Hora' : 'Time'} value={formData.time} />
+                        <Row label={isSpanish ? 'Terapeuta' : 'Therapist'} value={employees.find(e => e.id === formData.employeeId)?.firstName + ' ' + employees.find(e => e.id === formData.employeeId)?.lastName} />
+                        <div className="flex justify-between pt-4 border-t border-accent-300 font-light">
+                          <span className="text-neutral-900">{isSpanish ? 'Precio' : 'Price'}</span>
+                          <span className="text-accent-700 text-lg font-medium">{selectedService?.price ?? '—'}</span>
                         </div>
                       </div>
 
-                      <div className="border-2 border-rose-700 bg-white p-6 text-center">
-                        <p className="text-lg font-light text-neutral-900 mb-1">¡Hermoso! ✨</p>
-                        <p className="text-sm text-neutral-700 font-light">Tu reserva está confirmada. No podemos esperar a cuidarte.</p>
+                      <div className="border-2 border-accent-700 bg-white p-6 text-center">
+                        <p className="text-lg font-light text-neutral-900 mb-1">{isSpanish ? '¡Hermoso! ✨' : 'Beautiful! ✨'}</p>
+                        <p className="text-sm text-neutral-700 font-light">{isSpanish ? 'Tu reserva está confirmada. No podemos esperar a cuidarte.' : 'Your booking is confirmed. We can’t wait to take care of you.'}</p>
                       </div>
                     </>
                   ) : (
                     <>
-                      <div className="bg-rose-50 p-6 border-2 border-rose-200 space-y-3">
-                        <Row label="Tratamiento" value={selectedService?.name} />
-                        <Row label="Fecha" value={formData.date} />
-                        <Row label="Hora" value={formData.time} />
-                        <div className="flex justify-between pt-4 border-t border-rose-300 font-light">
-                          <span className="text-neutral-900">Depósito (50%)</span>
-                          <span className="text-rose-700 text-lg font-medium">{depositDisplay ?? '—'}</span>
+                      <div className="bg-accent-50 p-6 border-2 border-accent-200 space-y-3">
+                        <Row label={isSpanish ? 'Tratamiento' : 'Service'} value={selectedService?.name} />
+                        <Row label={isSpanish ? 'Fecha' : 'Date'} value={formData.date} />
+                        <Row label={isSpanish ? 'Hora' : 'Time'} value={formData.time} />
+                        <div className="flex justify-between pt-4 border-t border-accent-300 font-light">
+                          <span className="text-neutral-900">{isSpanish ? 'Depósito (50%)' : 'Deposit (50%)'}</span>
+                          <span className="text-accent-700 text-lg font-medium">{depositDisplay ?? '—'}</span>
                         </div>
                         <div className="flex justify-between font-light">
-                          <span className="text-neutral-900">Restante en salón</span>
+                          <span className="text-neutral-900">{isSpanish ? 'Restante en salón' : 'Remaining at salon'}</span>
                           <span className="text-neutral-700 text-lg font-medium">
                             {remainingBalance !== null ? formatCurrency(remainingBalance) : '—'}
                           </span>
                         </div>
                         <div className="flex justify-between font-light">
                           <span className="text-neutral-900">Total</span>
-                          <span className="text-rose-700 text-lg font-medium">{selectedService?.price ?? '—'}</span>
+                          <span className="text-accent-700 text-lg font-medium">{selectedService?.price ?? '—'}</span>
                         </div>
                       </div>
 
                       <div className="p-6 border-2 border-neutral-200 rounded-2xl bg-white space-y-4">
                         <div className="flex items-center justify-between">
                           <div>
-                            <p className="text-sm font-medium text-neutral-900">Paga el depósito ahora</p>
-                            <p className="text-xs text-neutral-500">Cobramos el 50% para confirmar. El resto lo abonas en el salón.</p>
+                            <p className="text-sm font-medium text-neutral-900">{isSpanish ? 'Paga el depósito ahora' : 'Pay deposit now'}</p>
+                            <p className="text-xs text-neutral-500">{isSpanish ? 'Cobramos el 50% para confirmar. El resto lo abonas en el salón.' : 'We charge 50% to confirm. You pay the rest at the salon.'}</p>
                           </div>
-                          <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-rose-100 text-rose-700">
-                            Seguro
+                          <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-accent-100 text-accent-700">
+                            {isSpanish ? 'Seguro' : 'Secure'}
                           </span>
                         </div>
 
@@ -1183,16 +1389,20 @@ export default function HomePage() {
                           />
                         ) : (
                           <div className="p-4 border-2 border-amber-200 rounded-xl bg-amber-50 text-amber-800 text-sm">
-                            Falta la clave pública de Stripe. Contacta con soporte para habilitar pagos.
+                            {isSpanish
+                              ? 'Falta la clave pública de Stripe. Contacta con soporte para habilitar pagos.'
+                              : 'Stripe public key is missing. Contact support to enable payments.'}
                           </div>
                         )}
                         {paymentError && (
-                          <p className="text-sm text-rose-700 bg-rose-50 border border-rose-200 rounded-xl px-4 py-3">
+                          <p className="text-sm text-accent-700 bg-accent-50 border border-accent-200 rounded-xl px-4 py-3">
                             {paymentError}
                           </p>
                         )}
                         <p className="text-xs text-neutral-500">
-                          Al continuar se realizará un cargo de {depositDisplay ?? '50% del servicio'} para asegurar tu cita.
+                          {isSpanish ? 'Al continuar se realizará un cargo de ' : 'By continuing, you will be charged '}
+                          {depositDisplay ?? (isSpanish ? '50% del servicio' : '50% of the service')}
+                          {isSpanish ? ' para asegurar tu cita.' : ' to secure your appointment.'}
                         </p>
                       </div>
                     </>
@@ -1201,10 +1411,10 @@ export default function HomePage() {
               )}
             </div>
 
-            <div className="sticky bottom-0 bg-rose-50 border-t border-rose-200 px-4 sm:px-8 py-3 sm:py-4 flex gap-2 sm:gap-3">
+            <div className="sticky bottom-0 bg-accent-50 border-t border-accent-200 px-4 sm:px-8 py-3 sm:py-4 flex gap-2 sm:gap-3">
               {bookingStep > 1 && (
-                <button onClick={back} className="flex-1 py-3 sm:py-3 min-h-[48px] border-2 border-rose-200 text-neutral-900 text-sm font-light hover:bg-white transition touch-manipulation">
-                  Atrás
+                <button onClick={back} className="flex-1 py-3 sm:py-3 min-h-[48px] border-2 border-accent-200 text-neutral-900 text-sm font-light hover:bg-white transition touch-manipulation">
+                  {isSpanish ? 'Atrás' : 'Back'}
                 </button>
               )}
                 <button
@@ -1221,15 +1431,15 @@ export default function HomePage() {
                   }
                 }}
                 disabled={!stepValid || submitting || paymentLoading}
-                className="flex-1 py-3 sm:py-3 min-h-[48px] bg-rose-700 text-white text-sm font-light hover:bg-rose-800 disabled:opacity-50 disabled:cursor-not-allowed transition touch-manipulation"
+                className="flex-1 py-3 sm:py-3 min-h-[48px] bg-accent-700 text-white text-sm font-light hover:bg-accent-800 disabled:opacity-50 disabled:cursor-not-allowed transition touch-manipulation"
               >
                 {submitting || paymentLoading
-                  ? 'Procesando...'
+                  ? (isSpanish ? 'Procesando...' : 'Processing...')
                   : bookingStep === 4
                     ? bookingSuccess
                       ? '✓ Completar'
-                      : 'Pagar y confirmar'
-                    : 'Continuar'}
+                      : (isSpanish ? 'Pagar y confirmar' : 'Pay and confirm')
+                    : (isSpanish ? 'Continuar' : 'Continue')}
               </button>
             </div>
           </div>

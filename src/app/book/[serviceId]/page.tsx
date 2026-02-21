@@ -12,6 +12,7 @@ import { loadStripe, type Stripe, type StripeCardElement, type StripeElements } 
 import Link from 'next/link';
 import Image from 'next/image';
 import { getClient, getClientByEmail } from '@/shared/lib/firestore';
+import { BrandLogo } from '@/shared/components/BrandLogo';
 
 type Step = 1 | 2 | 3;
 
@@ -84,6 +85,9 @@ export default function DirectBookingPage() {
         if (data.success && data.data) {
           if (!data.data.isActive) {
             setError('Este servicio no está disponible actualmente.');
+            setService(null);
+          } else if (data.data.category === 'hair-bleach-highlights') {
+            setError('Este servicio requiere consulta previa y no está disponible para reserva online.');
             setService(null);
           } else {
             setService(data.data);
@@ -531,8 +535,8 @@ export default function DirectBookingPage() {
       <header className="fixed inset-x-0 top-0 z-50 bg-white/80 backdrop-blur-xl border-b border-neutral-100">
         <div className="mx-auto max-w-7xl px-3 sm:px-8">
           <div className="h-14 sm:h-16 flex items-center justify-between">
-            <Link href="/" className="text-base sm:text-lg font-light tracking-wider text-neutral-900 hover:text-rose-600 transition">
-              AMOR AMAR
+            <Link href="/" className="transition-opacity hover:opacity-80">
+              <BrandLogo className="h-11 w-36 sm:h-12 sm:w-40" priority />
             </Link>
             
             <div className="flex items-center gap-2 sm:gap-3">
@@ -1195,4 +1199,3 @@ export default function DirectBookingPage() {
     </div>
   );
 }
-

@@ -109,6 +109,22 @@ export interface Employee {
 
 // Service Types
 export type DefaultServiceCategory = 
+  | 'hair-haircuts-styling'
+  | 'hair-color'
+  | 'hair-bleach-highlights'
+  | 'hair-treatments-signature'
+  | 'hair-men'
+  | 'hair-kids'
+  | 'hair-extensions'
+  | 'beauty-lamination'
+  | 'beauty-brow-services'
+  | 'beauty-lash-extensions-full-set'
+  | 'beauty-lash-refill-infill'
+  | 'beauty-lash-removal'
+  | 'beauty-semi-permanent-makeup'
+  | 'beauty-professional-makeup'
+  | 'manicure'
+  | 'pedicure-care'
   | 'nail-art-care-combinations'
   | 'nail-art-care-manicure'
   | 'professional-foot-services'
@@ -218,6 +234,8 @@ export interface Booking {
   clientName: string;
   clientEmail: string;
   clientPhone: string;
+  clientPhoneE164?: string;
+  whatsappOptIn?: boolean;
   bookingDate: string; // YYYY-MM-DD
   bookingTime: string; // HH:MM
   status: BookingStatus;
@@ -337,6 +355,8 @@ export interface BookingFormData {
   clientName: string;
   clientEmail: string;
   clientPhone: string;
+  clientPhoneE164?: string;
+  whatsappOptIn?: boolean;
   createdByRole?: UserRole;
   createdByName?: string;
   createdByUserId?: string;
@@ -367,4 +387,24 @@ export interface TimeSlot {
 export interface AvailableSlotsResponse {
   date: string;
   slots: TimeSlot[];
+}
+
+export type NotificationJobType = 'WHATSAPP_CONFIRMATION' | 'WHATSAPP_REMINDER_24H';
+export type NotificationJobStatus = 'queued' | 'processing' | 'sent' | 'failed';
+
+export interface NotificationJob {
+  id: string;
+  bookingId: string;
+  type: NotificationJobType;
+  toPhoneE164: string;
+  templateName: 'booking_confirmed' | 'booking_reminder_24h' | (string & {});
+  lang: string;
+  vars: Record<string, string>;
+  dueAt: Date;
+  status: NotificationJobStatus;
+  attempts: number;
+  createdAt: Date;
+  updatedAt: Date;
+  lastError?: string;
+  sentAt?: Date;
 }

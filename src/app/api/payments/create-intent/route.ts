@@ -39,7 +39,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Calculate deposit amount (default 20%)
+    if (service.category === 'hair-bleach-highlights') {
+      return NextResponse.json<ApiResponse<null>>(
+        {
+          success: false,
+          error: 'This service requires a prior consultation and cannot be paid/booked online.',
+        },
+        { status: 400 }
+      );
+    }
+
+    // Calculate deposit amount (default 50%)
     const depositAmount = calculateDepositAmount(service.price, data.depositPercentage || 50);
 
     // Create payment intent
@@ -72,8 +82,6 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-
-
 
 
 

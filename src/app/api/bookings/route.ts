@@ -3,6 +3,8 @@ import { getBookings, createBooking, getService, getEmployee } from '@/shared/li
 import { sendBookingConfirmation, sendEmployeeNotification } from '@/shared/lib/email';
 import type { ApiResponse, Booking, BookingFormData } from '@/shared/lib/types';
 import { getPaymentIntent } from '@/shared/lib/stripe';
+import { BookingScheduleValidationError, validateBookingSchedule } from '@/shared/lib/bookingAvailability';
+import { enqueueWhatsAppJobsForConfirmedBooking } from '@/shared/lib/whatsappJobs';
 
 export async function GET(request: NextRequest) {
   try {
@@ -80,6 +82,27 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const isClientOnlineBooking = createdByRole === 'client';
+    const isBleachHighlightsService = service.category === 'hair-bleach-highlights';
+    if (isClientOnlineBooking && isBleachHighlightsService) {
+      return NextResponse.json<ApiResponse<null>>(
+        {
+          success: false,
+          error: 'This service requires a prior consultation and cannot be booked online.',
+        },
+        { status: 400 }
+      );
+    }
+
+    await validateBookingSchedule({
+      employeeId: data.employeeId,
+      serviceId: data.serviceId,
+      bookingDate: data.bookingDate,
+      bookingTime: data.bookingTime,
+      isConsultation: isConsultation,
+      consultationDuration: data.consultationDuration,
+    });
+
     const servicePrice = typeof service.price === 'string'
       ? parseFloat(service.price)
       : service.price;
@@ -119,6 +142,27 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      if (paymentIntent.currency !== 'eur') {
+        return NextResponse.json<ApiResponse<null>>(
+          {
+            success: false,
+            error: 'Invalid payment currency for this booking.',
+          },
+          { status: 400 }
+        );
+      }
+
+      const metadataServiceId = paymentIntent.metadata?.serviceId;
+      if (metadataServiceId && metadataServiceId !== data.serviceId) {
+        return NextResponse.json<ApiResponse<null>>(
+          {
+            success: false,
+            error: 'The payment does not match the selected service.',
+          },
+          { status: 400 }
+        );
+      }
+
       depositAmount = paymentIntent.amount_received || paymentIntent.amount || 0;
 
       if (depositAmount < expectedDeposit) {
@@ -137,9 +181,12 @@ export async function POST(request: NextRequest) {
       salonId,
       employeeId: data.employeeId,
       serviceId: data.serviceId,
+      serviceName: service.serviceName,
       clientName: data.clientName,
       clientEmail: data.clientEmail,
       clientPhone: data.clientPhone,
+      clientPhoneE164: data.clientPhoneE164 || data.clientPhone,
+      whatsappOptIn: data.whatsappOptIn ?? true,
       bookingDate: data.bookingDate,
       bookingTime: data.bookingTime,
       status: isConsultation ? 'confirmed' : (allowUnpaid ? 'pending' : 'confirmed'),
@@ -155,6 +202,37 @@ export async function POST(request: NextRequest) {
       isConsultation,
       consultationDuration: isConsultation ? data.consultationDuration : undefined,
     });
+
+    if (isConsultation || !allowUnpaid) {
+      await enqueueWhatsAppJobsForConfirmedBooking({
+        id: bookingId,
+        salonId,
+        employeeId: data.employeeId,
+        serviceId: data.serviceId,
+        serviceName: service.serviceName,
+        clientName: data.clientName,
+        clientEmail: data.clientEmail,
+        clientPhone: data.clientPhone,
+        clientPhoneE164: data.clientPhoneE164 || data.clientPhone,
+        whatsappOptIn: data.whatsappOptIn ?? true,
+        bookingDate: data.bookingDate,
+        bookingTime: data.bookingTime,
+        status: 'confirmed',
+        createdByRole,
+        createdByName,
+        createdByUserId,
+        notes: data.notes || undefined,
+        requiresDeposit: !isConsultation,
+        depositAmount: isConsultation ? 0 : depositAmount,
+        depositPaid: isConsultation ? true : !allowUnpaid,
+        paymentIntentId: data.paymentIntentId,
+        paymentStatus: isConsultation ? 'paid' : (allowUnpaid ? 'pending' : 'paid'),
+        isConsultation,
+        consultationDuration: isConsultation ? data.consultationDuration : undefined,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+    }
 
     if (!service || !employee) {
       console.error('Service or employee not found for email notification');
@@ -192,6 +270,16 @@ export async function POST(request: NextRequest) {
       data: { id: bookingId },
     });
   } catch (error: any) {
+    if (error instanceof BookingScheduleValidationError) {
+      return NextResponse.json<ApiResponse<null>>(
+        {
+          success: false,
+          error: error.message,
+        },
+        { status: error.statusCode }
+      );
+    }
+
     return NextResponse.json<ApiResponse<null>>(
       {
         success: false,

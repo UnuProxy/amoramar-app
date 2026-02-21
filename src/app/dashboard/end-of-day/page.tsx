@@ -186,10 +186,10 @@ export default function EndOfDayPage() {
       {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-8">
         <div>
-          <h1 className="text-4xl font-bold text-primary-800 tracking-tight">
+          <h1 className="text-4xl font-bold text-slate-800 tracking-tight">
             End of Day
           </h1>
-          <p className="text-primary-400 text-sm font-medium mt-2">
+          <p className="text-slate-400 text-sm font-medium mt-2">
             Payment Control & Reconciliation
           </p>
         </div>
@@ -197,12 +197,12 @@ export default function EndOfDayPage() {
         {/* Date Selector */}
         <div className="flex flex-wrap items-center gap-4">
           <div className="flex items-center gap-3">
-            <label className="text-xs font-semibold text-neutral-600 uppercase">Date</label>
+            <label className="text-xs font-semibold text-slate-600 uppercase">Date</label>
             <input
               type="date"
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
-              className="px-4 py-2 bg-white border border-neutral-200 rounded-lg text-sm font-medium focus:border-accent-500 outline-none transition-all"
+              className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium focus:border-sky-500 outline-none transition-all"
             />
           </div>
         </div>
@@ -211,34 +211,34 @@ export default function EndOfDayPage() {
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Total Cash */}
-        <div className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition-all">
+        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition-all">
           <div className="flex items-center justify-between mb-4">
             <div className="w-12 h-12 bg-success-100 rounded-lg flex items-center justify-center">
               <span className="text-2xl">€</span>
             </div>
           </div>
-          <p className="text-sm font-medium text-neutral-500 mb-1">Cash</p>
+          <p className="text-sm font-medium text-slate-500 mb-1">Cash</p>
           <p className="text-3xl font-bold text-success-600 mb-2">{formatCurrency(totals.totalCash)}</p>
-          <p className="text-xs text-neutral-400">{totals.byMethod.cash.count} transactions</p>
+          <p className="text-xs text-slate-400">{totals.byMethod.cash.count} transactions</p>
         </div>
 
         {/* Total POS */}
-        <div className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition-all">
+        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition-all">
           <div className="flex items-center justify-between mb-4">
-            <div className="w-12 h-12 bg-accent-100 rounded-lg flex items-center justify-center">
-              <svg className="w-6 h-6 text-accent-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-12 h-12 bg-sky-100 rounded-lg flex items-center justify-center">
+              <svg className="w-6 h-6 text-sky-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <rect width="20" height="14" x="2" y="5" rx="2" strokeWidth={2} />
                 <path d="M2 10h20" strokeWidth={2} />
               </svg>
             </div>
           </div>
-          <p className="text-sm font-medium text-neutral-500 mb-1">Card Terminal</p>
-          <p className="text-3xl font-bold text-accent-600 mb-2">{formatCurrency(totals.totalPos)}</p>
-          <p className="text-xs text-neutral-400">{totals.byMethod.pos.count} transactions</p>
+          <p className="text-sm font-medium text-slate-500 mb-1">Card Terminal</p>
+          <p className="text-3xl font-bold text-sky-600 mb-2">{formatCurrency(totals.totalPos)}</p>
+          <p className="text-xs text-slate-400">{totals.byMethod.pos.count} transactions</p>
         </div>
 
         {/* Total Amount */}
-        <div className="bg-primary-800 rounded-2xl p-6 shadow-lg">
+        <div className="bg-slate-800 rounded-2xl p-6 shadow-lg">
           <div className="flex items-center justify-between mb-4">
             <div className="w-12 h-12 bg-white/10 rounded-lg flex items-center justify-center">
               <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -253,9 +253,9 @@ export default function EndOfDayPage() {
       </div>
 
       {/* Filters */}
-      <div className="bg-white border border-neutral-200 rounded-2xl p-4 shadow-sm">
+      <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
         <div className="flex flex-wrap items-center gap-3">
-          <span className="text-sm font-semibold text-neutral-600">Filter:</span>
+          <span className="text-sm font-semibold text-slate-600">Filter:</span>
           
           {/* Payment Method Filter */}
           <div className="flex gap-2">
@@ -264,8 +264,8 @@ export default function EndOfDayPage() {
               className={cn(
                 "px-3 py-1.5 text-sm font-medium rounded-lg transition-all",
                 filterMethod === 'all'
-                  ? "bg-primary-800 text-white"
-                  : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                  ? "bg-slate-800 text-white"
+                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
               )}
             >
               All
@@ -276,7 +276,7 @@ export default function EndOfDayPage() {
                 "px-3 py-1.5 text-sm font-medium rounded-lg transition-all",
                 filterMethod === 'cash'
                   ? "bg-success-600 text-white"
-                  : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
               )}
             >
               € Cash
@@ -286,8 +286,8 @@ export default function EndOfDayPage() {
               className={cn(
                 "px-3 py-1.5 text-sm font-medium rounded-lg transition-all",
                 filterMethod === 'pos'
-                  ? "bg-accent-600 text-white"
-                  : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                  ? "bg-sky-600 text-white"
+                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
               )}
             >
               💳 Card
@@ -298,7 +298,7 @@ export default function EndOfDayPage() {
           <select
             value={filterStaff}
             onChange={(e) => setFilterStaff(e.target.value)}
-            className="px-3 py-1.5 bg-neutral-100 border border-neutral-200 rounded-lg text-sm font-medium focus:border-accent-500 outline-none cursor-pointer"
+            className="px-3 py-1.5 bg-slate-100 border border-slate-200 rounded-lg text-sm font-medium focus:border-sky-500 outline-none cursor-pointer"
           >
             <option value="all">All Staff</option>
             {staffMembers.map((staff) => (
@@ -311,16 +311,16 @@ export default function EndOfDayPage() {
       </div>
 
       {/* Revenue by Staff */}
-      <div className="bg-white border border-neutral-200 rounded-2xl overflow-hidden shadow-sm">
-        <div className="px-6 py-4 border-b border-neutral-200 bg-neutral-50">
-          <h2 className="text-lg font-semibold text-primary-800">
+      <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+        <div className="px-6 py-4 border-b border-slate-200 bg-slate-50">
+          <h2 className="text-lg font-semibold text-slate-800">
             Collections by Staff
           </h2>
         </div>
         
         <div className="p-6">
           {totals.byStaff.length === 0 ? (
-            <div className="text-center py-12 text-neutral-400 text-sm">
+            <div className="text-center py-12 text-slate-400 text-sm">
               No data for this day
             </div>
           ) : (
@@ -329,28 +329,28 @@ export default function EndOfDayPage() {
                 <div key={staff.id} className="group">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-primary-800 flex items-center justify-center text-white font-semibold text-sm">
+                      <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center text-white font-semibold text-sm">
                         {index + 1}
                       </div>
                       <div>
-                        <p className="text-base font-semibold text-neutral-900">
+                        <p className="text-base font-semibold text-slate-900">
                           {staff.name}
                         </p>
-                        <p className="text-xs text-neutral-500">
+                        <p className="text-xs text-slate-500">
                           {staff.count} {staff.count === 1 ? 'payment' : 'payments'}
                         </p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-lg font-bold text-primary-800 tabular-nums">
+                      <p className="text-lg font-bold text-slate-800 tabular-nums">
                         {formatCurrency(staff.amount)}
                       </p>
-                      <p className="text-xs text-neutral-500">
+                      <p className="text-xs text-slate-500">
                         {((staff.amount / totals.totalAmount) * 100).toFixed(0)}% of total
                       </p>
                     </div>
                   </div>
-                  <div className="w-full bg-neutral-100 rounded-full h-1 overflow-hidden">
+                  <div className="w-full bg-slate-100 rounded-full h-1 overflow-hidden">
                     <div
                       className="h-full bg-rose-600 rounded-full transition-all duration-1000"
                       style={{ width: `${(staff.amount / totals.totalAmount) * 100}%` }}
@@ -364,9 +364,9 @@ export default function EndOfDayPage() {
       </div>
 
       {/* Payment Details Table */}
-      <div className="bg-white border border-neutral-100 rounded-[48px] overflow-hidden shadow-sm">
-        <div className="px-10 py-8 border-b border-neutral-100 bg-neutral-50/30">
-          <h2 className="text-sm font-black text-neutral-800 tracking-[0.3em] uppercase text-center">
+      <div className="bg-white border border-slate-100 rounded-[48px] overflow-hidden shadow-sm">
+        <div className="px-10 py-8 border-b border-slate-100 bg-slate-50/30">
+          <h2 className="text-sm font-black text-slate-800 tracking-[0.3em] uppercase text-center">
             Detalle de Transacciones
           </h2>
         </div>
@@ -374,28 +374,28 @@ export default function EndOfDayPage() {
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="bg-neutral-50/50">
-                <th className="px-6 sm:px-10 py-6 text-left text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em]">
+              <tr className="bg-slate-50/50">
+                <th className="px-6 sm:px-10 py-6 text-left text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
                   Time / Client
                 </th>
-                <th className="px-6 sm:px-10 py-6 text-left text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em]">
+                <th className="px-6 sm:px-10 py-6 text-left text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
                   Service
                 </th>
-                <th className="px-6 sm:px-10 py-6 text-center text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em]">
+                <th className="px-6 sm:px-10 py-6 text-center text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
                   Método
                 </th>
-                <th className="px-6 sm:px-10 py-6 text-left text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em]">
+                <th className="px-6 sm:px-10 py-6 text-left text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
                   Creado / Cerrado Por
                 </th>
-                <th className="px-6 sm:px-10 py-6 text-right text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em]">
+                <th className="px-6 sm:px-10 py-6 text-right text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
                   Amount
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-neutral-100">
+            <tbody className="divide-y divide-slate-100">
               {paymentsForDay.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-10 py-12 text-center text-neutral-300 font-bold uppercase tracking-widest text-xs">
+                  <td colSpan={5} className="px-10 py-12 text-center text-slate-300 font-bold uppercase tracking-widest text-xs">
                     Sin transacciones para este día
                   </td>
                 </tr>
@@ -417,17 +417,17 @@ export default function EndOfDayPage() {
                   const method = booking.finalPaymentMethod || 'cash';
 
                   return (
-                    <tr key={booking.id} className="hover:bg-neutral-50 transition-all group">
+                    <tr key={booking.id} className="hover:bg-slate-50 transition-all group">
                       <td className="px-6 sm:px-10 py-6">
-                        <div className="text-sm font-black text-neutral-800 uppercase tracking-tight leading-none mb-1">
+                        <div className="text-sm font-black text-slate-800 uppercase tracking-tight leading-none mb-1">
                           {booking.bookingTime}
                         </div>
-                        <div className="text-xs font-bold text-neutral-500 uppercase tracking-wide">
+                        <div className="text-xs font-bold text-slate-500 uppercase tracking-wide">
                           {booking.clientName}
                         </div>
                       </td>
                       <td className="px-6 sm:px-10 py-6">
-                        <div className="text-sm font-bold text-neutral-700 uppercase tracking-wide">
+                        <div className="text-sm font-bold text-slate-700 uppercase tracking-wide">
                           {service?.serviceName || 'Service'}
                         </div>
                         {employee?.employmentType === 'self-employed' && (
@@ -450,8 +450,8 @@ export default function EndOfDayPage() {
                       <td className="px-6 sm:px-10 py-6">
                         <div className="space-y-1">
                           <div className="flex items-center gap-2">
-                            <span className="text-[9px] font-black text-neutral-400 uppercase tracking-wider">Creó:</span>
-                            <span className="text-xs font-bold text-neutral-600 uppercase tracking-wide">
+                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Creó:</span>
+                            <span className="text-xs font-bold text-slate-600 uppercase tracking-wide">
                               {booking.createdByName || 'Sin especificar'}
                             </span>
                           </div>
@@ -478,7 +478,7 @@ export default function EndOfDayPage() {
                         </div>
                       </td>
                       <td className="px-6 sm:px-10 py-6 text-right">
-                        <p className="text-lg font-black text-neutral-900 tabular-nums">
+                        <p className="text-lg font-black text-slate-900 tabular-nums">
                           {formatCurrency(amountCollected)}
                         </p>
                       </td>

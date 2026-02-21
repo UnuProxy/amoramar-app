@@ -6,6 +6,8 @@
 html, body {
   overflow-x: hidden;
   max-width: 100vw;
+  background: #fcfaf7;
+  color: #4d4137;
 }
 
 * {
@@ -34,11 +36,11 @@ html, body {
     background: transparent;
   }
   .custom-scrollbar::-webkit-scrollbar-thumb {
-    background: #e5e5e5;
+    background: #e9e2d8;
     border-radius: 10px;
   }
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: #d4d4d4;
+    background: #d8ccbb;
   }
 }
 

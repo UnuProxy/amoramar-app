@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBooking, updateBooking, deleteBooking, getEmployeeByUserId } from '@/shared/lib/firestore';
 import type { ApiResponse, Booking, UserRole } from '@/shared/lib/types';
+import { BookingScheduleValidationError, validateBookingSchedule } from '@/shared/lib/bookingAvailability';
+import { enqueueWhatsAppJobsForConfirmedBooking } from '@/shared/lib/whatsappJobs';
 
 export async function GET(
   request: NextRequest,
@@ -109,13 +111,55 @@ export async function PUT(
       delete (updates as any).salonId;
     }
 
+    const touchesSchedule =
+      typeof updates.employeeId === 'string' ||
+      typeof updates.serviceId === 'string' ||
+      typeof updates.bookingDate === 'string' ||
+      typeof updates.bookingTime === 'string' ||
+      typeof updates.isConsultation === 'boolean' ||
+      typeof updates.consultationDuration === 'number';
+
+    if (touchesSchedule) {
+      await validateBookingSchedule({
+        employeeId: updates.employeeId || booking.employeeId,
+        serviceId: updates.serviceId || booking.serviceId,
+        bookingDate: updates.bookingDate || booking.bookingDate,
+        bookingTime: updates.bookingTime || booking.bookingTime,
+        isConsultation: updates.isConsultation ?? booking.isConsultation,
+        consultationDuration: updates.consultationDuration ?? booking.consultationDuration,
+        excludeBookingId: booking.id,
+      });
+    }
+
+    const statusBefore = booking.status;
+    const statusAfter = updates.status ?? booking.status;
+
     await updateBooking(id, updates);
+
+    if (statusBefore !== 'confirmed' && statusAfter === 'confirmed') {
+      await enqueueWhatsAppJobsForConfirmedBooking({
+        ...booking,
+        ...updates,
+        id: booking.id,
+        status: 'confirmed',
+      } as Booking);
+    }
 
     return NextResponse.json<ApiResponse<{ id: string }>>({
       success: true,
       data: { id },
     });
   } catch (error: any) {
+    if (error instanceof BookingScheduleValidationError) {
+      return NextResponse.json<ApiResponse<null>>(
+        {
+          success: false,
+          error: error.message,
+        },
+        { status: error.statusCode }
+      );
+    }
+
     return NextResponse.json<ApiResponse<null>>(
       {
         success: false,
@@ -148,8 +192,6 @@ export async function DELETE(
     );
   }
 }
-
-
 
 
 

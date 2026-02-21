@@ -101,6 +101,8 @@ export default function DashboardPage() {
   const [bookingSlots, setBookingSlots] = useState<TimeSlot[]>([]);
   const [bookingSlotsLoading, setBookingSlotsLoading] = useState(false);
   const [bookingSlotsError, setBookingSlotsError] = useState<string | null>(null);
+  const [serviceSearchTerm, setServiceSearchTerm] = useState('');
+  const [serviceSuggestionsOpen, setServiceSuggestionsOpen] = useState(false);
   const [bookingSaving, setBookingSaving] = useState(false);
   const [bookingRefreshKey, setBookingRefreshKey] = useState(0);
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -283,6 +285,21 @@ export default function DashboardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bookingForm.serviceId, bookingForm.employeeId, bookingForm.bookingDate]);
 
+  useEffect(() => {
+    if (!bookingModalOpen) return;
+    const selectedService = services.find((service) => service.id === bookingForm.serviceId);
+    if (selectedService) {
+      setServiceSearchTerm(selectedService.serviceName);
+    }
+  }, [bookingForm.serviceId, services, bookingModalOpen]);
+
+  const serviceMatches = useMemo(() => {
+    const term = serviceSearchTerm.trim().toLowerCase();
+    const sorted = [...services].sort((a, b) => a.serviceName.localeCompare(b.serviceName));
+    if (!term) return sorted.slice(0, 12);
+    return sorted.filter((service) => service.serviceName.toLowerCase().includes(term)).slice(0, 30);
+  }, [services, serviceSearchTerm]);
+
   const openBookingModal = (
     client?: Partial<ClientData>,
     defaults?: { serviceId?: string; employeeId?: string; bookingDate?: string; bookingTime?: string }
@@ -299,6 +316,11 @@ export default function DashboardPage() {
     });
     setBookingSlots([]);
     setBookingSlotsError(null);
+    const defaultServiceName = defaults?.serviceId
+      ? services.find((service) => service.id === defaults.serviceId)?.serviceName || ''
+      : '';
+    setServiceSearchTerm(defaultServiceName);
+    setServiceSuggestionsOpen(false);
     setBookingModalOpen(true);
     if (defaults?.serviceId) {
       loadEmployeesForService(defaults.serviceId, defaults.employeeId);
@@ -310,6 +332,8 @@ export default function DashboardPage() {
     setBookingSlots([]);
     setBookingSlotsError(null);
     setBookingSlotsLoading(false);
+    setServiceSearchTerm('');
+    setServiceSuggestionsOpen(false);
     setBookingSaving(false);
   };
 
@@ -940,19 +964,19 @@ export default function DashboardPage() {
       {/* Header - Modern & Professional */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-8">
         <div>
-          <h1 className="text-4xl font-black text-primary-800 tracking-tighter uppercase">
+          <h1 className="text-4xl font-black text-slate-800 tracking-tighter uppercase">
             Control Panel
           </h1>
           <div className="flex items-center gap-3 mt-3">
-            <div className="w-1.5 h-1.5 rounded-full bg-accent-500 shadow-[0_0_10px_rgba(184,155,114,0.5)]" />
-            <p className="text-primary-400 text-[10px] font-bold uppercase tracking-[0.4em]">
+            <div className="w-1.5 h-1.5 rounded-full bg-sky-500 shadow-[0_0_10px_rgba(184,155,114,0.5)]" />
+            <p className="text-slate-400 text-[10px] font-bold uppercase tracking-[0.4em]">
               Real-Time Activity
             </p>
           </div>
         </div>
         <button
           onClick={() => openBookingModal()}
-          className="px-8 py-4 rounded-xl bg-primary-800 text-white text-[10px] font-black shadow-lg shadow-primary-900/10 hover:bg-primary-900 hover:-translate-y-0.5 transition-all flex items-center justify-center gap-3 uppercase tracking-[0.2em]"
+          className="px-8 py-4 rounded-xl bg-slate-800 text-white text-[10px] font-black shadow-lg shadow-slate-900/10 hover:bg-slate-900 hover:-translate-y-0.5 transition-all flex items-center justify-center gap-3 uppercase tracking-[0.2em]"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
@@ -962,7 +986,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Main Tabs - Premium Luxury Style */}
-      <div className="border-b border-neutral-100">
+      <div className="border-b border-slate-100">
         <nav className="flex gap-12 overflow-x-auto no-scrollbar">
           {[
             { id: 'overview', label: 'Overview' },
@@ -975,13 +999,13 @@ export default function DashboardPage() {
               onClick={() => syncTabToUrl(tab.id as TabType)}
               className={`pb-5 px-1 text-[10px] font-black tracking-[0.3em] transition-all relative uppercase ${
                 activeTab === tab.id
-                  ? 'text-accent-600'
-                  : 'text-neutral-300 hover:text-neutral-900'
+                  ? 'text-sky-600'
+                  : 'text-slate-300 hover:text-slate-900'
               }`}
             >
               {tab.label}
               {activeTab === tab.id && (
-                <div className="absolute bottom-0 left-0 right-0 h-1 bg-accent-600 rounded-full shadow-[0_0_10px_rgba(225,29,72,0.2)]" />
+                <div className="absolute bottom-0 left-0 right-0 h-1 bg-sky-600 rounded-full shadow-[0_0_10px_rgba(225,29,72,0.2)]" />
               )}
             </button>
           ))}
@@ -1005,26 +1029,26 @@ export default function DashboardPage() {
         <div className="space-y-12">
           {/* Stats Grid - Large Impact Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
-            <div className="relative bg-white border border-neutral-100 border-t-4 border-info-500 rounded-[40px] p-8 shadow-[0_1px_3px_rgba(0,0,0,0.1)] hover:shadow-[0_10px_30px_rgba(0,0,0,0.12)] transition-all group flex flex-col items-center justify-center text-center min-h-[220px]">
-              <p className="text-[10px] font-black text-neutral-500 uppercase tracking-[0.2em] mb-4 group-hover:text-info-600 transition-colors">Today</p>
+            <div className="relative bg-white border border-slate-100 border-t-4 border-info-500 rounded-[40px] p-8 shadow-[0_1px_3px_rgba(0,0,0,0.1)] hover:shadow-[0_10px_30px_rgba(0,0,0,0.12)] transition-all group flex flex-col items-center justify-center text-center min-h-[220px]">
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-4 group-hover:text-info-600 transition-colors">Today</p>
               <div className="flex items-baseline justify-center gap-3 w-full px-4">
-                <p className="text-6xl font-black text-neutral-800 tracking-tight leading-none whitespace-nowrap">{analytics.todayBookings}</p>
-                <p className="text-sm font-bold text-neutral-400 uppercase tracking-widest">Bookings</p>
+                <p className="text-6xl font-black text-slate-800 tracking-tight leading-none whitespace-nowrap">{analytics.todayBookings}</p>
+                <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Bookings</p>
               </div>
             </div>
-            <div className="relative bg-white border border-neutral-100 border-t-4 border-success-500 rounded-[40px] p-8 shadow-[0_1px_3px_rgba(0,0,0,0.1)] hover:shadow-[0_10px_30px_rgba(0,0,0,0.12)] transition-all group flex flex-col items-center justify-center text-center min-h-[220px]">
-              <p className="text-[10px] font-black text-neutral-500 uppercase tracking-[0.2em] mb-4 group-hover:text-success-600 transition-colors">Confirmed</p>
+            <div className="relative bg-white border border-slate-100 border-t-4 border-success-500 rounded-[40px] p-8 shadow-[0_1px_3px_rgba(0,0,0,0.1)] hover:shadow-[0_10px_30px_rgba(0,0,0,0.12)] transition-all group flex flex-col items-center justify-center text-center min-h-[220px]">
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-4 group-hover:text-success-600 transition-colors">Confirmed</p>
               <div className="flex items-baseline justify-center gap-3 w-full px-4">
                 <p className="text-6xl font-black text-success-600 tracking-tight leading-none whitespace-nowrap">{analytics.confirmedBookings}</p>
-                <p className="text-sm font-bold text-neutral-400 uppercase tracking-widest">Pending</p>
+                <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Pending</p>
               </div>
             </div>
-            <div className="relative bg-white border border-neutral-100 border-t-4 border-primary-200 rounded-[40px] p-8 shadow-[0_1px_3px_rgba(0,0,0,0.1)] hover:shadow-[0_10px_30px_rgba(0,0,0,0.12)] transition-all group flex flex-col items-center justify-center text-center min-h-[220px]">
-              <p className="text-[10px] font-black text-neutral-500 uppercase tracking-[0.2em] mb-4 group-hover:text-primary-700 transition-colors">Cancellation Rate</p>
+            <div className="relative bg-white border border-slate-100 border-t-4 border-slate-200 rounded-[40px] p-8 shadow-[0_1px_3px_rgba(0,0,0,0.1)] hover:shadow-[0_10px_30px_rgba(0,0,0,0.12)] transition-all group flex flex-col items-center justify-center text-center min-h-[220px]">
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-4 group-hover:text-slate-700 transition-colors">Cancellation Rate</p>
               <div className="flex items-baseline justify-center gap-3 w-full px-4">
                 <p className={cn(
                   "text-6xl font-black tracking-tight leading-none whitespace-nowrap",
-                  Number(analytics.cancellationRate) > 15 ? 'text-warning-600' : 'text-neutral-800'
+                  Number(analytics.cancellationRate) > 15 ? 'text-warning-600' : 'text-slate-800'
                 )}>
                   {analytics.cancellationRate}<span className="text-3xl font-black">%</span>
                 </p>
@@ -1033,12 +1057,12 @@ export default function DashboardPage() {
           </div>
 
           {/* Professional Filter Bar */}
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-primary-100">
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
             <div className="flex flex-col lg:flex-row gap-6">
               <div className="flex-1">
-                <label className="block text-[10px] font-black text-primary-400 uppercase tracking-[0.2em] mb-2">Quick Search</label>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Quick Search</label>
                 <div className="relative">
-                  <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-primary-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
                   <input
@@ -1046,17 +1070,17 @@ export default function DashboardPage() {
                     placeholder="SEARCH CLIENT OR EMAIL..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-12 pr-4 py-3.5 bg-primary-50 border border-transparent rounded-xl text-primary-900 text-sm font-bold placeholder:text-primary-300 focus:bg-white focus:border-primary-200 transition-all outline-none uppercase tracking-widest"
+                    className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-transparent rounded-xl text-slate-900 text-sm font-bold placeholder:text-slate-300 focus:bg-white focus:border-slate-200 transition-all outline-none uppercase tracking-widest"
                   />
                 </div>
               </div>
               <div className="grid grid-cols-3 gap-4 lg:w-[500px]">
                 <div>
-                  <label className="block text-[10px] font-black text-primary-400 uppercase tracking-[0.2em] mb-2">Employee</label>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Employee</label>
                   <select
                     value={selectedEmployeeId}
                     onChange={(e) => setSelectedEmployeeId(e.target.value)}
-                    className="w-full px-4 py-3.5 bg-primary-50 border border-transparent rounded-xl text-primary-800 text-[10px] font-black focus:bg-white focus:border-primary-200 transition-all outline-none appearance-none uppercase tracking-[0.1em] cursor-pointer"
+                    className="w-full px-4 py-3.5 bg-slate-50 border border-transparent rounded-xl text-slate-800 text-[10px] font-black focus:bg-white focus:border-slate-200 transition-all outline-none appearance-none uppercase tracking-[0.1em] cursor-pointer"
                   >
                     <option value="all">ALL</option>
                     {employees.map(emp => (
@@ -1065,11 +1089,11 @@ export default function DashboardPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[10px] font-black text-primary-400 uppercase tracking-[0.2em] mb-2">Time</label>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Time</label>
                   <select
                     value={dateRange}
                     onChange={(e) => setDateRange(e.target.value as any)}
-                    className="w-full px-4 py-3.5 bg-primary-50 border border-transparent rounded-xl text-primary-800 text-[10px] font-black focus:bg-white focus:border-primary-200 transition-all outline-none appearance-none uppercase tracking-[0.1em] cursor-pointer"
+                    className="w-full px-4 py-3.5 bg-slate-50 border border-transparent rounded-xl text-slate-800 text-[10px] font-black focus:bg-white focus:border-slate-200 transition-all outline-none appearance-none uppercase tracking-[0.1em] cursor-pointer"
                   >
                     <option value="today">TODAY</option>
                     <option value="week">7 DAYS</option>
@@ -1077,11 +1101,11 @@ export default function DashboardPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[10px] font-black text-primary-400 uppercase tracking-[0.2em] mb-2">Status</label>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Status</label>
                   <select
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value as any)}
-                    className="w-full px-4 py-3.5 bg-primary-50 border border-transparent rounded-xl text-primary-800 text-[10px] font-black focus:bg-white focus:border-primary-200 transition-all outline-none appearance-none uppercase tracking-[0.1em] cursor-pointer"
+                    className="w-full px-4 py-3.5 bg-slate-50 border border-transparent rounded-xl text-slate-800 text-[10px] font-black focus:bg-white focus:border-slate-200 transition-all outline-none appearance-none uppercase tracking-[0.1em] cursor-pointer"
                   >
                     <option value="all">ALL</option>
                     <option value="confirmed">CONFIRMED</option>
@@ -1096,28 +1120,28 @@ export default function DashboardPage() {
           </div>
 
           {/* Professional Performance Table */}
-          <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-primary-100">
-            <div className="px-8 py-6 border-b border-primary-50 bg-primary-50/30 flex items-center justify-between">
-              <h2 className="text-sm font-black text-primary-800 tracking-[0.2em] uppercase">Team Performance</h2>
+          <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-100">
+            <div className="px-8 py-6 border-b border-slate-50 bg-slate-50/30 flex items-center justify-between">
+              <h2 className="text-sm font-black text-slate-800 tracking-[0.2em] uppercase">Team Performance</h2>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="bg-primary-50/20">
-                    <th className="px-8 py-4 text-left text-[9px] font-black text-primary-400 uppercase tracking-[0.2em]">Therapist</th>
-                    <th className="px-8 py-4 text-center text-[9px] font-black text-primary-400 uppercase tracking-[0.2em]">Bookings</th>
-                    <th className="px-8 py-4 text-center text-[9px] font-black text-primary-400 uppercase tracking-[0.2em]">Completed</th>
-                    <th className="px-8 py-4 text-center text-[9px] font-black text-primary-400 uppercase tracking-[0.2em]">Cancelled</th>
-                    <th className="px-8 py-4 text-center text-[9px] font-black text-primary-400 uppercase tracking-[0.2em]">Ratio</th>
-                    <th className="px-8 py-4 text-right text-[9px] font-black text-primary-400 uppercase tracking-[0.2em]">Action</th>
+                  <tr className="bg-slate-50/20">
+                    <th className="px-8 py-4 text-left text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">Therapist</th>
+                    <th className="px-8 py-4 text-center text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">Bookings</th>
+                    <th className="px-8 py-4 text-center text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">Completed</th>
+                    <th className="px-8 py-4 text-center text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">Cancelled</th>
+                    <th className="px-8 py-4 text-center text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">Ratio</th>
+                    <th className="px-8 py-4 text-right text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">Action</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-neutral-100">
+                <tbody className="divide-y divide-slate-100">
                   {analytics.employeeStats.map((stat) => (
-                    <tr key={stat.employee.id} className="hover:bg-primary-50/30 transition-all group">
+                    <tr key={stat.employee.id} className="hover:bg-slate-50/30 transition-all group">
                       <td className="px-8 py-6">
                         <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 rounded-xl bg-primary-800 flex items-center justify-center text-white font-black text-sm shadow-md group-hover:scale-105 transition-transform ring-1 ring-primary-100">
+                          <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-white font-black text-sm shadow-md group-hover:scale-105 transition-transform ring-1 ring-slate-100">
                             {stat.employee.profileImage ? (
                               <img src={stat.employee.profileImage} alt="" className="w-full h-full object-cover rounded-xl" />
                             ) : (
@@ -1125,29 +1149,29 @@ export default function DashboardPage() {
                             )}
                           </div>
                           <div>
-                            <div className="text-sm font-black text-primary-900 uppercase tracking-tight">
+                            <div className="text-sm font-black text-slate-900 uppercase tracking-tight">
                               {stat.employee.firstName} {stat.employee.lastName}
                             </div>
-                            <div className="text-[9px] font-bold text-primary-400 uppercase tracking-[0.2em] mt-0.5">
+                            <div className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-0.5">
                               {stat.employee.position || 'Specialist'}
                             </div>
                           </div>
                         </div>
                       </td>
-                      <td className="px-10 py-8 text-center text-xl font-black text-neutral-400">{stat.totalBookings}</td>
+                      <td className="px-10 py-8 text-center text-xl font-black text-slate-400">{stat.totalBookings}</td>
                       <td className="px-10 py-8 text-center">
-                        <span className="text-xl font-black text-accent-600 tracking-tighter">{stat.confirmed}</span>
+                        <span className="text-xl font-black text-sky-600 tracking-tighter">{stat.confirmed}</span>
                       </td>
                       <td className="px-10 py-8 text-center">
-                        <span className={`text-xl font-black tracking-tighter ${stat.cancelled > 0 ? 'text-amber-500' : 'text-neutral-200'}`}>{stat.cancelled}</span>
+                        <span className={`text-xl font-black tracking-tighter ${stat.cancelled > 0 ? 'text-amber-500' : 'text-slate-200'}`}>{stat.cancelled}</span>
                       </td>
-                      <td className="px-10 py-8 text-center text-sm font-black text-neutral-400 tracking-widest">
+                      <td className="px-10 py-8 text-center text-sm font-black text-slate-400 tracking-widest">
                         {stat.cancellationRate.toFixed(0)}%
                       </td>
                       <td className="px-10 py-8 text-right">
                         <button
                           onClick={() => setSelectedEmployeeId(stat.employee.id)}
-                          className="px-6 py-3 rounded-xl border-2 border-neutral-100 text-[10px] font-black text-neutral-400 hover:border-accent-600 hover:text-accent-600 hover:shadow-lg transition-all uppercase tracking-[0.2em]"
+                          className="px-6 py-3 rounded-xl border-2 border-slate-100 text-[10px] font-black text-slate-400 hover:border-sky-600 hover:text-sky-600 hover:shadow-lg transition-all uppercase tracking-[0.2em]"
                         >
                           Details
                         </button>
@@ -1165,11 +1189,11 @@ export default function DashboardPage() {
       {activeTab === 'clients' && (
         <div ref={clientSectionRef} className="space-y-10">
           {selectedClient ? (
-            <div className="bg-white border border-neutral-100 rounded-[40px] p-12 shadow-sm space-y-12">
+            <div className="bg-white border border-slate-100 rounded-[40px] p-12 shadow-sm space-y-12">
                 <div className="flex flex-wrap items-center justify-between gap-8">
                   <button
                     onClick={() => setSelectedClientEmail(null)}
-                    className="px-8 py-4 rounded-2xl border-2 border-neutral-100 text-xs font-black text-neutral-400 hover:border-neutral-900 hover:text-neutral-900 transition-all uppercase tracking-[0.2em] flex items-center gap-3"
+                    className="px-8 py-4 rounded-2xl border-2 border-slate-100 text-xs font-black text-slate-400 hover:border-slate-900 hover:text-slate-900 transition-all uppercase tracking-[0.2em] flex items-center gap-3"
                   >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M15 19l-7-7 7-7" />
@@ -1178,7 +1202,7 @@ export default function DashboardPage() {
                 </button>
                 <button
                   onClick={() => openBookingModal(selectedClient)}
-                  className="px-10 py-5 text-sm font-black bg-neutral-900 text-white rounded-[20px] hover:bg-accent-600 transition-all shadow-2xl uppercase tracking-[0.2em]"
+                  className="px-10 py-5 text-sm font-black bg-slate-900 text-white rounded-[20px] hover:bg-sky-600 transition-all shadow-2xl uppercase tracking-[0.2em]"
                 >
                   Book for this Client
                 </button>
@@ -1230,37 +1254,37 @@ export default function DashboardPage() {
                       setClientDeleting(false);
                     }
                   }}
-                  className="px-10 py-5 text-sm font-black bg-accent-600 text-white rounded-[20px] hover:bg-accent-700 transition-all shadow-2xl uppercase tracking-[0.2em] disabled:opacity-50"
+                  className="px-10 py-5 text-sm font-black bg-sky-600 text-white rounded-[20px] hover:bg-sky-700 transition-all shadow-2xl uppercase tracking-[0.2em] disabled:opacity-50"
                 >
                   {clientDeleting ? 'Deleting...' : 'Delete Client'}
                 </button>
               </div>
 
-              <div className="flex flex-col md:flex-row items-center gap-10 pb-12 border-b border-neutral-100">
-                <div className="w-40 h-40 rounded-[48px] bg-neutral-900 flex items-center justify-center text-white text-6xl font-black uppercase shadow-2xl ring-8 ring-neutral-50">
+              <div className="flex flex-col md:flex-row items-center gap-10 pb-12 border-b border-slate-100">
+                <div className="w-40 h-40 rounded-[48px] bg-slate-900 flex items-center justify-center text-white text-6xl font-black uppercase shadow-2xl ring-8 ring-slate-50">
                   {selectedClient.name[0]}
                 </div>
                 <div className="text-center md:text-left space-y-3">
-                  <h2 className="text-6xl font-black text-neutral-900 tracking-tighter uppercase leading-none">{selectedClient.name}</h2>
+                  <h2 className="text-6xl font-black text-slate-900 tracking-tighter uppercase leading-none">{selectedClient.name}</h2>
                   {selectedClient.isNew && (
-                    <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-accent-50 text-accent-600 text-[10px] font-black uppercase tracking-[0.2em]">
-                      <span className="w-2 h-2 rounded-full bg-accent-500 animate-pulse" />
+                    <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-sky-50 text-sky-600 text-[10px] font-black uppercase tracking-[0.2em]">
+                      <span className="w-2 h-2 rounded-full bg-sky-500 animate-pulse" />
                       Nuevo cliente
                     </span>
                   )}
                   <div className="flex flex-wrap justify-center md:justify-start gap-6 pt-2">
                     <div className="flex items-center gap-2">
-                      <div className="w-1.5 h-1.5 rounded-full bg-accent-600" />
-                      <span className="text-sm font-black text-neutral-400 uppercase tracking-widest">{selectedClient.email}</span>
+                      <div className="w-1.5 h-1.5 rounded-full bg-sky-600" />
+                      <span className="text-sm font-black text-slate-400 uppercase tracking-widest">{selectedClient.email}</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <div className="w-1.5 h-1.5 rounded-full bg-neutral-300" />
-                      <span className="text-sm font-black text-neutral-400 uppercase tracking-widest">{selectedClient.phone}</span>
+                      <div className="w-1.5 h-1.5 rounded-full bg-slate-300" />
+                      <span className="text-sm font-black text-slate-400 uppercase tracking-widest">{selectedClient.phone}</span>
                     </div>
                     {selectedClientProfile?.city && (
                       <div className="flex items-center gap-2">
-                        <div className="w-1.5 h-1.5 rounded-full bg-neutral-300" />
-                        <span className="text-sm font-black text-neutral-400 uppercase tracking-widest">
+                        <div className="w-1.5 h-1.5 rounded-full bg-slate-300" />
+                        <span className="text-sm font-black text-slate-400 uppercase tracking-widest">
                           {selectedClientProfile.city}
                           {selectedClientProfile.address ? ` · ${selectedClientProfile.address}` : ''}
                         </span>
@@ -1268,15 +1292,15 @@ export default function DashboardPage() {
                     )}
                     {selectedClientProfile?.createdAt && (
                       <div className="flex items-center gap-2">
-                        <div className="w-1.5 h-1.5 rounded-full bg-neutral-300" />
-                        <span className="text-sm font-black text-neutral-400 uppercase tracking-widest">
+                        <div className="w-1.5 h-1.5 rounded-full bg-slate-300" />
+                        <span className="text-sm font-black text-slate-400 uppercase tracking-widest">
                           Client since: {new Date(selectedClientProfile.createdAt).toLocaleDateString('en-US')}
                         </span>
                       </div>
                     )}
                     {selectedClientProfile && (
                       <div className="space-y-3 pt-4">
-                        <label className="block text-[10px] font-black text-neutral-400 uppercase tracking-[0.2em]">Color / Dye Used</label>
+                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Color / Dye Used</label>
                         <div className="flex flex-col sm:flex-row gap-3">
                           <textarea
                             value={selectedClientProfile.hairColorNotes || ''}
@@ -1288,7 +1312,7 @@ export default function DashboardPage() {
                                 )
                               );
                             }}
-                            className="flex-1 w-full px-4 py-3 bg-neutral-50 border-2 border-neutral-100 rounded-[16px] text-neutral-900 font-medium focus:border-accent-500 transition-all outline-none"
+                            className="flex-1 w-full px-4 py-3 bg-slate-50 border-2 border-slate-100 rounded-[16px] text-slate-900 font-medium focus:border-sky-500 transition-all outline-none"
                             rows={3}
                             placeholder="E.g. Wella Koleston 6/7 + 6% · Last application 05/01/2026"
                           />
@@ -1309,7 +1333,7 @@ export default function DashboardPage() {
                                 setClientNotesSaving(false);
                               }
                             }}
-                            className="px-6 py-3 bg-neutral-900 text-white text-[10px] font-black uppercase tracking-[0.2em] rounded-[14px] hover:bg-accent-600 transition disabled:opacity-60"
+                            className="px-6 py-3 bg-slate-900 text-white text-[10px] font-black uppercase tracking-[0.2em] rounded-[14px] hover:bg-sky-600 transition disabled:opacity-60"
                           >
                             {clientNotesSaving ? 'Saving...' : 'Save Color'}
                           </button>
@@ -1321,43 +1345,43 @@ export default function DashboardPage() {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-                <div className="bg-neutral-50 rounded-[32px] p-10 border border-neutral-100 group hover:bg-white hover:shadow-xl transition-all">
-                  <p className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em] mb-2">Total Visits</p>
-                  <p className="text-5xl font-black text-neutral-900 tracking-tighter">{selectedClient.totalBookings}</p>
+                <div className="bg-slate-50 rounded-[32px] p-10 border border-slate-100 group hover:bg-white hover:shadow-xl transition-all">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-2">Total Visits</p>
+                  <p className="text-5xl font-black text-slate-900 tracking-tighter">{selectedClient.totalBookings}</p>
                 </div>
-                <div className="bg-neutral-50 rounded-[32px] p-10 border border-neutral-100 group hover:bg-white hover:shadow-xl transition-all">
-                  <p className="text-[10px] font-black text-accent-400 uppercase tracking-[0.3em] mb-2">Successful</p>
-                  <p className="text-5xl font-black text-accent-600 tracking-tighter">{selectedClient.confirmedBookings + selectedClient.completedBookings}</p>
+                <div className="bg-slate-50 rounded-[32px] p-10 border border-slate-100 group hover:bg-white hover:shadow-xl transition-all">
+                  <p className="text-[10px] font-black text-sky-400 uppercase tracking-[0.3em] mb-2">Successful</p>
+                  <p className="text-5xl font-black text-sky-600 tracking-tighter">{selectedClient.confirmedBookings + selectedClient.completedBookings}</p>
                 </div>
-                <div className="bg-neutral-50 rounded-[32px] p-10 border border-neutral-100 group hover:bg-white hover:shadow-xl transition-all">
-                  <p className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em] mb-2">Cancelled</p>
-                  <p className="text-5xl font-black text-neutral-900 tracking-tighter">{selectedClient.cancelledBookings}</p>
+                <div className="bg-slate-50 rounded-[32px] p-10 border border-slate-100 group hover:bg-white hover:shadow-xl transition-all">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-2">Cancelled</p>
+                  <p className="text-5xl font-black text-slate-900 tracking-tighter">{selectedClient.cancelledBookings}</p>
                 </div>
               </div>
 
               <div className="space-y-8">
                 <div className="flex items-center gap-4">
-                  <h3 className="text-2xl font-black text-neutral-900 tracking-tight uppercase">Booking History</h3>
-                  <div className="h-px flex-1 bg-neutral-100" />
+                  <h3 className="text-2xl font-black text-slate-900 tracking-tight uppercase">Booking History</h3>
+                  <div className="h-px flex-1 bg-slate-100" />
                 </div>
                 <div className="grid gap-6">
                   {selectedClient.allBookings.sort((a, b) => b.bookingDate.localeCompare(a.bookingDate)).map(booking => {
                     const employee = employees.find(e => e.id === booking.employeeId);
                     const service = services.find(s => s.id === booking.serviceId);
                     return (
-                      <div key={booking.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-8 bg-neutral-50/50 border border-neutral-100 rounded-[32px] hover:bg-white hover:shadow-xl transition-all gap-6">
+                      <div key={booking.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-8 bg-slate-50/50 border border-slate-100 rounded-[32px] hover:bg-white hover:shadow-xl transition-all gap-6">
                         <div className="flex-1 space-y-2">
-                          <div className="text-2xl font-black text-neutral-900 uppercase tracking-tight">{service?.serviceName}</div>
-                          <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-[10px] font-black text-neutral-400 uppercase tracking-[0.2em]">
+                          <div className="text-2xl font-black text-slate-900 uppercase tracking-tight">{service?.serviceName}</div>
+                          <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
                             <span className="flex items-center gap-2">
-                              <div className="w-1.5 h-1.5 rounded-full bg-accent-600" />
+                              <div className="w-1.5 h-1.5 rounded-full bg-sky-600" />
                               {employee?.firstName}
                             </span>
                             <span className="flex items-center gap-2">
-                              <div className="w-1.5 h-1.5 rounded-full bg-neutral-300" />
+                              <div className="w-1.5 h-1.5 rounded-full bg-slate-300" />
                               {formatDate(booking.bookingDate)}
                             </span>
-                            <span className="text-accent-600 font-black">{formatTime(booking.bookingTime)}</span>
+                            <span className="text-sky-600 font-black">{formatTime(booking.bookingTime)}</span>
                           </div>
                         </div>
                         <div
@@ -1368,8 +1392,8 @@ export default function DashboardPage() {
                               : booking.status === 'completed'
                               ? 'bg-success-600 text-white'
                               : booking.status === 'pending'
-                              ? 'bg-warning-500 text-primary-900'
-                              : 'bg-accent-500 text-white'
+                              ? 'bg-warning-500 text-slate-900'
+                              : 'bg-sky-500 text-white'
                           )}
                         >
                           {booking.status === 'confirmed' ? 'CONFIRMED' :
@@ -1386,7 +1410,7 @@ export default function DashboardPage() {
             <>
               <div className="flex flex-col lg:flex-row gap-6 lg:items-center">
                 <div className="relative group flex-1">
-                  <svg className="absolute left-8 top-1/2 -translate-y-1/2 w-6 h-6 text-neutral-400 group-focus-within:text-accent-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="absolute left-8 top-1/2 -translate-y-1/2 w-6 h-6 text-slate-400 group-focus-within:text-sky-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
                   <input
@@ -1394,12 +1418,12 @@ export default function DashboardPage() {
                     placeholder="BUSCAR CLIENTE POR NOMBRE, EMAIL O TELÉFONO..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-20 pr-8 py-8 bg-white border border-neutral-100 rounded-[40px] text-2xl font-black uppercase tracking-tight text-neutral-900 focus:border-accent-600 focus:shadow-2xl transition-all outline-none shadow-sm placeholder:text-neutral-200"
+                    className="w-full pl-20 pr-8 py-8 bg-white border border-slate-100 rounded-[40px] text-2xl font-black uppercase tracking-tight text-slate-900 focus:border-sky-600 focus:shadow-2xl transition-all outline-none shadow-sm placeholder:text-slate-200"
                   />
                 </div>
                 <button
                   onClick={openClientModal}
-                  className="px-8 py-6 rounded-[32px] bg-neutral-900 text-white text-[10px] font-black uppercase tracking-[0.3em] shadow-2xl hover:bg-accent-600 transition-all w-full lg:w-auto flex items-center justify-center gap-3"
+                  className="px-8 py-6 rounded-[32px] bg-slate-900 text-white text-[10px] font-black uppercase tracking-[0.3em] shadow-2xl hover:bg-sky-600 transition-all w-full lg:w-auto flex items-center justify-center gap-3"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
@@ -1408,18 +1432,18 @@ export default function DashboardPage() {
                 </button>
               </div>
 
-              <div className="bg-white border border-neutral-100 rounded-[48px] overflow-hidden shadow-sm">
+              <div className="bg-white border border-slate-100 rounded-[48px] overflow-hidden shadow-sm">
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead>
-                      <tr className="bg-neutral-50/50">
-                        <th className="px-10 py-8 text-left text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em]">Cliente</th>
-                        <th className="px-10 py-8 text-center text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em]">Bookings</th>
-                        <th className="px-10 py-8 text-center text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em]">Última Visita</th>
-                        <th className="px-10 py-8 text-right text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em]">Acciones</th>
+                      <tr className="bg-slate-50/50">
+                        <th className="px-10 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Cliente</th>
+                        <th className="px-10 py-8 text-center text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Bookings</th>
+                        <th className="px-10 py-8 text-center text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Última Visita</th>
+                        <th className="px-10 py-8 text-right text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Acciones</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-neutral-100">
+                    <tbody className="divide-y divide-slate-100">
                       {clientDatabase
                         .filter(client => 
                           !searchTerm || 
@@ -1428,31 +1452,31 @@ export default function DashboardPage() {
                           client.phone.includes(searchTerm)
                         )
                         .map(client => (
-                          <tr key={client.email} className="hover:bg-neutral-50 transition-all group">
+                          <tr key={client.email} className="hover:bg-slate-50 transition-all group">
                             <td className="px-10 py-10">
                               <div className="flex items-center gap-6">
-                              <div className="w-16 h-16 rounded-[24px] bg-neutral-900 flex items-center justify-center text-white text-2xl font-black uppercase group-hover:scale-110 transition-transform">
+                              <div className="w-16 h-16 rounded-[24px] bg-slate-900 flex items-center justify-center text-white text-2xl font-black uppercase group-hover:scale-110 transition-transform">
                                 {client.name[0]}
                               </div>
                               <div>
                                 <div className="flex items-center gap-3 flex-wrap">
-                                  <div className="text-2xl font-black text-neutral-900 uppercase tracking-tighter">{client.name}</div>
+                                  <div className="text-2xl font-black text-slate-900 uppercase tracking-tighter">{client.name}</div>
                                   {client.isNew && (
-                                    <span className="px-3 py-1 rounded-full bg-accent-50 text-accent-600 text-[10px] font-black uppercase tracking-[0.2em]">
+                                    <span className="px-3 py-1 rounded-full bg-sky-50 text-sky-600 text-[10px] font-black uppercase tracking-[0.2em]">
                                       Nuevo
                                     </span>
                                   )}
                                 </div>
-                                <div className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.2em] mt-1">{client.phone || '—'}</div>
+                                <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1">{client.phone || '—'}</div>
                               </div>
                             </div>
                           </td>
                             <td className="px-10 py-10 text-center">
-                              <div className="text-3xl font-black text-neutral-900 tracking-tighter">{client.totalBookings}</div>
-                              <div className="text-[10px] font-black text-accent-600 uppercase tracking-[0.3em] mt-1">HISTÓRICO</div>
+                              <div className="text-3xl font-black text-slate-900 tracking-tighter">{client.totalBookings}</div>
+                              <div className="text-[10px] font-black text-sky-600 uppercase tracking-[0.3em] mt-1">HISTÓRICO</div>
                             </td>
                             <td className="px-10 py-10 text-center">
-                              <div className="text-lg font-black text-neutral-400 uppercase tracking-tight">
+                              <div className="text-lg font-black text-slate-400 uppercase tracking-tight">
                                 {client.lastBooking ? formatDate(client.lastBooking.bookingDate) : '—'}
                               </div>
                             </td>
@@ -1460,13 +1484,13 @@ export default function DashboardPage() {
                               <div className="flex justify-end gap-4">
                                 <button
                                   onClick={() => setSelectedClientEmail(client.email)}
-                                  className="px-8 py-4 rounded-2xl border-2 border-neutral-100 text-[10px] font-black text-neutral-400 hover:border-neutral-900 hover:text-neutral-900 transition-all uppercase tracking-[0.2em]"
+                                  className="px-8 py-4 rounded-2xl border-2 border-slate-100 text-[10px] font-black text-slate-400 hover:border-slate-900 hover:text-slate-900 transition-all uppercase tracking-[0.2em]"
                                 >
                                   Profile
                                 </button>
                                 <button
                                   onClick={() => openBookingModal(client)}
-                                  className="px-8 py-4 rounded-2xl bg-neutral-900 text-white text-[10px] font-black hover:bg-accent-600 transition-all uppercase tracking-[0.2em] shadow-xl"
+                                  className="px-8 py-4 rounded-2xl bg-slate-900 text-white text-[10px] font-black hover:bg-sky-600 transition-all uppercase tracking-[0.2em] shadow-xl"
                                 >
                                   Reservar
                                 </button>
@@ -1486,90 +1510,90 @@ export default function DashboardPage() {
       {/* Bookings Tab - High End List */}
       {activeTab === 'bookings' && (
         <div className="space-y-10">
-          <div className="bg-neutral-900 rounded-[40px] p-8 shadow-2xl border border-white/5">
+          <div className="bg-slate-900 rounded-[40px] p-8 shadow-2xl border border-white/5">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
               <div className="md:col-span-1">
-                <label className="block text-[10px] font-black text-neutral-500 uppercase tracking-[0.3em] mb-3">Buscar</label>
+                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-3">Buscar</label>
                 <input
                   type="text"
                   placeholder="CLIENTE..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full px-6 py-5 bg-white/5 border border-white/10 rounded-2xl text-white text-sm font-bold focus:border-accent-600 transition-all outline-none uppercase tracking-widest"
+                  className="w-full px-6 py-5 bg-white/5 border border-white/10 rounded-2xl text-white text-sm font-bold focus:border-sky-600 transition-all outline-none uppercase tracking-widest"
                 />
               </div>
               <div>
-                <label className="block text-[10px] font-black text-neutral-500 uppercase tracking-[0.3em] mb-3">Therapist</label>
+                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-3">Therapist</label>
                 <select
                   value={selectedEmployeeId}
                   onChange={(e) => setSelectedEmployeeId(e.target.value)}
-                  className="w-full px-6 py-5 bg-white/5 border border-white/10 rounded-2xl text-white text-xs font-black focus:border-accent-600 transition-all outline-none appearance-none uppercase tracking-[0.2em]"
+                  className="w-full px-6 py-5 bg-white/5 border border-white/10 rounded-2xl text-white text-xs font-black focus:border-sky-600 transition-all outline-none appearance-none uppercase tracking-[0.2em]"
                 >
-                  <option value="all" className="bg-neutral-900">ALL</option>
+                  <option value="all" className="bg-slate-900">ALL</option>
                   {employees.map(emp => (
-                    <option key={emp.id} value={emp.id} className="bg-neutral-900">{emp.firstName.toUpperCase()}</option>
+                    <option key={emp.id} value={emp.id} className="bg-slate-900">{emp.firstName.toUpperCase()}</option>
                   ))}
                 </select>
               </div>
               <div>
-                <label className="block text-[10px] font-black text-neutral-500 uppercase tracking-[0.3em] mb-3">Tiempo</label>
+                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-3">Tiempo</label>
                 <select
                   value={dateRange}
                   onChange={(e) => setDateRange(e.target.value as any)}
-                  className="w-full px-6 py-5 bg-white/5 border border-white/10 rounded-2xl text-white text-xs font-black focus:border-accent-600 transition-all outline-none appearance-none uppercase tracking-[0.2em]"
+                  className="w-full px-6 py-5 bg-white/5 border border-white/10 rounded-2xl text-white text-xs font-black focus:border-sky-600 transition-all outline-none appearance-none uppercase tracking-[0.2em]"
                 >
-                  <option value="today" className="bg-neutral-900">TODAY</option>
-                  <option value="week" className="bg-neutral-900">7 DAYS</option>
-                  <option value="month" className="bg-neutral-900">MONTH</option>
+                  <option value="today" className="bg-slate-900">TODAY</option>
+                  <option value="week" className="bg-slate-900">7 DAYS</option>
+                  <option value="month" className="bg-slate-900">MONTH</option>
                 </select>
               </div>
               <div>
-                <label className="block text-[10px] font-black text-neutral-500 uppercase tracking-[0.3em] mb-3">Estado</label>
+                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-3">Estado</label>
                 <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value as any)}
-                  className="w-full px-6 py-5 bg-white/5 border border-white/10 rounded-2xl text-white text-xs font-black focus:border-accent-600 transition-all outline-none appearance-none uppercase tracking-[0.2em]"
+                  className="w-full px-6 py-5 bg-white/5 border border-white/10 rounded-2xl text-white text-xs font-black focus:border-sky-600 transition-all outline-none appearance-none uppercase tracking-[0.2em]"
                 >
-                  <option value="all" className="bg-neutral-900">ALL</option>
-                  <option value="confirmed" className="bg-neutral-900">CONFIRMED</option>
-                  <option value="completed" className="bg-neutral-900">COMPLETED</option>
-                  <option value="pending" className="bg-neutral-900">PENDING</option>
-                  <option value="cancelled" className="bg-neutral-900">CANCELLED</option>
+                  <option value="all" className="bg-slate-900">ALL</option>
+                  <option value="confirmed" className="bg-slate-900">CONFIRMED</option>
+                  <option value="completed" className="bg-slate-900">COMPLETED</option>
+                  <option value="pending" className="bg-slate-900">PENDING</option>
+                  <option value="cancelled" className="bg-slate-900">CANCELLED</option>
                 </select>
               </div>
             </div>
           </div>
 
-          <div className="bg-white border border-neutral-100 rounded-[48px] overflow-hidden shadow-sm">
+          <div className="bg-white border border-slate-100 rounded-[48px] overflow-hidden shadow-sm">
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="bg-neutral-50/50">
-                    <th className="px-10 py-8 text-left text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em]">Date / Time</th>
-                    <th className="px-10 py-8 text-left text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em]">Cliente</th>
-                    <th className="px-10 py-8 text-left text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em]">Service</th>
-                    <th className="px-10 py-8 text-center text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em]">Estado</th>
-                    <th className="px-10 py-8 text-right text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em]">Acciones</th>
+                  <tr className="bg-slate-50/50">
+                    <th className="px-10 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Date / Time</th>
+                    <th className="px-10 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Cliente</th>
+                    <th className="px-10 py-8 text-left text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Service</th>
+                    <th className="px-10 py-8 text-center text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Estado</th>
+                    <th className="px-10 py-8 text-right text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Acciones</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-neutral-100">
+                <tbody className="divide-y divide-slate-100">
                   {filteredBookings.map((booking) => {
                     const employee = employees.find(e => e.id === booking.employeeId);
                     const service = services.find(s => s.id === booking.serviceId);
                     
                     return (
-                      <tr key={booking.id} className="hover:bg-neutral-50 transition-all group">
+                      <tr key={booking.id} className="hover:bg-slate-50 transition-all group">
                         <td className="px-10 py-10">
-                          <div className="text-2xl font-black text-accent-600 tabular-nums leading-none mb-1">{formatTime(booking.bookingTime)}</div>
-                          <div className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em]">{formatDate(booking.bookingDate)}</div>
+                          <div className="text-2xl font-black text-sky-600 tabular-nums leading-none mb-1">{formatTime(booking.bookingTime)}</div>
+                          <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">{formatDate(booking.bookingDate)}</div>
                         </td>
                         <td className="px-10 py-10">
-                          <div className="text-xl font-black text-neutral-900 uppercase tracking-tighter">{booking.clientName}</div>
-                          <div className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest mt-1">{booking.clientPhone}</div>
-                          <div className="text-[10px] font-bold text-neutral-400 uppercase tracking-[0.15em] mt-1">
+                          <div className="text-xl font-black text-slate-900 uppercase tracking-tighter">{booking.clientName}</div>
+                          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">{booking.clientPhone}</div>
+                          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.15em] mt-1">
                             Creada por: {getCreatedByLabel(booking)}
                           </div>
-                          <div className="text-[10px] font-bold text-neutral-400 uppercase tracking-[0.15em] mt-2 flex items-center gap-2">
+                          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.15em] mt-2 flex items-center gap-2">
                             Pago:
                             <span
                               className={cn(
@@ -1577,10 +1601,10 @@ export default function DashboardPage() {
                                 booking.paymentStatus === 'paid' || booking.depositPaid
                                   ? 'bg-success-500 text-white'
                                   : booking.paymentStatus === 'failed'
-                                  ? 'bg-accent-500 text-white'
+                                  ? 'bg-sky-500 text-white'
                                   : booking.paymentStatus === 'refunded'
-                                  ? 'bg-primary-200 text-primary-900'
-                                  : 'bg-warning-500 text-primary-900'
+                                  ? 'bg-slate-200 text-slate-900'
+                                  : 'bg-warning-500 text-slate-900'
                               )}
                             >
                               {getPaymentLabel(booking)}
@@ -1588,8 +1612,8 @@ export default function DashboardPage() {
                           </div>
                         </td>
                         <td className="px-10 py-10">
-                          <div className="text-lg font-black text-neutral-700 uppercase tracking-tight leading-none mb-1">{service?.serviceName}</div>
-                          <div className="text-[10px] font-black text-accent-400 uppercase tracking-[0.2em]">{employee?.firstName}</div>
+                          <div className="text-lg font-black text-slate-700 uppercase tracking-tight leading-none mb-1">{service?.serviceName}</div>
+                          <div className="text-[10px] font-black text-sky-400 uppercase tracking-[0.2em]">{employee?.firstName}</div>
                         </td>
                         <td className="px-10 py-10 text-center">
                           <span
@@ -1600,8 +1624,8 @@ export default function DashboardPage() {
                                 : booking.status === 'completed'
                                 ? 'bg-success-600 text-white'
                                 : booking.status === 'pending'
-                                ? 'bg-warning-500 text-primary-900'
-                                : 'bg-accent-500 text-white'
+                                ? 'bg-warning-500 text-slate-900'
+                                : 'bg-sky-500 text-white'
                           )}
                           >
                             {booking.status === 'confirmed' ? 'CONFIRMADA' :
@@ -1612,7 +1636,7 @@ export default function DashboardPage() {
                         <td className="px-10 py-10 text-right">
                           <div className="flex justify-end gap-3">
                             <Link href={`/dashboard/bookings/${booking.id}`}>
-                              <button className="w-12 h-12 bg-neutral-50 text-neutral-400 rounded-[18px] hover:bg-neutral-900 hover:text-white hover:scale-110 transition-all flex items-center justify-center shadow-lg shadow-neutral-100">
+                              <button className="w-12 h-12 bg-slate-50 text-slate-400 rounded-[18px] hover:bg-slate-900 hover:text-white hover:scale-110 transition-all flex items-center justify-center shadow-lg shadow-slate-100">
                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
                                 </svg>
@@ -1623,7 +1647,7 @@ export default function DashboardPage() {
                                 setSelectedClientEmail(booking.clientEmail);
                                 syncTabToUrl('clients');
                               }}
-                              className="px-4 h-12 bg-white border border-neutral-200 rounded-[14px] text-[10px] font-black uppercase tracking-[0.2em] hover:bg-neutral-900 hover:text-white transition-all shadow-sm"
+                              className="px-4 h-12 bg-white border border-slate-200 rounded-[14px] text-[10px] font-black uppercase tracking-[0.2em] hover:bg-slate-900 hover:text-white transition-all shadow-sm"
                             >
                               View client
                             </button>
@@ -1639,7 +1663,7 @@ export default function DashboardPage() {
                                 </button>
                                 <button
                                   onClick={() => setActionConfirm({ booking, nextStatus: 'cancelled' })}
-                                  className="w-12 h-12 bg-warning-50 text-warning-700 rounded-[18px] hover:bg-accent-500 hover:text-white hover:scale-110 transition-all flex items-center justify-center shadow-lg"
+                                  className="w-12 h-12 bg-warning-50 text-warning-700 rounded-[18px] hover:bg-sky-500 hover:text-white hover:scale-110 transition-all flex items-center justify-center shadow-lg"
                                 >
                                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
@@ -1661,7 +1685,7 @@ export default function DashboardPage() {
 
       {/* Calendar Tab - Modern Admin View */}
       {activeTab === 'calendar' && (
-        <div className="bg-white border-2 border-neutral-100 rounded-[40px] p-8 shadow-sm">
+        <div className="bg-white border-2 border-slate-100 rounded-[40px] p-8 shadow-sm">
           <AdminCalendar
             employees={employees}
             services={services}
@@ -1683,7 +1707,7 @@ export default function DashboardPage() {
       {clientModalShouldRender && (
         <div
           className={cn(
-            'fixed inset-0 z-[95] flex items-center justify-center bg-neutral-900/90 backdrop-blur-xl p-4 transition-opacity duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]',
+            'fixed inset-0 z-[95] flex items-center justify-center bg-slate-900/90 backdrop-blur-xl p-4 transition-opacity duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]',
             clientModalOpen ? 'opacity-100' : 'opacity-0'
           )}
           role="dialog"
@@ -1695,14 +1719,14 @@ export default function DashboardPage() {
               clientModalOpen ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-3 scale-[0.97]'
             )}
           >
-            <div className="px-10 py-8 flex items-center justify-between border-b border-neutral-100">
+            <div className="px-10 py-8 flex items-center justify-between border-b border-slate-100">
               <div>
-                <h2 className="text-2xl font-black text-neutral-900 tracking-tight uppercase">Nuevo cliente</h2>
-                <p className="text-neutral-500 font-bold uppercase tracking-widest text-xs mt-1">Perfil sin reserva</p>
+                <h2 className="text-2xl font-black text-slate-900 tracking-tight uppercase">Nuevo cliente</h2>
+                <p className="text-slate-500 font-bold uppercase tracking-widest text-xs mt-1">Perfil sin reserva</p>
               </div>
               <button
                 onClick={closeClientModal}
-                className="w-12 h-12 rounded-2xl bg-neutral-100 text-neutral-400 hover:bg-neutral-900 hover:text-white transition-all flex items-center justify-center"
+                className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 hover:bg-slate-900 hover:text-white transition-all flex items-center justify-center"
                 disabled={clientSaving}
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1713,51 +1737,51 @@ export default function DashboardPage() {
 
             <div className="p-10 space-y-6 max-h-[70vh] overflow-y-auto no-scrollbar">
               {clientError && (
-                <div className="px-4 py-3 rounded-2xl bg-accent-50 text-accent-600 text-xs font-black uppercase tracking-[0.2em]">
+                <div className="px-4 py-3 rounded-2xl bg-sky-50 text-sky-600 text-xs font-black uppercase tracking-[0.2em]">
                   {clientError}
                 </div>
               )}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <label className="block text-xs font-black text-neutral-400 uppercase tracking-widest">Nombre</label>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">Nombre</label>
                   <input
                     type="text"
                     value={clientForm.firstName}
                     onChange={(e) => setClientForm((prev) => ({ ...prev, firstName: e.target.value }))}
-                    className="w-full px-6 py-5 bg-neutral-50 border-2 border-neutral-100 rounded-2xl text-neutral-900 font-bold focus:border-accent-500 transition-all outline-none"
+                    className="w-full px-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-2xl text-slate-900 font-bold focus:border-sky-500 transition-all outline-none"
                     placeholder="NOMBRE"
                     disabled={clientSaving}
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="block text-xs font-black text-neutral-400 uppercase tracking-widest">Apellido</label>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">Apellido</label>
                   <input
                     type="text"
                     value={clientForm.lastName}
                     onChange={(e) => setClientForm((prev) => ({ ...prev, lastName: e.target.value }))}
-                    className="w-full px-6 py-5 bg-neutral-50 border-2 border-neutral-100 rounded-2xl text-neutral-900 font-bold focus:border-accent-500 transition-all outline-none"
+                    className="w-full px-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-2xl text-slate-900 font-bold focus:border-sky-500 transition-all outline-none"
                     placeholder="APELLIDO"
                     disabled={clientSaving}
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="block text-xs font-black text-neutral-400 uppercase tracking-widest">Email</label>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">Email</label>
                   <input
                     type="email"
                     value={clientForm.email}
                     onChange={(e) => setClientForm((prev) => ({ ...prev, email: e.target.value }))}
-                    className="w-full px-6 py-5 bg-neutral-50 border-2 border-neutral-100 rounded-2xl text-neutral-900 font-bold focus:border-accent-500 transition-all outline-none"
+                    className="w-full px-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-2xl text-slate-900 font-bold focus:border-sky-500 transition-all outline-none"
                     placeholder="EMAIL"
                     disabled={clientSaving}
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="block text-xs font-black text-neutral-400 uppercase tracking-widest">Teléfono</label>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">Teléfono</label>
                   <input
                     type="tel"
                     value={clientForm.phone}
                     onChange={(e) => setClientForm((prev) => ({ ...prev, phone: e.target.value }))}
-                    className="w-full px-6 py-5 bg-neutral-50 border-2 border-neutral-100 rounded-2xl text-neutral-900 font-bold focus:border-accent-500 transition-all outline-none"
+                    className="w-full px-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-2xl text-slate-900 font-bold focus:border-sky-500 transition-all outline-none"
                     placeholder="TELÉFONO"
                     disabled={clientSaving}
                   />
@@ -1765,17 +1789,17 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <div className="px-10 py-8 bg-neutral-50 border-t border-neutral-100 flex items-center justify-end gap-4">
+            <div className="px-10 py-8 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-4">
               <button
                 onClick={closeClientModal}
-                className="px-8 py-4 text-sm font-bold text-neutral-400 uppercase tracking-widest hover:text-neutral-900 transition-colors"
+                className="px-8 py-4 text-sm font-bold text-slate-400 uppercase tracking-widest hover:text-slate-900 transition-colors"
                 disabled={clientSaving}
               >
                 Cancelar
               </button>
               <button
                 onClick={handleCreateClient}
-                className="px-12 py-4 text-sm font-black text-white bg-accent-600 rounded-2xl hover:bg-accent-700 hover:scale-[1.02] active:scale-[0.98] transition-all shadow-[0_10px_24px_rgba(230,57,70,0.2)] disabled:opacity-50 uppercase tracking-[0.2em]"
+                className="px-12 py-4 text-sm font-black text-white bg-sky-600 rounded-2xl hover:bg-sky-700 hover:scale-[1.02] active:scale-[0.98] transition-all shadow-[0_10px_24px_rgba(230,57,70,0.2)] disabled:opacity-50 uppercase tracking-[0.2em]"
                 disabled={clientSaving}
               >
                 {clientSaving ? 'GUARDANDO...' : 'CREAR CLIENTE'}
@@ -1789,7 +1813,7 @@ export default function DashboardPage() {
       {bookingModalShouldRender && (
         <div
           className={cn(
-            'fixed inset-0 z-[100] flex items-center justify-center bg-neutral-900/90 backdrop-blur-xl p-4 transition-opacity duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]',
+            'fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/90 backdrop-blur-xl p-4 transition-opacity duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]',
             bookingModalOpen ? 'opacity-100' : 'opacity-0'
           )}
           role="dialog"
@@ -1801,14 +1825,14 @@ export default function DashboardPage() {
               bookingModalOpen ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-3 scale-[0.97]'
             )}
           >
-            <div className="px-12 py-10 flex items-center justify-between border-b border-neutral-100">
+            <div className="px-12 py-10 flex items-center justify-between border-b border-slate-100">
               <div>
-                <h2 className="text-3xl font-black text-neutral-900 tracking-tighter uppercase">Create Booking</h2>
-                <p className="text-neutral-500 font-bold uppercase tracking-widest text-xs mt-1">Manual Schedule</p>
+                <h2 className="text-3xl font-black text-slate-900 tracking-tighter uppercase">Create Booking</h2>
+                <p className="text-slate-500 font-bold uppercase tracking-widest text-xs mt-1">Manual Schedule</p>
               </div>
               <button
                 onClick={closeBookingModal}
-                className="w-12 h-12 rounded-2xl bg-neutral-100 text-neutral-400 hover:bg-neutral-900 hover:text-white transition-all flex items-center justify-center"
+                className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 hover:bg-slate-900 hover:text-white transition-all flex items-center justify-center"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
@@ -1819,7 +1843,7 @@ export default function DashboardPage() {
             <div className="p-12 space-y-8 max-h-[70vh] overflow-y-auto no-scrollbar">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 <div className="space-y-2">
-                  <label className="block text-xs font-black text-neutral-400 uppercase tracking-widest">Name</label>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">Name</label>
                   <div className="relative">
                     <input
                       type="text"
@@ -1831,15 +1855,15 @@ export default function DashboardPage() {
                       }}
                       onFocus={() => setClientSuggestionsOpen(true)}
                       onBlur={() => setTimeout(() => setClientSuggestionsOpen(false), 120)}
-                      className="w-full px-6 py-5 bg-neutral-50 border-2 border-neutral-100 rounded-2xl text-neutral-900 font-bold focus:border-accent-500 transition-all outline-none"
+                      className="w-full px-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-2xl text-slate-900 font-bold focus:border-sky-500 transition-all outline-none"
                       placeholder="CLIENTE"
                     />
                     {clientSuggestionsOpen && (
                       <div className="absolute z-10 mt-2 w-full bg-white border-2 border-blue-200 rounded-2xl shadow-2xl overflow-hidden">
                         {clientMatches.length === 0 ? (
                           <div className="px-4 py-4 text-center">
-                            <p className="text-sm font-bold text-neutral-600">No clients found</p>
-                            <p className="text-xs text-neutral-400 mt-1">Escribe el nombre completo para crear uno nuevo</p>
+                            <p className="text-sm font-bold text-slate-600">No clients found</p>
+                            <p className="text-xs text-slate-400 mt-1">Escribe el nombre completo para crear uno nuevo</p>
                           </div>
                         ) : (
                           <>
@@ -1866,12 +1890,12 @@ export default function DashboardPage() {
                                     }));
                                     setClientSuggestionsOpen(false);
                                   }}
-                                  className="w-full text-left px-4 py-3 hover:bg-neutral-50 transition-colors"
+                                  className="w-full text-left px-4 py-3 hover:bg-slate-50 transition-colors"
                                 >
-                                  <div className="text-sm font-black text-neutral-900 uppercase tracking-tight">
+                                  <div className="text-sm font-black text-slate-900 uppercase tracking-tight">
                                     {displayName}
                                   </div>
-                                  <div className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.2em] mt-1">
+                                  <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1">
                                     {c.email}{c.phone ? ` • ${c.phone}` : ''}
                                   </div>
                                 </button>
@@ -1884,22 +1908,22 @@ export default function DashboardPage() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <label className="block text-xs font-black text-neutral-400 uppercase tracking-widest">Email</label>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">Email</label>
                   <input
                     type="email"
                     value={bookingForm.clientEmail}
                     onChange={(e) => setBookingForm((prev) => ({ ...prev, clientEmail: e.target.value }))}
-                    className="w-full px-6 py-5 bg-neutral-50 border-2 border-neutral-100 rounded-2xl text-neutral-900 font-bold focus:border-accent-500 transition-all outline-none"
+                    className="w-full px-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-2xl text-slate-900 font-bold focus:border-sky-500 transition-all outline-none"
                     placeholder="EMAIL"
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="block text-xs font-black text-neutral-400 uppercase tracking-widest">Phone</label>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">Phone</label>
                   <input
                     type="tel"
                     value={bookingForm.clientPhone}
                     onChange={(e) => setBookingForm((prev) => ({ ...prev, clientPhone: e.target.value }))}
-                    className="w-full px-6 py-5 bg-neutral-50 border-2 border-neutral-100 rounded-2xl text-neutral-900 font-bold focus:border-accent-500 transition-all outline-none"
+                    className="w-full px-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-2xl text-slate-900 font-bold focus:border-sky-500 transition-all outline-none"
                     placeholder="PHONE"
                   />
                 </div>
@@ -1907,26 +1931,76 @@ export default function DashboardPage() {
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 <div className="space-y-2">
-                  <label className="block text-xs font-black text-neutral-400 uppercase tracking-widest">Service</label>
-                  <select
-                    value={bookingForm.serviceId}
-                    onChange={(e) => setBookingForm((prev) => ({ ...prev, serviceId: e.target.value, employeeId: '', bookingTime: '' }))}
-                    className="w-full px-6 py-5 bg-neutral-50 border-2 border-neutral-100 rounded-2xl text-neutral-900 font-black focus:border-accent-500 transition-all outline-none appearance-none"
-                  >
-                    <option value="">SELECT</option>
-                    {services.map((service) => (
-                      <option key={service.id} value={service.id}>
-                        {service.serviceName.toUpperCase()}
-                      </option>
-                    ))}
-                  </select>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">Service</label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={serviceSearchTerm}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setServiceSearchTerm(value);
+                        setServiceSuggestionsOpen(true);
+                        if (bookingForm.serviceId) {
+                          setBookingForm((prev) => ({ ...prev, serviceId: '', employeeId: '', bookingTime: '' }));
+                        }
+                      }}
+                      onFocus={() => setServiceSuggestionsOpen(true)}
+                      onBlur={() => setTimeout(() => setServiceSuggestionsOpen(false), 120)}
+                      placeholder="SEARCH SERVICE..."
+                      className="w-full px-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-2xl text-slate-900 font-black focus:border-sky-500 transition-all outline-none"
+                    />
+                    {serviceSuggestionsOpen && (
+                      <div className="absolute z-20 mt-2 w-full bg-white border-2 border-slate-200 rounded-2xl shadow-2xl overflow-hidden">
+                        {serviceMatches.length === 0 ? (
+                          <div className="px-4 py-4 text-center">
+                            <p className="text-sm font-bold text-slate-600">No services found</p>
+                            <p className="text-xs text-slate-400 mt-1">Try another keyword</p>
+                          </div>
+                        ) : (
+                          <div className="max-h-72 overflow-y-auto">
+                            {serviceMatches.map((service) => (
+                              <button
+                                key={service.id}
+                                type="button"
+                                onMouseDown={(e) => e.preventDefault()}
+                                onClick={() => {
+                                  setServiceSearchTerm(service.serviceName);
+                                  setServiceSuggestionsOpen(false);
+                                  setBookingForm((prev) => ({
+                                    ...prev,
+                                    serviceId: service.id,
+                                    employeeId: '',
+                                    bookingTime: '',
+                                  }));
+                                }}
+                                className={cn(
+                                  "w-full text-left px-4 py-3 border-b border-slate-100 last:border-b-0 hover:bg-slate-50 transition-colors",
+                                  bookingForm.serviceId === service.id && "bg-sky-50"
+                                )}
+                              >
+                                <div className="text-sm font-black text-slate-900 uppercase tracking-tight">
+                                  {service.serviceName}
+                                </div>
+                                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-1">
+                                  {typeof service.price === 'number' ? `€${service.price.toFixed(2)}` : 'SERVICE'}
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  {bookingForm.serviceId && (
+                    <p className="text-[10px] font-bold text-sky-600 uppercase tracking-widest">Service selected</p>
+                  )}
                 </div>
                 <div className="space-y-2">
-                  <label className="block text-xs font-black text-neutral-400 uppercase tracking-widest">Therapist</label>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">Therapist</label>
                   <select
                     value={bookingForm.employeeId}
                     onChange={(e) => setBookingForm((prev) => ({ ...prev, employeeId: e.target.value, bookingTime: '' }))}
-                    className="w-full px-6 py-5 bg-neutral-50 border-2 border-neutral-100 rounded-2xl text-neutral-900 font-black focus:border-accent-500 transition-all outline-none appearance-none"
+                    className="w-full px-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-2xl text-slate-900 font-black focus:border-sky-500 transition-all outline-none appearance-none"
                     disabled={!bookingForm.serviceId}
                   >
                     <option value="">SELECT</option>
@@ -1938,24 +2012,24 @@ export default function DashboardPage() {
                   </select>
                 </div>
                 <div className="space-y-2">
-                  <label className="block text-xs font-black text-neutral-400 uppercase tracking-widest">Date</label>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">Date</label>
                   <input
                     type="date"
                     min={new Date().toISOString().split('T')[0]}
                     value={bookingForm.bookingDate}
                     onChange={(e) => setBookingForm((prev) => ({ ...prev, bookingDate: e.target.value, bookingTime: '' }))}
-                    className="w-full px-6 py-5 bg-neutral-50 border-2 border-neutral-100 rounded-2xl text-neutral-900 font-bold focus:border-accent-500 transition-all outline-none"
+                    className="w-full px-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-2xl text-slate-900 font-bold focus:border-sky-500 transition-all outline-none"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 <div className="space-y-2">
-                  <label className="block text-xs font-black text-neutral-400 uppercase tracking-widest">Time</label>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">Time</label>
                   <select
                     value={bookingForm.bookingTime}
                     onChange={(e) => setBookingForm((prev) => ({ ...prev, bookingTime: e.target.value }))}
-                    className="w-full px-6 py-5 bg-neutral-50 border-2 border-neutral-100 rounded-2xl text-neutral-900 font-black focus:border-accent-500 transition-all outline-none appearance-none"
+                    className="w-full px-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-2xl text-slate-900 font-black focus:border-sky-500 transition-all outline-none appearance-none"
                     disabled={!bookingForm.employeeId || !bookingForm.bookingDate}
                   >
                     <option value="">SELECT</option>
@@ -1969,29 +2043,29 @@ export default function DashboardPage() {
                   </select>
                 </div>
                 <div className="md:col-span-2 space-y-2">
-                  <label className="block text-xs font-black text-neutral-400 uppercase tracking-widest">Notes (Optional)</label>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">Notes (Optional)</label>
                   <textarea
                     value={bookingForm.notes}
                     onChange={(e) => setBookingForm((prev) => ({ ...prev, notes: e.target.value }))}
                     rows={2}
-                    className="w-full px-6 py-5 bg-neutral-50 border-2 border-neutral-100 rounded-2xl text-neutral-900 font-medium focus:border-accent-500 transition-all outline-none no-scrollbar"
+                    className="w-full px-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-2xl text-slate-900 font-medium focus:border-sky-500 transition-all outline-none no-scrollbar"
                     placeholder="PREFERENCES OR DETAILS..."
                   />
                 </div>
               </div>
             </div>
 
-            <div className="px-12 py-8 bg-neutral-50 border-t border-neutral-100 flex items-center justify-end gap-4">
+            <div className="px-12 py-8 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-4">
               <button
                 onClick={closeBookingModal}
-                className="px-8 py-4 text-sm font-bold text-neutral-400 uppercase tracking-widest hover:text-neutral-900 transition-colors"
+                className="px-8 py-4 text-sm font-bold text-slate-400 uppercase tracking-widest hover:text-slate-900 transition-colors"
                 disabled={bookingSaving}
               >
                 Cancel
               </button>
               <button
                 onClick={handleBookingSubmit}
-                className="px-12 py-4 text-sm font-black text-white bg-accent-600 rounded-2xl hover:bg-accent-700 hover:scale-[1.02] active:scale-[0.98] transition-all shadow-[0_10px_24px_rgba(230,57,70,0.2)] disabled:opacity-50 uppercase tracking-[0.2em]"
+                className="px-12 py-4 text-sm font-black text-white bg-sky-600 rounded-2xl hover:bg-sky-700 hover:scale-[1.02] active:scale-[0.98] transition-all shadow-[0_10px_24px_rgba(230,57,70,0.2)] disabled:opacity-50 uppercase tracking-[0.2em]"
                 disabled={bookingSaving}
               >
                 {bookingSaving ? 'SAVING...' : 'CONFIRM BOOKING'}
@@ -2004,29 +2078,29 @@ export default function DashboardPage() {
       {/* Confirm Action Modal */}
       {actionConfirm && (
         <div className="fixed inset-0 z-[90] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-neutral-100 overflow-hidden">
-            <div className="px-8 py-6 border-b border-neutral-100">
-              <h3 className="text-xl font-black text-primary-900 uppercase tracking-tight">Confirm Action</h3>
-              <p className="text-sm text-neutral-500 mt-2">
+          <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden">
+            <div className="px-8 py-6 border-b border-slate-100">
+              <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Confirm Action</h3>
+              <p className="text-sm text-slate-500 mt-2">
                 {actionConfirm.nextStatus === 'cancelled'
                   ? 'You are about to cancel this booking. Are you sure?'
                   : 'You are about to mark this booking as completed.'}
               </p>
             </div>
             <div className="px-8 py-6 space-y-3">
-              <div className="flex items-center justify-between text-sm text-primary-700">
+              <div className="flex items-center justify-between text-sm text-slate-700">
                 <span className="font-bold uppercase tracking-[0.15em]">Cliente</span>
-                <span className="font-black text-primary-900">{actionConfirm.booking.clientName}</span>
+                <span className="font-black text-slate-900">{actionConfirm.booking.clientName}</span>
               </div>
-              <div className="flex items-center justify-between text-sm text-primary-700">
+              <div className="flex items-center justify-between text-sm text-slate-700">
                 <span className="font-bold uppercase tracking-[0.15em]">Date</span>
-                <span className="font-black text-primary-900">{formatDate(actionConfirm.booking.bookingDate)} • {formatTime(actionConfirm.booking.bookingTime)}</span>
+                <span className="font-black text-slate-900">{formatDate(actionConfirm.booking.bookingDate)} • {formatTime(actionConfirm.booking.bookingTime)}</span>
               </div>
             </div>
-            <div className="px-8 py-6 bg-neutral-50 border-t border-neutral-100 flex items-center justify-end gap-3">
+            <div className="px-8 py-6 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-3">
               <button
                 onClick={() => setActionConfirm(null)}
-                className="px-6 py-3 rounded-xl border border-neutral-200 text-xs font-black uppercase tracking-[0.2em] text-neutral-500 hover:text-neutral-900 hover:border-neutral-900 transition-all"
+                className="px-6 py-3 rounded-xl border border-slate-200 text-xs font-black uppercase tracking-[0.2em] text-slate-500 hover:text-slate-900 hover:border-slate-900 transition-all"
                 disabled={actionLoading}
               >
                 Volver
@@ -2035,7 +2109,7 @@ export default function DashboardPage() {
                 onClick={confirmStatusChange}
                 className={cn(
                   "px-8 py-3 rounded-xl text-xs font-black uppercase tracking-[0.2em] text-white transition-all",
-                  actionConfirm.nextStatus === 'cancelled' ? 'bg-accent-600 hover:bg-accent-700' : 'bg-success-600 hover:bg-success-700',
+                  actionConfirm.nextStatus === 'cancelled' ? 'bg-sky-600 hover:bg-sky-700' : 'bg-success-600 hover:bg-success-700',
                   actionLoading ? 'opacity-70 cursor-not-allowed' : ''
                 )}
                 disabled={actionLoading}

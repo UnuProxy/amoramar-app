@@ -208,13 +208,13 @@ export const ServiceForm: React.FC<ServiceFormProps> = ({ service }) => {
       />
 
       <div>
-        <label className="block text-xs font-light tracking-wide text-primary-600 uppercase mb-2">
+        <label className="block text-xs font-light tracking-wide text-slate-600 uppercase mb-2">
           Descripción
         </label>
         <textarea
           {...register('description', { required: 'La descripción es obligatoria' })}
           rows={4}
-          className="w-full px-4 py-3 border border-primary-300 rounded-sm focus:outline-none focus:ring-1 focus:ring-accent-500 bg-white text-primary-900 font-light"
+          className="w-full px-4 py-3 border border-slate-300 rounded-sm focus:outline-none focus:ring-1 focus:ring-sky-500 bg-white text-slate-900 font-light"
         />
         {errors.description && (
           <p className="mt-2 text-xs text-red-600 font-light">{errors.description.message}</p>
@@ -246,12 +246,12 @@ export const ServiceForm: React.FC<ServiceFormProps> = ({ service }) => {
       </div>
 
         <div>
-          <label className="block text-xs font-light tracking-wide text-primary-600 uppercase mb-2">
+          <label className="block text-xs font-light tracking-wide text-slate-600 uppercase mb-2">
             Categoría
           </label>
           <select
             {...register('category', { required: 'La categoría es obligatoria' })}
-            className="w-full px-4 py-3 border border-primary-300 rounded-sm focus:outline-none focus:ring-1 focus:ring-accent-500 bg-white text-primary-900 font-light"
+            className="w-full px-4 py-3 border border-slate-300 rounded-sm focus:outline-none focus:ring-1 focus:ring-sky-500 bg-white text-slate-900 font-light"
           >
           {categoryOptions.map((cat) => (
             <option key={cat} value={cat}>
@@ -265,19 +265,19 @@ export const ServiceForm: React.FC<ServiceFormProps> = ({ service }) => {
       </div>
 
       {/* Free Consultation Options */}
-      <div className="p-4 rounded-lg bg-blue-50 border border-blue-200 space-y-3">
+      <div className="p-4 rounded-lg bg-slate-50 border border-slate-200 space-y-3">
         <div className="flex items-center gap-3">
           <input
             type="checkbox"
             {...register('offersConsultation')}
             id="offersConsultation"
-            className="w-4 h-4 text-accent-600 border-primary-300 rounded focus:ring-accent-500"
+            className="w-4 h-4 text-sky-600 border-slate-300 rounded focus:ring-sky-500"
           />
-          <label htmlFor="offersConsultation" className="text-sm font-medium text-primary-900">
+          <label htmlFor="offersConsultation" className="text-sm font-medium text-slate-900">
             Ofrecer Consultas Gratuitas
           </label>
         </div>
-        <p className="text-xs text-primary-600 italic">
+        <p className="text-xs text-slate-600 italic">
           Para servicios complejos como Balayage o Air Touch, permite a los clientes reservar consultas gratuitas de 15-30 minutos
         </p>
         <Input
@@ -294,7 +294,7 @@ export const ServiceForm: React.FC<ServiceFormProps> = ({ service }) => {
       </div>
 
       <div>
-        <label className="block text-xs font-light tracking-wide text-primary-600 uppercase mb-2">
+        <label className="block text-xs font-light tracking-wide text-slate-600 uppercase mb-2">
           Empleados Asignados
         </label>
         <div className="space-y-2">
@@ -304,9 +304,9 @@ export const ServiceForm: React.FC<ServiceFormProps> = ({ service }) => {
                 type="checkbox"
                 checked={selectedEmployees.includes(employee.id)}
                 onChange={() => toggleEmployee(employee.id)}
-                className="rounded border-primary-300 text-accent-500 focus:ring-accent-500"
+                className="rounded border-slate-300 text-sky-500 focus:ring-sky-500"
               />
-              <span className="ml-2 text-sm text-primary-900 font-light">
+              <span className="ml-2 text-sm text-slate-900 font-light">
                 {employee.firstName} {employee.lastName}
               </span>
             </label>

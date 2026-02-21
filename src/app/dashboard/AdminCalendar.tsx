@@ -544,7 +544,7 @@ export function AdminCalendar({
   }
 
   if (!selectedEmployeeId) {
-    return <div className="p-6 bg-white rounded-xl border border-primary-100">No hay empleados disponibles.</div>;
+    return <div className="p-6 bg-white rounded-xl border border-slate-100">No hay empleados disponibles.</div>;
   }
 
   const selectedEmployee = employees.find((e) => e.id === selectedEmployeeId);
@@ -594,9 +594,9 @@ export function AdminCalendar({
     <div className="space-y-10">
       <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-8">
         <div>
-          <h1 className="text-5xl font-black text-neutral-800 tracking-tighter uppercase leading-none">Calendario</h1>
-          <p className="text-neutral-500 text-[10px] font-black uppercase tracking-[0.3em] mt-4 flex items-center gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-accent-600 animate-pulse" />
+          <h1 className="text-5xl font-black text-slate-800 tracking-tighter uppercase leading-none">Calendario</h1>
+          <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.3em] mt-4 flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-sky-600 animate-pulse" />
             {currentTime.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }).toUpperCase()} •{' '}
             {currentTime.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
           </p>
@@ -605,7 +605,7 @@ export function AdminCalendar({
           <select
             value={selectedEmployeeId}
             onChange={(e) => setSelectedEmployeeId(e.target.value)}
-            className="px-6 py-4 bg-white border border-neutral-200 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] focus:border-accent-600 outline-none cursor-pointer shadow-sm transition-all text-neutral-800"
+            className="px-6 py-4 bg-white border border-slate-200 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] focus:border-sky-600 outline-none cursor-pointer shadow-sm transition-all text-slate-800"
           >
             {employees.map((emp) => (
               <option key={emp.id} value={emp.id}>
@@ -617,7 +617,7 @@ export function AdminCalendar({
           <select
             value={selectedServiceId}
             onChange={(e) => setSelectedServiceId(e.target.value || '')}
-            className="px-6 py-4 bg-white border border-neutral-200 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] focus:border-accent-600 outline-none cursor-pointer shadow-sm transition-all text-neutral-800"
+            className="px-6 py-4 bg-white border border-slate-200 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] focus:border-sky-600 outline-none cursor-pointer shadow-sm transition-all text-slate-800"
           >
             {employeeServices.length === 0 && <option value="">SIN SERVICIOS</option>}
             {employeeServices.map((service) => (
@@ -630,42 +630,42 @@ export function AdminCalendar({
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white border border-neutral-100 border-t-4 border-info-500 rounded-[32px] p-8 shadow-[0_1px_3px_rgba(0,0,0,0.1)] group hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)] transition-all">
-          <p className="text-[9px] font-black text-neutral-500 uppercase tracking-[0.2em] mb-2">Reservas</p>
-          <p className="text-4xl font-black text-neutral-800 tabular-nums">{weekStats.confirmedBookings}</p>
+        <div className="bg-white border border-slate-100 border-t-4 border-info-500 rounded-[32px] p-8 shadow-[0_1px_3px_rgba(0,0,0,0.1)] group hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)] transition-all">
+          <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2">Reservas</p>
+          <p className="text-4xl font-black text-slate-800 tabular-nums">{weekStats.confirmedBookings}</p>
         </div>
-        <div className="bg-white border border-neutral-100 border-t-4 border-success-500 rounded-[32px] p-8 shadow-[0_1px_3px_rgba(0,0,0,0.1)] group hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)] transition-all">
+        <div className="bg-white border border-slate-100 border-t-4 border-success-500 rounded-[32px] p-8 shadow-[0_1px_3px_rgba(0,0,0,0.1)] group hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)] transition-all">
           <p className="text-[9px] font-black text-success-600 uppercase tracking-[0.2em] mb-2">Libres</p>
           <p className="text-4xl font-black text-success-600 tabular-nums">{weekStats.availableCount}</p>
         </div>
-        <div className="bg-white border border-neutral-100 border-t-4 border-primary-900 rounded-[32px] p-8 shadow-[0_1px_3px_rgba(0,0,0,0.1)] group hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)] transition-all">
-          <p className="text-[9px] font-black text-neutral-500 uppercase tracking-[0.2em] mb-2">Bloqueos</p>
-          <p className="text-4xl font-black text-primary-900 tabular-nums">{weekStats.blockedCount}</p>
+        <div className="bg-white border border-slate-100 border-t-4 border-slate-900 rounded-[32px] p-8 shadow-[0_1px_3px_rgba(0,0,0,0.1)] group hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)] transition-all">
+          <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2">Bloqueos</p>
+          <p className="text-4xl font-black text-slate-900 tabular-nums">{weekStats.blockedCount}</p>
         </div>
-        <div className="bg-primary-900 rounded-[32px] p-8 shadow-[0_1px_3px_rgba(0,0,0,0.2)]">
+        <div className="bg-slate-900 rounded-[32px] p-8 shadow-[0_1px_3px_rgba(0,0,0,0.2)]">
           <p className="text-[9px] font-black text-white/60 uppercase tracking-[0.2em] mb-2">Pasados</p>
           <p className="text-4xl font-black text-white tabular-nums">{weekStats.pastCount}</p>
         </div>
       </div>
 
-      <div className="bg-white border border-neutral-100 rounded-[48px] shadow-sm overflow-hidden">
-        <div className="px-10 py-8 border-b border-neutral-100 bg-neutral-50/30">
+      <div className="bg-white border border-slate-100 rounded-[48px] shadow-sm overflow-hidden">
+        <div className="px-10 py-8 border-b border-slate-100 bg-slate-50/30">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
             <div className="flex items-center gap-6">
               <button
                 onClick={() => changeWeek(-1)}
                 disabled={loadingCalendar}
-                className="w-12 h-12 rounded-2xl bg-white border border-neutral-200 text-neutral-400 hover:bg-neutral-800 hover:text-white hover:border-neutral-800 transition-all flex items-center justify-center disabled:opacity-30"
+                className="w-12 h-12 rounded-2xl bg-white border border-slate-200 text-slate-400 hover:bg-slate-800 hover:text-white hover:border-slate-800 transition-all flex items-center justify-center disabled:opacity-30"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M15 19l-7-7 7-7" />
                 </svg>
               </button>
-              <h2 className="text-lg font-black text-neutral-800 uppercase tracking-[0.2em]">{weekRangeLabel}</h2>
+              <h2 className="text-lg font-black text-slate-800 uppercase tracking-[0.2em]">{weekRangeLabel}</h2>
               <button
                 onClick={() => changeWeek(1)}
                 disabled={loadingCalendar}
-                className="w-12 h-12 rounded-2xl bg-white border border-neutral-200 text-neutral-400 hover:bg-neutral-800 hover:text-white hover:border-neutral-800 transition-all flex items-center justify-center disabled:opacity-30"
+                className="w-12 h-12 rounded-2xl bg-white border border-slate-200 text-slate-400 hover:bg-slate-800 hover:text-white hover:border-slate-800 transition-all flex items-center justify-center disabled:opacity-30"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 5l7 7-7 7" />
@@ -674,21 +674,21 @@ export function AdminCalendar({
             </div>
             <button
               onClick={goToToday}
-              className="px-8 py-3 text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em] border-2 border-neutral-100 rounded-xl hover:border-neutral-800 hover:text-neutral-800 transition-all"
+              className="px-8 py-3 text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] border-2 border-slate-100 rounded-xl hover:border-slate-800 hover:text-slate-800 transition-all"
             >
               Ir a Hoy
             </button>
           </div>
         </div>
 
-        <div className="px-10 py-4 border-b border-neutral-100 bg-neutral-50/50 flex flex-wrap gap-8">
+        <div className="px-10 py-4 border-b border-slate-100 bg-slate-50/50 flex flex-wrap gap-8">
           {[
             { color: 'bg-success-500', label: 'Disponible' },
             { color: 'bg-info-500', label: 'Reservado' },
-            { color: 'bg-primary-900', label: 'Bloqueado' },
+            { color: 'bg-slate-900', label: 'Bloqueado' },
             { color: 'bg-[#9CA3AF]', label: 'Pasado' },
           ].map(status => (
-            <span key={status.label} className="inline-flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.2em] text-neutral-400">
+            <span key={status.label} className="inline-flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.2em] text-slate-400">
               <span className={`w-2 h-2 rounded-full ${status.color}`} /> {status.label}
             </span>
           ))}
@@ -696,7 +696,7 @@ export function AdminCalendar({
 
         {!selectedServiceId ? (
           <div className="p-20 text-center">
-            <p className="text-sm font-black text-neutral-300 uppercase tracking-[0.3em]">Selecciona un servicio para visualizar el calendario</p>
+            <p className="text-sm font-black text-slate-300 uppercase tracking-[0.3em]">Selecciona un servicio para visualizar el calendario</p>
           </div>
         ) : (
           <div className="overflow-x-auto no-scrollbar">
@@ -705,8 +705,8 @@ export function AdminCalendar({
                 <div
                   key={day.date}
                   className={cn(
-                    "px-4 py-8 text-center border-b border-r border-neutral-100 last:border-r-0 transition-colors relative",
-                    day.isToday ? 'bg-accent-50/30' : day.isPast ? 'bg-neutral-50/50' : 'bg-white'
+                    "px-4 py-8 text-center border-b border-r border-slate-100 last:border-r-0 transition-colors relative",
+                    day.isToday ? 'bg-sky-50/30' : day.isPast ? 'bg-slate-50/50' : 'bg-white'
                   )}
                 >
                   {day.hasUnpaid && (
@@ -714,13 +714,13 @@ export function AdminCalendar({
                   )}
                   <p className={cn(
                     "text-[10px] font-black uppercase tracking-[0.3em] mb-2",
-                    day.isToday ? 'text-accent-600' : 'text-neutral-400'
+                    day.isToday ? 'text-sky-600' : 'text-slate-400'
                   )}>
                     {dayNames[day.dayKey]}
                   </p>
                   <p className={cn(
                     "text-4xl font-black tabular-nums tracking-tighter leading-none",
-                    day.isToday ? 'text-accent-600' : day.isPast ? 'text-neutral-200' : 'text-neutral-800'
+                    day.isToday ? 'text-sky-600' : day.isPast ? 'text-slate-200' : 'text-slate-800'
                   )}>
                     {day.dayNumber}
                   </p>
@@ -743,17 +743,17 @@ export function AdminCalendar({
                   <div
                     key={`slots-${day.date}`}
                     className={cn(
-                      "border-r border-neutral-100 last:border-r-0 min-h-[500px]",
-                      day.isToday ? 'bg-accent-50/10' : day.isPast ? 'bg-neutral-50/30' : 'bg-white'
+                      "border-r border-slate-100 last:border-r-0 min-h-[500px]",
+                      day.isToday ? 'bg-sky-50/10' : day.isPast ? 'bg-slate-50/30' : 'bg-white'
                     )}
                   >
                     {loadingCalendar ? (
                       <div className="flex items-center justify-center py-12">
-                        <div className="w-2 h-2 rounded-full bg-accent-600 animate-ping" />
+                        <div className="w-2 h-2 rounded-full bg-sky-600 animate-ping" />
                       </div>
                     ) : slotsForDay.length === 0 ? (
                       <div className="p-6 text-center">
-                        <p className="text-[9px] font-black text-neutral-200 uppercase tracking-widest">Cerrado</p>
+                        <p className="text-[9px] font-black text-slate-200 uppercase tracking-widest">Cerrado</p>
                       </div>
                     ) : (
                       <div className="p-3 space-y-2">
@@ -803,7 +803,7 @@ export function AdminCalendar({
                                 key={slot}
                                 onClick={() => openBlockModal(day.date, slot, blocked)}
                                 className={cn(
-                                  "w-full text-left px-4 py-4 rounded-2xl border border-primary-200 text-primary-700 shadow-sm transition-all",
+                                  "w-full text-left px-4 py-4 rounded-2xl border border-slate-200 text-slate-700 shadow-sm transition-all",
                                   "hover:-translate-y-0.5 hover:shadow-md",
                                   pastClass
                                 )}
@@ -814,9 +814,9 @@ export function AdminCalendar({
                               >
                                 <div className="flex items-center justify-between mb-1">
                                   <span className="text-xs font-black tabular-nums tracking-tight opacity-70">{slot}</span>
-                                  <div className="w-1.5 h-1.5 rounded-full bg-primary-500" />
+                                  <div className="w-1.5 h-1.5 rounded-full bg-slate-500" />
                                 </div>
-                                <p className="text-[9px] font-black uppercase tracking-tight text-primary-700 truncate">
+                                <p className="text-[9px] font-black uppercase tracking-tight text-slate-700 truncate">
                                   {blocked.reason || 'BLOQUEADO'}
                                 </p>
                               </button>
@@ -827,14 +827,14 @@ export function AdminCalendar({
                             <div
                               key={slot}
                               className={cn(
-                                "group relative w-full p-3 rounded-2xl bg-card border border-neutral-200 transition-all",
+                                "group relative w-full p-3 rounded-2xl bg-card border border-slate-200 transition-all",
                                 "hover:-translate-y-0.5 hover:shadow-md",
                                 "border-l-4 border-success-500",
                                 pastClass
                               )}
                             >
                               <div className="flex items-center justify-between mb-2">
-                                <span className="text-xs font-black text-primary-900 tabular-nums tracking-tight">{slot}</span>
+                                <span className="text-xs font-black text-slate-900 tabular-nums tracking-tight">{slot}</span>
                                 <div className="w-1.5 h-1.5 rounded-full bg-success-500 opacity-80" />
                               </div>
                               <div className="grid grid-cols-1 gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto transition-opacity duration-150">
@@ -848,14 +848,14 @@ export function AdminCalendar({
                                       bookingTime: slot,
                                     })
                                   }
-                                  className="w-full py-2 bg-accent-50 text-[9px] font-black text-accent-700 uppercase tracking-[0.15em] rounded-lg hover:bg-accent-600 hover:text-white transition-all duration-150 hover:brightness-95"
+                                  className="w-full py-2 bg-sky-50 text-[9px] font-black text-sky-700 uppercase tracking-[0.15em] rounded-lg hover:bg-sky-600 hover:text-white transition-all duration-150 hover:brightness-95"
                                 >
                                   Reservar
                                 </button>
                                 <button
                                   type="button"
                                   onClick={() => openBlockModal(day.date, slot)}
-                                  className="w-full py-2 bg-primary-50 text-[9px] font-black text-primary-600 uppercase tracking-[0.15em] rounded-lg hover:bg-primary-900 hover:text-white transition-all duration-150 hover:brightness-95"
+                                  className="w-full py-2 bg-slate-50 text-[9px] font-black text-slate-600 uppercase tracking-[0.15em] rounded-lg hover:bg-slate-900 hover:text-white transition-all duration-150 hover:brightness-95"
                                 >
                                   Bloquear
                                 </button>
@@ -876,13 +876,13 @@ export function AdminCalendar({
       {blockModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div className="w-full max-w-md bg-white shadow-2xl rounded-2xl overflow-hidden">
-            <div className="px-6 py-4 border-b border-primary-100 bg-gradient-to-r from-primary-50 to-white">
+            <div className="px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-lg font-medium text-primary-900">
+                  <h2 className="text-lg font-medium text-slate-900">
                     {blockModal.isEdit ? 'Editar Bloqueo' : 'Bloquear Horario'}
                   </h2>
-                  <p className="text-sm text-primary-600 mt-0.5">
+                  <p className="text-sm text-slate-600 mt-0.5">
                     {new Date(blockModal.date + 'T12:00:00').toLocaleDateString('es-ES', {
                       weekday: 'long',
                       day: 'numeric',
@@ -892,7 +892,7 @@ export function AdminCalendar({
                 </div>
                 <button
                   onClick={() => setBlockModal(null)}
-                  className="p-2 rounded-lg hover:bg-primary-100 text-primary-400 hover:text-primary-600 transition"
+                  className="p-2 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -904,38 +904,38 @@ export function AdminCalendar({
             <div className="p-6 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-medium text-primary-700 mb-1.5">Inicio</label>
+                  <label className="block text-xs font-medium text-slate-700 mb-1.5">Inicio</label>
                   <input
                     type="time"
                     value={blockModal.startTime}
                     onChange={(e) => setBlockModal({ ...blockModal, startTime: e.target.value })}
-                    className="w-full px-3 py-2.5 border border-primary-200 rounded-lg bg-white text-primary-900 focus:outline-none focus:ring-2 focus:ring-accent-500/20 focus:border-accent-500"
+                    className="w-full px-3 py-2.5 border border-slate-200 rounded-lg bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-primary-700 mb-1.5">Fin</label>
+                  <label className="block text-xs font-medium text-slate-700 mb-1.5">Fin</label>
                   <input
                     type="time"
                     value={blockModal.endTime}
                     onChange={(e) => setBlockModal({ ...blockModal, endTime: e.target.value })}
-                    className="w-full px-3 py-2.5 border border-primary-200 rounded-lg bg-white text-primary-900 focus:outline-none focus:ring-2 focus:ring-accent-500/20 focus:border-accent-500"
+                    className="w-full px-3 py-2.5 border border-slate-200 rounded-lg bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-primary-700 mb-1.5">Motivo (opcional)</label>
+                <label className="block text-xs font-medium text-slate-700 mb-1.5">Motivo (opcional)</label>
                 <input
                   type="text"
                   value={blockModal.reason || ''}
                   onChange={(e) => setBlockModal({ ...blockModal, reason: e.target.value })}
                   placeholder="Ej: Cita médica, descanso..."
-                  className="w-full px-3 py-2.5 border border-primary-200 rounded-lg bg-white text-primary-900 focus:outline-none focus:ring-2 focus:ring-accent-500/20 focus:border-accent-500 placeholder:text-primary-400"
+                  className="w-full px-3 py-2.5 border border-slate-200 rounded-lg bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 placeholder:text-slate-400"
                 />
               </div>
             </div>
 
-            <div className="px-6 py-4 border-t border-primary-100 bg-primary-50/50 flex gap-3">
+            <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/50 flex gap-3">
               {blockModal.isEdit && (
                 <button
                   onClick={handleDeleteBlock}
@@ -949,14 +949,14 @@ export function AdminCalendar({
               <button
                 onClick={() => setBlockModal(null)}
                 disabled={savingBlock}
-                className="px-4 py-2.5 text-sm font-medium text-primary-700 bg-white border border-primary-200 hover:bg-primary-50 rounded-lg transition disabled:opacity-50"
+                className="px-4 py-2.5 text-sm font-medium text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg transition disabled:opacity-50"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleSaveBlock}
                 disabled={savingBlock}
-                className="px-4 py-2.5 text-sm font-medium text-white bg-accent-600 hover:bg-accent-700 rounded-lg transition disabled:opacity-50 flex items-center gap-2"
+                className="px-4 py-2.5 text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 rounded-lg transition disabled:opacity-50 flex items-center gap-2"
               >
                 {savingBlock && (
                   <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
@@ -978,11 +978,11 @@ export function AdminCalendar({
       {bookingModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div className="w-full max-w-lg bg-white shadow-2xl rounded-2xl overflow-hidden">
-            <div className="px-6 py-4 border-b border-primary-100 bg-gradient-to-r from-primary-50 to-white">
+            <div className="px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-lg font-medium text-primary-900">Reserva</h2>
-                  <p className="text-sm text-primary-600 mt-0.5">
+                  <h2 className="text-lg font-medium text-slate-900">Reserva</h2>
+                  <p className="text-sm text-slate-600 mt-0.5">
                     {new Date(bookingModal.booking.bookingDate + 'T12:00:00').toLocaleDateString('es-ES', {
                       weekday: 'long',
                       day: 'numeric',
@@ -993,7 +993,7 @@ export function AdminCalendar({
                 </div>
                 <button
                   onClick={() => setBookingModal(null)}
-                  className="p-2 rounded-lg hover:bg-primary-100 text-primary-400 hover:text-primary-600 transition"
+                  className="p-2 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1004,13 +1004,13 @@ export function AdminCalendar({
 
             <div className="p-6 space-y-4">
               <div className="grid grid-cols-2 gap-3">
-                <div className="p-3 bg-primary-50 rounded-lg">
-                  <p className="text-[11px] text-primary-600">Cliente</p>
-                  <p className="text-sm font-medium text-primary-900 truncate">{bookingModal.booking.clientName}</p>
+                <div className="p-3 bg-slate-50 rounded-lg">
+                  <p className="text-[11px] text-slate-600">Cliente</p>
+                  <p className="text-sm font-medium text-slate-900 truncate">{bookingModal.booking.clientName}</p>
                 </div>
-                <div className="p-3 bg-primary-50 rounded-lg">
-                  <p className="text-[11px] text-primary-600">Estado</p>
-                  <p className="text-sm font-medium text-primary-900 capitalize">{bookingModal.booking.status}</p>
+                <div className="p-3 bg-slate-50 rounded-lg">
+                  <p className="text-[11px] text-slate-600">Estado</p>
+                  <p className="text-sm font-medium text-slate-900 capitalize">{bookingModal.booking.status}</p>
                 </div>
               </div>
 
@@ -1019,7 +1019,7 @@ export function AdminCalendar({
                   <button
                     onClick={startReschedule}
                     disabled={bookingModal.booking.status === 'completed' || bookingModal.saving}
-                    className="px-4 py-2.5 text-sm font-medium text-white bg-accent-600 hover:bg-accent-700 rounded-lg transition disabled:opacity-50"
+                    className="px-4 py-2.5 text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 rounded-lg transition disabled:opacity-50"
                   >
                     Cambiar reserva
                   </button>
@@ -1031,14 +1031,14 @@ export function AdminCalendar({
                     Cancelar
                   </button>
                   {bookingModal.booking.status === 'completed' && (
-                    <p className="text-xs text-primary-500">Esta reserva está completada; no se puede modificar desde el calendario.</p>
+                    <p className="text-xs text-slate-500">Esta reserva está completada; no se puede modificar desde el calendario.</p>
                   )}
                 </div>
               ) : (
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-medium text-primary-700 mb-1.5">Nueva fecha</label>
+                      <label className="block text-xs font-medium text-slate-700 mb-1.5">Nueva fecha</label>
                       <input
                         type="date"
                         value={bookingModal.newDate}
@@ -1048,15 +1048,15 @@ export function AdminCalendar({
                           setBookingModal((prev) => (prev ? { ...prev, newDate, newTime: '' } : prev));
                           await loadAvailableSlotsForReschedule(bookingModal.booking, newDate);
                         }}
-                        className="w-full px-3 py-2.5 border border-primary-200 rounded-lg bg-white text-primary-900 focus:outline-none focus:ring-2 focus:ring-accent-500/20 focus:border-accent-500"
+                        className="w-full px-3 py-2.5 border border-slate-200 rounded-lg bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-primary-700 mb-1.5">Nueva hora</label>
+                      <label className="block text-xs font-medium text-slate-700 mb-1.5">Nueva hora</label>
                       <select
                         value={bookingModal.newTime}
                         onChange={(e) => setBookingModal((prev) => (prev ? { ...prev, newTime: e.target.value } : prev))}
-                        className="w-full px-3 py-2.5 border border-primary-200 rounded-lg bg-white text-primary-900 focus:outline-none focus:ring-2 focus:ring-accent-500/20 focus:border-accent-500"
+                        className="w-full px-3 py-2.5 border border-slate-200 rounded-lg bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500"
                       >
                         <option value="">Selecciona una hora</option>
                         {bookingModal.slots
@@ -1071,7 +1071,7 @@ export function AdminCalendar({
                   </div>
 
                   {bookingModal.loadingSlots ? (
-                    <div className="flex items-center gap-2 text-sm text-primary-600">
+                    <div className="flex items-center gap-2 text-sm text-slate-600">
                       <Loading size="sm" />
                       Cargando horarios...
                     </div>
@@ -1080,7 +1080,7 @@ export function AdminCalendar({
                       {bookingModal.slotsError}
                     </div>
                   ) : bookingModal.slots.filter((s) => s.available).length === 0 ? (
-                    <div className="p-3 bg-primary-50 border border-primary-100 rounded-lg text-sm text-primary-700">
+                    <div className="p-3 bg-slate-50 border border-slate-100 rounded-lg text-sm text-slate-700">
                       No hay horarios disponibles para esta fecha.
                     </div>
                   ) : null}
@@ -1089,7 +1089,7 @@ export function AdminCalendar({
                     <button
                       onClick={() => setBookingModal((prev) => (prev ? { ...prev, mode: 'view' } : prev))}
                       disabled={bookingModal.saving}
-                      className="px-4 py-2.5 text-sm font-medium text-primary-700 bg-white border border-primary-200 hover:bg-primary-50 rounded-lg transition disabled:opacity-50"
+                      className="px-4 py-2.5 text-sm font-medium text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg transition disabled:opacity-50"
                     >
                       Volver
                     </button>
@@ -1097,7 +1097,7 @@ export function AdminCalendar({
                     <button
                       onClick={saveRescheduleFromModal}
                       disabled={bookingModal.saving || !bookingModal.newDate || !bookingModal.newTime}
-                      className="px-4 py-2.5 text-sm font-medium text-white bg-accent-600 hover:bg-accent-700 rounded-lg transition disabled:opacity-50"
+                      className="px-4 py-2.5 text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 rounded-lg transition disabled:opacity-50"
                     >
                       Guardar cambios
                     </button>

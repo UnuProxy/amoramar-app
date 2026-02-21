@@ -143,13 +143,13 @@ const Drawer: React.FC<DrawerProps> = ({ isOpen, onClose, title, children }) => 
     <div className="fixed inset-0 z-50 lg:hidden">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
       <div className="absolute inset-y-0 right-0 w-full max-w-sm bg-white shadow-2xl animate-in slide-in-from-right duration-300">
-        <div className="flex items-center justify-between p-4 border-b border-stone-200">
-          <h2 className="text-lg font-bold text-stone-900">{title}</h2>
+        <div className="flex items-center justify-between p-4 border-b border-slate-200">
+          <h2 className="text-lg font-bold text-slate-900">{title}</h2>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-stone-100 rounded-lg transition-colors"
+            className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
           >
-            <X className="w-5 h-5 text-stone-500" />
+            <X className="w-5 h-5 text-slate-500" />
           </button>
         </div>
         <div className="overflow-y-auto h-[calc(100vh-65px)] p-4">
@@ -205,30 +205,30 @@ const MiniCalendar: React.FC<MiniCalendarProps> = ({
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-stone-200 p-4 lg:p-5 shadow-sm">
+    <div className="bg-white rounded-2xl border border-slate-200 p-4 lg:p-5 shadow-sm">
       {/* Month Navigation */}
       <div className="flex items-center justify-between mb-4">
         <button
           onClick={prevMonth}
-          className="p-2 hover:bg-stone-100 rounded-lg transition-colors active:bg-stone-200"
+          className="p-2 hover:bg-slate-100 rounded-lg transition-colors active:bg-slate-200"
         >
-          <ChevronLeft className="w-5 h-5 text-stone-600" />
+          <ChevronLeft className="w-5 h-5 text-slate-600" />
         </button>
-        <h3 className="text-sm font-semibold text-stone-900 tracking-wide">
+        <h3 className="text-sm font-semibold text-slate-900 tracking-wide">
           {MONTHS_BY_INDEX[language][currentMonth.getMonth()]} {currentMonth.getFullYear()}
         </h3>
         <button
           onClick={nextMonth}
-          className="p-2 hover:bg-stone-100 rounded-lg transition-colors active:bg-stone-200"
+          className="p-2 hover:bg-slate-100 rounded-lg transition-colors active:bg-slate-200"
         >
-          <ChevronRight className="w-5 h-5 text-stone-600" />
+          <ChevronRight className="w-5 h-5 text-slate-600" />
         </button>
       </div>
 
       {/* Day Headers */}
       <div className="grid grid-cols-7 mb-2">
-        {WEEKDAY_HEADERS[language].map((day) => (
-          <div key={day} className="text-center text-[10px] font-bold text-stone-400 uppercase tracking-wider py-1">
+        {WEEKDAY_HEADERS[language].map((day, idx) => (
+          <div key={`${day}-${idx}`} className="text-center text-[10px] font-bold text-slate-400 uppercase tracking-wider py-1">
             {day}
           </div>
         ))}
@@ -255,12 +255,12 @@ const MiniCalendar: React.FC<MiniCalendarProps> = ({
                 'aspect-square rounded-lg text-xs font-medium transition-all relative',
                 'active:scale-95',
                 isSelected
-                  ? 'bg-stone-900 text-white ring-2 ring-stone-900 ring-offset-2'
+                  ? 'bg-slate-900 text-white ring-2 ring-slate-900 ring-offset-2'
                   : isTodayDate
                   ? 'ring-2 ring-amber-400 ring-offset-1 bg-amber-50 text-amber-700'
                   : count > 0
                   ? getBookingIntensity(count)
-                  : 'text-stone-600 hover:bg-stone-50 active:bg-stone-100',
+                  : 'text-slate-600 hover:bg-slate-50 active:bg-slate-100',
                 hasPastUnpaid && !isSelected && 'ring-2 ring-rose-500 ring-offset-1'
               )}
             >
@@ -268,7 +268,7 @@ const MiniCalendar: React.FC<MiniCalendarProps> = ({
               {count > 0 && !isSelected && (
                 <span className={cn(
                   "absolute -top-1 -right-1 w-4 h-4 text-white text-[9px] font-bold rounded-full flex items-center justify-center",
-                  hasPastUnpaid ? "bg-rose-600" : "bg-stone-900"
+                  hasPastUnpaid ? "bg-rose-600" : "bg-slate-900"
                 )}>
                   {count > 9 ? '9+' : count}
                 </span>
@@ -279,8 +279,8 @@ const MiniCalendar: React.FC<MiniCalendarProps> = ({
       </div>
 
       {/* Legend */}
-      <div className="mt-4 pt-4 border-t border-stone-100 space-y-3">
-        <div className="flex items-center justify-between text-[10px] text-stone-500">
+      <div className="mt-4 pt-4 border-t border-slate-100 space-y-3">
+        <div className="flex items-center justify-between text-[10px] text-slate-500">
           <div className="flex items-center gap-1">
             <div className="w-3 h-3 rounded bg-emerald-100" />
             <span>1-2</span>
@@ -335,9 +335,9 @@ const MobileWeekStrip: React.FC<MobileWeekStripProps> = ({
     <div className="flex items-center gap-2">
       <button
         onClick={onPrevWeek}
-        className="p-2 hover:bg-stone-100 rounded-lg transition-colors flex-shrink-0 active:bg-stone-200"
+        className="p-2 hover:bg-slate-100 rounded-lg transition-colors flex-shrink-0 active:bg-slate-200"
       >
-        <ChevronLeft className="w-5 h-5 text-stone-600" />
+        <ChevronLeft className="w-5 h-5 text-slate-600" />
       </button>
 
       <div className="flex-1 overflow-x-auto scrollbar-hide">
@@ -357,23 +357,23 @@ const MobileWeekStrip: React.FC<MobileWeekStripProps> = ({
                   'flex flex-col items-center py-2 px-3 rounded-xl transition-all relative min-w-[52px]',
                   'border-2 active:scale-95',
                   isSelected
-                    ? 'bg-stone-900 text-white border-stone-900 shadow-lg'
+                    ? 'bg-slate-900 text-white border-slate-900 shadow-lg'
                     : isTodayDate
                     ? 'bg-amber-50 border-amber-300 text-amber-700'
                     : hasPastUnpaid
                     ? 'bg-rose-50 border-rose-300 text-rose-700'
-                    : 'bg-white border-stone-200 text-stone-600 active:border-stone-400'
+                    : 'bg-white border-slate-200 text-slate-600 active:border-slate-400'
                 )}
               >
                 <span className={cn(
                   'text-[9px] font-bold uppercase tracking-wider',
-                  isSelected ? 'text-stone-400' : 'text-stone-400'
+                  isSelected ? 'text-slate-400' : 'text-slate-400'
                 )}>
                   {DAYS_SHORT_BY_INDEX[language][day.getDay()]}
                 </span>
                 <span className={cn(
                   'text-lg font-bold',
-                  isSelected ? 'text-white' : 'text-stone-900'
+                  isSelected ? 'text-white' : 'text-slate-900'
                 )}>
                   {day.getDate()}
                 </span>
@@ -397,9 +397,9 @@ const MobileWeekStrip: React.FC<MobileWeekStripProps> = ({
 
       <button
         onClick={onNextWeek}
-        className="p-2 hover:bg-stone-100 rounded-lg transition-colors flex-shrink-0 active:bg-stone-200"
+        className="p-2 hover:bg-slate-100 rounded-lg transition-colors flex-shrink-0 active:bg-slate-200"
       >
-        <ChevronRight className="w-5 h-5 text-stone-600" />
+        <ChevronRight className="w-5 h-5 text-slate-600" />
       </button>
     </div>
   );
@@ -433,9 +433,9 @@ const DesktopWeekStrip: React.FC<DesktopWeekStripProps> = ({
     <div className="flex items-center gap-2">
       <button
         onClick={onPrevWeek}
-        className="p-3 hover:bg-stone-100 rounded-xl transition-colors border border-stone-200"
+        className="p-3 hover:bg-slate-100 rounded-xl transition-colors border border-slate-200"
       >
-        <ChevronLeft className="w-5 h-5 text-stone-600" />
+        <ChevronLeft className="w-5 h-5 text-slate-600" />
       </button>
 
       <div className="flex-1 grid grid-cols-7 gap-2">
@@ -454,23 +454,23 @@ const DesktopWeekStrip: React.FC<DesktopWeekStripProps> = ({
                 'flex flex-col items-center py-3 px-2 rounded-xl transition-all relative',
                 'border-2',
                 isSelected
-                  ? 'bg-stone-900 text-white border-stone-900 shadow-lg'
+                  ? 'bg-slate-900 text-white border-slate-900 shadow-lg'
                   : isTodayDate
                   ? 'bg-amber-50 border-amber-300 text-amber-700'
                   : hasPastUnpaid
                   ? 'bg-rose-50 border-rose-300 text-rose-700'
-                  : 'bg-white border-stone-200 hover:border-stone-400 text-stone-600'
+                  : 'bg-white border-slate-200 hover:border-slate-400 text-slate-600'
               )}
             >
               <span className={cn(
                 'text-[10px] font-bold uppercase tracking-wider',
-                isSelected ? 'text-stone-400' : 'text-stone-400'
+                isSelected ? 'text-slate-400' : 'text-slate-400'
               )}>
                   {DAYS_SHORT_BY_INDEX[language][day.getDay()]}
                 </span>
               <span className={cn(
                 'text-xl font-bold mt-1',
-                isSelected ? 'text-white' : 'text-stone-900'
+                isSelected ? 'text-white' : 'text-slate-900'
               )}>
                 {day.getDate()}
               </span>
@@ -493,9 +493,9 @@ const DesktopWeekStrip: React.FC<DesktopWeekStripProps> = ({
 
       <button
         onClick={onNextWeek}
-        className="p-3 hover:bg-stone-100 rounded-xl transition-colors border border-stone-200"
+        className="p-3 hover:bg-slate-100 rounded-xl transition-colors border border-slate-200"
       >
-        <ChevronRight className="w-5 h-5 text-stone-600" />
+        <ChevronRight className="w-5 h-5 text-slate-600" />
       </button>
     </div>
   );
@@ -524,7 +524,7 @@ const BookingCard: React.FC<BookingCardProps> = ({
       case 'confirmed':
         return { label: t('confirmed'), bg: 'bg-emerald-500', text: 'text-white' };
       case 'completed':
-        return { label: t('completed'), bg: 'bg-stone-700', text: 'text-white' };
+        return { label: t('completed'), bg: 'bg-slate-700', text: 'text-white' };
       case 'cancelled':
         return { label: t('cancelled'), bg: 'bg-red-500', text: 'text-white' };
       default:
@@ -537,7 +537,7 @@ const BookingCard: React.FC<BookingCardProps> = ({
       return { label: t('paid'), color: 'text-emerald-600' };
     }
     if (booking.paymentStatus === 'refunded') {
-      return { label: t('refunded'), color: 'text-stone-500' };
+      return { label: t('refunded'), color: 'text-slate-500' };
     }
     if (booking.paymentStatus === 'failed') {
       return { label: t('failed'), color: 'text-red-500' };
@@ -559,31 +559,31 @@ const BookingCard: React.FC<BookingCardProps> = ({
     return (
       <Link
         href={`/dashboard/bookings/${booking.id}`}
-        className="group flex items-center gap-3 p-3 lg:p-4 bg-white rounded-xl border border-stone-200 hover:border-stone-400 hover:shadow-md transition-all active:bg-stone-50"
+        className="group flex items-center gap-3 p-3 lg:p-4 bg-white rounded-xl border border-slate-200 hover:border-slate-400 hover:shadow-md transition-all active:bg-slate-50"
       >
         <div className="flex-shrink-0 w-14 lg:w-16 text-center">
-          <div className="text-base lg:text-lg font-bold text-stone-900">{formatTime(booking.bookingTime)}</div>
+          <div className="text-base lg:text-lg font-bold text-slate-900">{formatTime(booking.bookingTime)}</div>
         </div>
         <div className="flex-1 min-w-0">
-          <div className="font-semibold text-stone-900 truncate text-sm lg:text-base">{booking.clientName || t('no_name')}</div>
-          <div className="text-xs lg:text-sm text-stone-500 truncate">{serviceName}</div>
+          <div className="font-semibold text-slate-900 truncate text-sm lg:text-base">{booking.clientName || t('no_name')}</div>
+          <div className="text-xs lg:text-sm text-slate-500 truncate">{serviceName}</div>
         </div>
         <div className="flex-shrink-0 flex items-center gap-2">
           <span className={cn('px-2 lg:px-3 py-1 rounded-full text-[9px] lg:text-[10px] font-bold uppercase tracking-wide', status.bg, status.text)}>
             {status.label}
           </span>
-          <ArrowRight className="w-4 h-4 text-stone-400 group-hover:text-stone-600 group-hover:translate-x-1 transition-all hidden sm:block" />
+          <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-slate-600 group-hover:translate-x-1 transition-all hidden sm:block" />
         </div>
       </Link>
     );
   }
 
   return (
-    <div className="bg-white rounded-2xl border border-stone-200 overflow-hidden hover:shadow-lg transition-shadow">
+    <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden hover:shadow-lg transition-shadow">
       {/* Time Header */}
-      <div className="bg-stone-900 px-4 lg:px-5 py-3 flex items-center justify-between">
+      <div className="bg-slate-900 px-4 lg:px-5 py-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Clock className="w-4 h-4 text-stone-400" />
+          <Clock className="w-4 h-4 text-slate-400" />
           <span className="text-base lg:text-lg font-bold text-white">{formatTime(booking.bookingTime)}</span>
         </div>
         <span className={cn('px-2 lg:px-3 py-1 rounded-full text-[9px] lg:text-[10px] font-bold uppercase tracking-wide', status.bg, status.text)}>
@@ -595,36 +595,36 @@ const BookingCard: React.FC<BookingCardProps> = ({
       <div className="p-4 lg:p-5 space-y-3 lg:space-y-4">
         {/* Client */}
         <div className="flex items-start gap-3">
-          <div className="w-9 h-9 lg:w-10 lg:h-10 rounded-full bg-stone-100 flex items-center justify-center flex-shrink-0">
-            <User className="w-4 h-4 lg:w-5 lg:h-5 text-stone-500" />
+          <div className="w-9 h-9 lg:w-10 lg:h-10 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0">
+            <User className="w-4 h-4 lg:w-5 lg:h-5 text-slate-500" />
           </div>
           <div className="min-w-0">
-            <div className="font-semibold text-stone-900 text-sm lg:text-base truncate">{booking.clientName || t('no_name')}</div>
-            <div className="text-xs lg:text-sm text-stone-500 truncate">{booking.clientEmail}</div>
+            <div className="font-semibold text-slate-900 text-sm lg:text-base truncate">{booking.clientName || t('no_name')}</div>
+            <div className="text-xs lg:text-sm text-slate-500 truncate">{booking.clientEmail}</div>
             {booking.clientPhone && (
-              <div className="text-xs lg:text-sm text-stone-500">{booking.clientPhone}</div>
+              <div className="text-xs lg:text-sm text-slate-500">{booking.clientPhone}</div>
             )}
           </div>
         </div>
 
         {/* Service */}
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 lg:w-10 lg:h-10 rounded-full bg-stone-100 flex items-center justify-center flex-shrink-0">
-            <Scissors className="w-4 h-4 lg:w-5 lg:h-5 text-stone-500" />
+          <div className="w-9 h-9 lg:w-10 lg:h-10 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0">
+            <Scissors className="w-4 h-4 lg:w-5 lg:h-5 text-slate-500" />
           </div>
           <div className="min-w-0">
-            <div className="font-semibold text-stone-900 text-sm lg:text-base truncate">{serviceName}</div>
-            <div className="text-xs lg:text-sm text-stone-500">{t('with')} {employeeName}</div>
+            <div className="font-semibold text-slate-900 text-sm lg:text-base truncate">{serviceName}</div>
+            <div className="text-xs lg:text-sm text-slate-500">{t('with')} {employeeName}</div>
           </div>
         </div>
 
         {/* Payment & Meta */}
-        <div className="flex items-center justify-between pt-3 border-t border-stone-100">
+        <div className="flex items-center justify-between pt-3 border-t border-slate-100">
           <div className="flex items-center gap-2">
-            <CreditCard className="w-4 h-4 text-stone-400" />
+            <CreditCard className="w-4 h-4 text-slate-400" />
             <span className={cn('text-xs lg:text-sm font-medium', payment.color)}>{payment.label}</span>
           </div>
-          <div className="text-[9px] lg:text-[10px] text-stone-400 uppercase tracking-wide truncate ml-2">
+          <div className="text-[9px] lg:text-[10px] text-slate-400 uppercase tracking-wide truncate ml-2">
             {t('by')}: {getCreatedByLabel()}
           </div>
         </div>
@@ -634,7 +634,7 @@ const BookingCard: React.FC<BookingCardProps> = ({
       <div className="px-4 lg:px-5 pb-4 lg:pb-5">
         <Link
           href={`/dashboard/bookings/${booking.id}`}
-          className="flex items-center justify-center gap-2 w-full py-2.5 lg:py-3 bg-stone-100 hover:bg-stone-200 active:bg-stone-300 rounded-xl text-sm font-semibold text-stone-700 transition-colors"
+          className="flex items-center justify-center gap-2 w-full py-2.5 lg:py-3 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 rounded-xl text-sm font-semibold text-slate-700 transition-colors"
         >
           {t('view_details')}
           <ArrowRight className="w-4 h-4" />
@@ -694,12 +694,12 @@ const DatePickerModal: React.FC<DatePickerModalProps> = ({
       <div className="relative bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl w-full sm:max-w-md p-5 sm:p-6 animate-in slide-in-from-bottom sm:fade-in sm:zoom-in-95 duration-300 max-h-[85vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-5 sm:mb-6">
-          <h2 className="text-lg sm:text-xl font-bold text-stone-900">{t('select_date')}</h2>
+          <h2 className="text-lg sm:text-xl font-bold text-slate-900">{t('select_date')}</h2>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-stone-100 rounded-lg transition-colors"
+            className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
           >
-            <X className="w-5 h-5 text-stone-500" />
+            <X className="w-5 h-5 text-slate-500" />
           </button>
         </div>
 
@@ -711,11 +711,11 @@ const DatePickerModal: React.FC<DatePickerModalProps> = ({
               newDate.setMonth(newDate.getMonth() - 1);
               setViewDate(newDate);
             }}
-            className="p-2 hover:bg-stone-100 rounded-lg transition-colors active:bg-stone-200"
+            className="p-2 hover:bg-slate-100 rounded-lg transition-colors active:bg-slate-200"
           >
-            <ChevronLeft className="w-5 h-5 text-stone-600" />
+            <ChevronLeft className="w-5 h-5 text-slate-600" />
           </button>
-          <h3 className="text-base sm:text-lg font-semibold text-stone-900">
+          <h3 className="text-base sm:text-lg font-semibold text-slate-900">
             {MONTHS_BY_INDEX[language][viewDate.getMonth()]} {viewDate.getFullYear()}
           </h3>
           <button
@@ -724,16 +724,16 @@ const DatePickerModal: React.FC<DatePickerModalProps> = ({
               newDate.setMonth(newDate.getMonth() + 1);
               setViewDate(newDate);
             }}
-            className="p-2 hover:bg-stone-100 rounded-lg transition-colors active:bg-stone-200"
+            className="p-2 hover:bg-slate-100 rounded-lg transition-colors active:bg-slate-200"
           >
-            <ChevronRight className="w-5 h-5 text-stone-600" />
+            <ChevronRight className="w-5 h-5 text-slate-600" />
           </button>
         </div>
 
         {/* Day Headers */}
         <div className="grid grid-cols-7 mb-2">
           {WEEKDAY_HEADERS[language].map((day) => (
-            <div key={day} className="text-center text-xs font-bold text-stone-400 uppercase tracking-wider py-2">
+            <div key={day} className="text-center text-xs font-bold text-slate-400 uppercase tracking-wider py-2">
               {day}
             </div>
           ))}
@@ -756,10 +756,10 @@ const DatePickerModal: React.FC<DatePickerModalProps> = ({
                 className={cn(
                   'aspect-square rounded-xl text-sm font-semibold transition-all active:scale-95',
                   isSelected
-                    ? 'bg-stone-900 text-white'
+                    ? 'bg-slate-900 text-white'
                     : isTodayDate
                     ? 'bg-amber-100 text-amber-700 ring-2 ring-amber-300'
-                    : 'text-stone-700 hover:bg-stone-100 active:bg-stone-200'
+                    : 'text-slate-700 hover:bg-slate-100 active:bg-slate-200'
                 )}
               >
                 {day.getDate()}
@@ -769,10 +769,10 @@ const DatePickerModal: React.FC<DatePickerModalProps> = ({
         </div>
 
         {/* Quick Actions */}
-        <div className="mt-5 sm:mt-6 pt-5 sm:pt-6 border-t border-stone-100 flex gap-2">
+        <div className="mt-5 sm:mt-6 pt-5 sm:pt-6 border-t border-slate-100 flex gap-2">
           <button
             onClick={() => handleSelect(new Date())}
-            className="flex-1 py-3 bg-stone-100 hover:bg-stone-200 active:bg-stone-300 rounded-xl text-sm font-semibold text-stone-700 transition-colors"
+            className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 rounded-xl text-sm font-semibold text-slate-700 transition-colors"
           >
             {t('today')}
           </button>
@@ -782,7 +782,7 @@ const DatePickerModal: React.FC<DatePickerModalProps> = ({
               tomorrow.setDate(tomorrow.getDate() + 1);
               handleSelect(tomorrow);
             }}
-            className="flex-1 py-3 bg-stone-100 hover:bg-stone-200 active:bg-stone-300 rounded-xl text-sm font-semibold text-stone-700 transition-colors"
+            className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 rounded-xl text-sm font-semibold text-slate-700 transition-colors"
           >
             {t('tomorrow')}
           </button>
@@ -824,27 +824,27 @@ const FiltersContent: React.FC<FiltersContentProps> = ({
     <div className="space-y-5">
       {/* Search */}
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
         <input
           type="text"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           placeholder={t('search_client_service')}
-          className="w-full pl-10 pr-4 py-3 bg-stone-50 border border-stone-200 rounded-xl text-sm placeholder:text-stone-400 focus:outline-none focus:border-stone-400"
+          className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm placeholder:text-slate-400 focus:outline-none focus:border-slate-400"
         />
         {searchTerm && (
           <button
             onClick={() => setSearchTerm('')}
-            className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-stone-200 rounded"
+            className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-200 rounded"
           >
-            <X className="w-3 h-3 text-stone-400" />
+            <X className="w-3 h-3 text-slate-400" />
           </button>
         )}
       </div>
 
       {/* Status Filter */}
       <div className="space-y-2">
-        <label className="text-[10px] font-bold text-stone-500 uppercase tracking-wider">{t('status')}</label>
+        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{t('status')}</label>
         <div className="flex flex-wrap gap-2">
           {[
             { id: 'all', label: t('all') },
@@ -859,8 +859,8 @@ const FiltersContent: React.FC<FiltersContentProps> = ({
               className={cn(
                 'px-3 py-2 rounded-lg text-xs font-semibold transition-colors active:scale-95',
                 statusFilter === status.id
-                  ? 'bg-stone-900 text-white'
-                  : 'bg-stone-100 text-stone-600 hover:bg-stone-200 active:bg-stone-300'
+                  ? 'bg-slate-900 text-white'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200 active:bg-slate-300'
               )}
             >
               {status.label}
@@ -871,11 +871,11 @@ const FiltersContent: React.FC<FiltersContentProps> = ({
 
       {/* Employee Filter */}
       <div className="space-y-2">
-        <label className="text-[10px] font-bold text-stone-500 uppercase tracking-wider">{t('employee')}</label>
+        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{t('employee')}</label>
         <select
           value={employeeFilter}
           onChange={(e) => setEmployeeFilter(e.target.value)}
-          className="w-full px-3 py-3 bg-stone-50 border border-stone-200 rounded-xl text-sm focus:outline-none focus:border-stone-400"
+          className="w-full px-3 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-slate-400"
         >
           <option value="all">{t('all')}</option>
           {employees.map((emp) => (
@@ -1115,17 +1115,17 @@ export default function BookingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-stone-50">
+    <div className="min-h-screen bg-slate-50">
       {/* ================================================================== */}
       {/* HEADER */}
       {/* ================================================================== */}
-      <header className="bg-white border-b border-stone-200 sticky top-0 z-20">
+      <header className="bg-white border-b border-slate-200 sticky top-0 z-20">
         <div className="max-w-[1600px] mx-auto px-4 lg:px-6 py-3 lg:py-4">
           {/* Mobile Header */}
           <div className="flex lg:hidden items-center justify-between">
             <div>
-              <h1 className="text-xl font-bold text-stone-900">{t('bookings')}</h1>
-              <p className="text-xs text-stone-500">{formatDateShort(selectedDate, language)}</p>
+              <h1 className="text-xl font-bold text-slate-900">{t('bookings')}</h1>
+              <p className="text-xs text-slate-500">{formatDateShort(selectedDate, language)}</p>
             </div>
             <div className="flex items-center gap-2">
               {!isToday(selectedDate) && (
@@ -1138,15 +1138,15 @@ export default function BookingsPage() {
               )}
               <button
                 onClick={() => setShowCalendarDrawer(true)}
-                className="p-2.5 bg-stone-100 rounded-lg"
+                className="p-2.5 bg-slate-100 rounded-lg"
               >
-                <CalendarDays className="w-5 h-5 text-stone-600" />
+                <CalendarDays className="w-5 h-5 text-slate-600" />
               </button>
               <button
                 onClick={() => setShowFiltersDrawer(true)}
                 className={cn(
                   'p-2.5 rounded-lg relative',
-                  hasActiveFilters ? 'bg-stone-900 text-white' : 'bg-stone-100 text-stone-600'
+                  hasActiveFilters ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600'
                 )}
               >
                 <Filter className="w-5 h-5" />
@@ -1161,8 +1161,8 @@ export default function BookingsPage() {
           <div className="hidden lg:flex items-center justify-between">
             <div className="flex items-center gap-6">
               <div>
-                <h1 className="text-2xl font-bold text-stone-900 tracking-tight">{t('bookings')}</h1>
-                <p className="text-sm text-stone-500">{formatDateLong(selectedDate, language)}</p>
+                <h1 className="text-2xl font-bold text-slate-900 tracking-tight">{t('bookings')}</h1>
+                <p className="text-sm text-slate-500">{formatDateLong(selectedDate, language)}</p>
               </div>
               {!isToday(selectedDate) && (
                 <button
@@ -1176,19 +1176,19 @@ export default function BookingsPage() {
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setShowDatePicker(true)}
-                className="flex items-center gap-2 px-4 py-2.5 bg-stone-100 hover:bg-stone-200 rounded-xl text-sm font-semibold text-stone-700 transition-colors"
+                className="flex items-center gap-2 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 rounded-xl text-sm font-semibold text-slate-700 transition-colors"
               >
                 <Calendar className="w-4 h-4" />
                 {t('go_to_date')}
               </button>
-              <div className="flex items-center bg-stone-100 rounded-xl p-1">
+              <div className="flex items-center bg-slate-100 rounded-xl p-1">
                 <button
                   onClick={() => setViewMode('day')}
                   className={cn(
                     'px-4 py-2 rounded-lg text-sm font-semibold transition-colors',
                     viewMode === 'day'
-                      ? 'bg-white text-stone-900 shadow-sm'
-                      : 'text-stone-500 hover:text-stone-700'
+                      ? 'bg-white text-slate-900 shadow-sm'
+                      : 'text-slate-500 hover:text-slate-700'
                   )}
                 >
                   {t('day')}
@@ -1198,8 +1198,8 @@ export default function BookingsPage() {
                   className={cn(
                     'px-4 py-2 rounded-lg text-sm font-semibold transition-colors',
                     viewMode === 'week'
-                      ? 'bg-white text-stone-900 shadow-sm'
-                      : 'text-stone-500 hover:text-stone-700'
+                      ? 'bg-white text-slate-900 shadow-sm'
+                      : 'text-slate-500 hover:text-slate-700'
                   )}
                 >
                   {t('week')}
@@ -1207,7 +1207,7 @@ export default function BookingsPage() {
               </div>
               <Link
                 href="/dashboard"
-                className="px-4 py-2.5 border border-stone-200 hover:border-stone-400 rounded-xl text-sm font-semibold text-stone-600 transition-colors"
+                className="px-4 py-2.5 border border-slate-200 hover:border-slate-400 rounded-xl text-sm font-semibold text-slate-600 transition-colors"
               >
                 {t('dashboard')}
               </Link>
@@ -1219,15 +1219,15 @@ export default function BookingsPage() {
       {/* ================================================================== */}
       {/* MOBILE VIEW TOGGLE */}
       {/* ================================================================== */}
-      <div className="lg:hidden bg-white border-b border-stone-200 px-4 py-2">
-        <div className="flex items-center justify-center bg-stone-100 rounded-xl p-1">
+      <div className="lg:hidden bg-white border-b border-slate-200 px-4 py-2">
+        <div className="flex items-center justify-center bg-slate-100 rounded-xl p-1">
           <button
             onClick={() => setViewMode('day')}
             className={cn(
               'flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-colors',
               viewMode === 'day'
-                ? 'bg-white text-stone-900 shadow-sm'
-                : 'text-stone-500'
+                ? 'bg-white text-slate-900 shadow-sm'
+                : 'text-slate-500'
             )}
           >
             <LayoutGrid className="w-4 h-4" />
@@ -1238,8 +1238,8 @@ export default function BookingsPage() {
             className={cn(
               'flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-colors',
               viewMode === 'week'
-                ? 'bg-white text-stone-900 shadow-sm'
-                : 'text-stone-500'
+                ? 'bg-white text-slate-900 shadow-sm'
+                : 'text-slate-500'
             )}
           >
             <List className="w-4 h-4" />
@@ -1251,7 +1251,7 @@ export default function BookingsPage() {
       {/* ================================================================== */}
       {/* WEEK STRIP */}
       {/* ================================================================== */}
-      <div className="bg-white border-b border-stone-200">
+      <div className="bg-white border-b border-slate-200">
         <div className="max-w-[1600px] mx-auto px-4 lg:px-6 py-3 lg:py-4">
           {/* Mobile Week Strip */}
           <div className="lg:hidden">
@@ -1296,8 +1296,8 @@ export default function BookingsPage() {
               onMonthChange={setCalendarMonth}
             />
 
-            <div className="bg-white rounded-2xl border border-stone-200 p-5 shadow-sm">
-              <h3 className="text-sm font-semibold text-stone-900 flex items-center gap-2 mb-4">
+            <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+              <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2 mb-4">
                 <Filter className="w-4 h-4" />
                 {t('filters')}
               </h3>
@@ -1315,8 +1315,8 @@ export default function BookingsPage() {
             </div>
 
             {/* Keyboard Shortcuts */}
-            <div className="bg-stone-100 rounded-2xl p-4 text-[11px] text-stone-500 space-y-1">
-              <div className="font-semibold text-stone-700 mb-2">{t('keyboard_shortcuts')}</div>
+            <div className="bg-slate-100 rounded-2xl p-4 text-[11px] text-slate-500 space-y-1">
+              <div className="font-semibold text-slate-700 mb-2">{t('keyboard_shortcuts')}</div>
               <div className="flex justify-between">
                 <span>{t('previous_next_day')}</span>
                 <span className="font-mono">← →</span>
@@ -1337,32 +1337,32 @@ export default function BookingsPage() {
           {/* ============================================================== */}
           <main className="flex-1 min-w-0">
             {/* Stats Bar */}
-            <div className="bg-white rounded-2xl border border-stone-200 p-3 lg:p-4 mb-4 lg:mb-6">
+            <div className="bg-white rounded-2xl border border-slate-200 p-3 lg:p-4 mb-4 lg:mb-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4 lg:gap-6 overflow-x-auto">
                   <div className="flex-shrink-0">
-                    <div className="text-xl lg:text-2xl font-bold text-stone-900">{filteredBookings.length}</div>
-                    <div className="text-[10px] lg:text-xs text-stone-500 whitespace-nowrap">
+                    <div className="text-xl lg:text-2xl font-bold text-slate-900">{filteredBookings.length}</div>
+                    <div className="text-[10px] lg:text-xs text-slate-500 whitespace-nowrap">
                       {viewMode === 'day' ? t('today').toLowerCase() : t('week').toLowerCase()}
                     </div>
                   </div>
-                  <div className="w-px h-8 lg:h-10 bg-stone-200 flex-shrink-0" />
+                  <div className="w-px h-8 lg:h-10 bg-slate-200 flex-shrink-0" />
                   <div className="flex-shrink-0">
                     <div className="text-xl lg:text-2xl font-bold text-emerald-600">
                       {filteredBookings.filter((b) => b.status === 'confirmed').length}
                     </div>
-                    <div className="text-[10px] lg:text-xs text-stone-500">{t('confirmed').toLowerCase()}</div>
+                    <div className="text-[10px] lg:text-xs text-slate-500">{t('confirmed').toLowerCase()}</div>
                   </div>
-                  <div className="w-px h-8 lg:h-10 bg-stone-200 flex-shrink-0" />
+                  <div className="w-px h-8 lg:h-10 bg-slate-200 flex-shrink-0" />
                   <div className="flex-shrink-0">
                     <div className="text-xl lg:text-2xl font-bold text-amber-600">
                       {filteredBookings.filter((b) => b.status === 'pending').length}
                     </div>
-                    <div className="text-[10px] lg:text-xs text-stone-500">{t('pending').toLowerCase()}</div>
+                    <div className="text-[10px] lg:text-xs text-slate-500">{t('pending').toLowerCase()}</div>
                   </div>
                 </div>
                 {hasActiveFilters && (
-                  <span className="hidden sm:block text-xs text-stone-500 flex-shrink-0 ml-4">
+                  <span className="hidden sm:block text-xs text-slate-500 flex-shrink-0 ml-4">
                     {t('filters_active')}
                   </span>
                 )}
@@ -1374,12 +1374,12 @@ export default function BookingsPage() {
               // Day View
               <div className="space-y-3 lg:space-y-4">
                 {filteredBookings.length === 0 ? (
-                  <div className="bg-white rounded-2xl border border-stone-200 p-8 lg:p-12 text-center">
-                    <div className="w-14 h-14 lg:w-16 lg:h-16 bg-stone-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <Calendar className="w-7 h-7 lg:w-8 lg:h-8 text-stone-400" />
+                  <div className="bg-white rounded-2xl border border-slate-200 p-8 lg:p-12 text-center">
+                    <div className="w-14 h-14 lg:w-16 lg:h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <Calendar className="w-7 h-7 lg:w-8 lg:h-8 text-slate-400" />
                     </div>
-                    <h3 className="text-base lg:text-lg font-semibold text-stone-900 mb-1">{t('no_bookings')}</h3>
-                    <p className="text-sm text-stone-500">
+                    <h3 className="text-base lg:text-lg font-semibold text-slate-900 mb-1">{t('no_bookings')}</h3>
+                    <p className="text-sm text-slate-500">
                       {t('no_bookings_day')}
                     </p>
                   </div>
@@ -1400,12 +1400,12 @@ export default function BookingsPage() {
               // Week View
               <div className="space-y-4 lg:space-y-6">
                 {Object.keys(bookingsByDate).length === 0 ? (
-                  <div className="bg-white rounded-2xl border border-stone-200 p-8 lg:p-12 text-center">
-                    <div className="w-14 h-14 lg:w-16 lg:h-16 bg-stone-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <Calendar className="w-7 h-7 lg:w-8 lg:h-8 text-stone-400" />
+                  <div className="bg-white rounded-2xl border border-slate-200 p-8 lg:p-12 text-center">
+                    <div className="w-14 h-14 lg:w-16 lg:h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <Calendar className="w-7 h-7 lg:w-8 lg:h-8 text-slate-400" />
                     </div>
-                    <h3 className="text-base lg:text-lg font-semibold text-stone-900 mb-1">{t('no_bookings_week')}</h3>
-                    <p className="text-sm text-stone-500">
+                    <h3 className="text-base lg:text-lg font-semibold text-slate-900 mb-1">{t('no_bookings_week')}</h3>
+                    <p className="text-sm text-slate-500">
                       {t('no_bookings_filters')}
                     </p>
                   </div>
@@ -1422,8 +1422,8 @@ export default function BookingsPage() {
                         className={cn(
                           'bg-white rounded-2xl border overflow-hidden transition-all',
                           isDaySelected
-                            ? 'border-stone-400 shadow-md'
-                            : 'border-stone-200'
+                            ? 'border-slate-400 shadow-md'
+                            : 'border-slate-200'
                         )}
                       >
                         {/* Day Header */}
@@ -1431,7 +1431,7 @@ export default function BookingsPage() {
                           onClick={() => handleDateSelect(day)}
                           className={cn(
                             'w-full px-4 lg:px-6 py-3 lg:py-4 flex items-center justify-between transition-colors',
-                            isDaySelected ? 'bg-stone-900 text-white' : 'bg-stone-50 hover:bg-stone-100 active:bg-stone-200'
+                            isDaySelected ? 'bg-slate-900 text-white' : 'bg-slate-50 hover:bg-slate-100 active:bg-slate-200'
                           )}
                         >
                           <div className="flex items-center gap-3 lg:gap-4">
@@ -1441,13 +1441,13 @@ export default function BookingsPage() {
                             )}>
                               <span className={cn(
                                 'text-[9px] lg:text-[10px] font-bold uppercase',
-                                isDaySelected ? 'text-white/70' : 'text-stone-400'
+                                isDaySelected ? 'text-white/70' : 'text-slate-400'
                               )}>
                                 {DAYS_SHORT_BY_INDEX[language][day.getDay()]}
                               </span>
                               <span className={cn(
                                 'text-base lg:text-lg font-bold',
-                                isDaySelected ? 'text-white' : isTodayDate ? 'text-amber-700' : 'text-stone-900'
+                                isDaySelected ? 'text-white' : isTodayDate ? 'text-amber-700' : 'text-slate-900'
                               )}>
                                 {day.getDate()}
                               </span>
@@ -1455,13 +1455,13 @@ export default function BookingsPage() {
                             <div className="text-left">
                               <div className={cn(
                                 'font-semibold text-sm lg:text-base',
-                                isDaySelected ? 'text-white' : 'text-stone-900'
+                                isDaySelected ? 'text-white' : 'text-slate-900'
                               )}>
                                 {DAYS_FULL_BY_INDEX[language][day.getDay()]}
                               </div>
                               <div className={cn(
                                 'text-xs lg:text-sm',
-                                isDaySelected ? 'text-white/70' : 'text-stone-500'
+                                isDaySelected ? 'text-white/70' : 'text-slate-500'
                               )}>
                                 {language === 'es'
                                   ? `${day.getDate()} de ${MONTHS_BY_INDEX[language][day.getMonth()]}`
@@ -1475,7 +1475,7 @@ export default function BookingsPage() {
                               ? 'bg-white/20 text-white'
                               : dayBookings.length > 0
                               ? 'bg-emerald-100 text-emerald-700'
-                              : 'bg-stone-100 text-stone-400'
+                              : 'bg-slate-100 text-slate-400'
                           )}>
                             {dayBookings.length}{' '}
                             {language === 'es'
@@ -1566,7 +1566,7 @@ export default function BookingsPage() {
             </button>
             <button
               onClick={() => setShowDatePicker(true)}
-              className="flex-1 py-3 bg-stone-100 hover:bg-stone-200 active:bg-stone-300 rounded-xl text-sm font-semibold text-stone-700 transition-colors"
+              className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 rounded-xl text-sm font-semibold text-slate-700 transition-colors"
             >
               {t('select_date')}
             </button>

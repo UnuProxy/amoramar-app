@@ -84,11 +84,11 @@ export default function NewAdminPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl sm:text-3xl font-light tracking-wide text-primary-900">Añadir Nuevo Admin</h1>
-        <p className="text-primary-600 text-sm mt-2 font-light">Crear una nueva cuenta de administrador</p>
+        <h1 className="text-2xl sm:text-3xl font-light tracking-wide text-slate-900">Añadir Nuevo Admin</h1>
+        <p className="text-slate-600 text-sm mt-2 font-light">Crear una nueva cuenta de administrador</p>
       </div>
 
-      <div className="bg-primary-800/30 border border-primary-700 rounded-sm backdrop-blur-sm p-4 sm:p-6">
+      <div className="bg-slate-800/30 border border-slate-700 rounded-sm backdrop-blur-sm p-4 sm:p-6">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 sm:space-y-6 px-4 sm:px-0">
           {error && (
             <div className="p-3 sm:p-4 text-xs sm:text-sm text-red-400 bg-red-900/20 border border-red-800/50 rounded-sm font-light">

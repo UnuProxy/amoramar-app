@@ -430,12 +430,12 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label className="block text-xs font-light tracking-wide text-primary-600 uppercase mb-2">
+          <label className="block text-xs font-light tracking-wide text-slate-600 uppercase mb-2">
             Position
           </label>
           <select
             {...register('position', { required: 'Position is required' })}
-            className="w-full px-4 py-3 border border-primary-300 rounded-sm focus:outline-none focus:ring-1 focus:ring-accent-500 bg-white text-primary-900 font-light"
+            className="w-full px-4 py-3 border border-slate-300 rounded-sm focus:outline-none focus:ring-1 focus:ring-sky-500 bg-white text-slate-900 font-light"
             defaultValue={employee?.position || ''}
           >
             <option value="" disabled>Select a position</option>
@@ -454,12 +454,12 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
         </div>
 
         <div>
-          <label className="block text-xs font-light tracking-wide text-primary-600 uppercase mb-2">
+          <label className="block text-xs font-light tracking-wide text-slate-600 uppercase mb-2">
             Employment Type
           </label>
           <select
             {...register('employmentType', { required: 'Employment type is required' })}
-            className="w-full px-4 py-3 border border-primary-300 rounded-sm focus:outline-none focus:ring-1 focus:ring-accent-500 bg-white text-primary-900 font-light"
+            className="w-full px-4 py-3 border border-slate-300 rounded-sm focus:outline-none focus:ring-1 focus:ring-sky-500 bg-white text-slate-900 font-light"
             defaultValue={employee?.employmentType || 'employee'}
           >
             <option value="employee">Regular Employee</option>
@@ -468,7 +468,7 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
           {errors.employmentType?.message && (
             <p className="mt-2 text-xs text-red-600 font-light">{errors.employmentType.message}</p>
           )}
-          <p className="mt-2 text-xs text-primary-400 italic">
+          <p className="mt-2 text-xs text-slate-400 italic">
             Self-employed manage their own schedule and payments (deposit only 50%)
           </p>
         </div>
@@ -501,19 +501,19 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
       </div>
 
       <div>
-        <label className="block text-xs font-light tracking-wide text-primary-600 uppercase mb-2">
+        <label className="block text-xs font-light tracking-wide text-slate-600 uppercase mb-2">
           Biography
         </label>
         <textarea
           {...register('bio')}
           rows={4}
-          className="w-full px-4 py-3 border border-primary-300 rounded-sm focus:outline-none focus:ring-1 focus:ring-accent-500 bg-white text-primary-900 font-light"
+          className="w-full px-4 py-3 border border-slate-300 rounded-sm focus:outline-none focus:ring-1 focus:ring-sky-500 bg-white text-slate-900 font-light"
         />
       </div>
 
       {/* Profile Image Upload */}
       <div>
-        <label className="block text-xs font-light tracking-wide text-primary-600 uppercase mb-2">
+        <label className="block text-xs font-light tracking-wide text-slate-600 uppercase mb-2">
           Profile Picture
         </label>
         <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4">
@@ -523,7 +523,7 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
               <img
                 src={profileImagePreview}
                 alt="Preview"
-                className="w-32 h-32 object-cover rounded-lg border-2 border-primary-300"
+                className="w-32 h-32 object-cover rounded-lg border-2 border-slate-300"
               />
               <button
                 type="button"
@@ -534,8 +534,8 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
               </button>
             </div>
           ) : (
-            <div className="w-32 h-32 border-2 border-dashed border-primary-300 rounded-lg flex items-center justify-center bg-primary-50">
-              <svg className="w-8 h-8 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-32 h-32 border-2 border-dashed border-slate-300 rounded-lg flex items-center justify-center bg-slate-50">
+              <svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
               </svg>
             </div>
@@ -552,15 +552,15 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
             />
             <label
               htmlFor="profileImage"
-              className="block sm:inline-block w-full sm:w-auto text-center px-4 py-2 bg-accent-600 text-white rounded-lg hover:bg-accent-700 transition cursor-pointer text-sm font-medium"
+              className="block sm:inline-block w-full sm:w-auto text-center px-4 py-2 bg-sky-600 text-white rounded-lg hover:bg-sky-700 transition cursor-pointer text-sm font-medium"
             >
               {profileImagePreview ? 'Change Photo' : 'Upload Photo'}
             </label>
-            <p className="text-xs text-primary-600 mt-2 text-center sm:text-left">
+            <p className="text-xs text-slate-600 mt-2 text-center sm:text-left">
               JPG, PNG or GIF. Maximum 5MB.
             </p>
             {uploadingImage && (
-              <p className="text-xs text-accent-600 mt-2 flex items-center gap-2">
+              <p className="text-xs text-sky-600 mt-2 flex items-center gap-2">
                 <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
@@ -573,18 +573,18 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
       </div>
 
       <div>
-        <label className="block text-xs font-light tracking-wide text-primary-600 uppercase mb-2">
+        <label className="block text-xs font-light tracking-wide text-slate-600 uppercase mb-2">
           Assigned Services
         </label>
         {servicesLoading ? (
-          <p className="text-xs text-primary-500">Loading services...</p>
+          <p className="text-xs text-slate-500">Loading services...</p>
         ) : services.length === 0 ? (
-          <p className="text-xs text-primary-500">No services available yet.</p>
+          <p className="text-xs text-slate-500">No services available yet.</p>
         ) : (
           <div className="space-y-4">
             {visibleCategories.map((category) => (
-              <div key={category} className="border border-primary-200 rounded-sm p-4 bg-white">
-                <p className="text-[10px] font-semibold uppercase tracking-widest text-primary-500">
+              <div key={category} className="border border-slate-200 rounded-sm p-4 bg-white">
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500">
                   {formatServiceCategory(category)}
                 </p>
                 <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -594,11 +594,11 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
                         type="checkbox"
                         checked={selectedServiceIds.includes(service.id)}
                         onChange={() => toggleService(service.id)}
-                        className="mt-0.5 rounded border-primary-300 text-accent-500 focus:ring-accent-500"
+                        className="mt-0.5 rounded border-slate-300 text-sky-500 focus:ring-sky-500"
                       />
-                      <span className="text-sm text-primary-900 font-light">
+                      <span className="text-sm text-slate-900 font-light">
                         {service.serviceName}
-                        <span className="block text-[10px] text-primary-400 uppercase tracking-wider">
+                        <span className="block text-[10px] text-slate-400 uppercase tracking-wider">
                           {service.duration} min
                         </span>
                       </span>

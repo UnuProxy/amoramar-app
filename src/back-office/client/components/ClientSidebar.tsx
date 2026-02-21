@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { getClients } from '@/shared/lib/firestore';
 import { cn } from '@/shared/lib/utils';
+import { BrandLogo } from '@/shared/components/BrandLogo';
 import type { Client } from '@/shared/lib/types';
 
 const LogoutButton = () => {
@@ -150,9 +151,7 @@ export const ClientSidebar: React.FC<ClientSidebarProps> = ({
         {/* Brand */}
         <div className="px-6 py-5 border-b border-neutral-100">
           <Link href="/client" className="block">
-            <h1 className="text-xl font-bold text-neutral-900">
-              Amor Amar
-            </h1>
+            <BrandLogo className="h-12 w-40" priority />
             <p className="text-xs text-neutral-500 mt-1">Client Portal</p>
           </Link>
         </div>

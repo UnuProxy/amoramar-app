@@ -4,6 +4,7 @@ import React from 'react';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { useLanguage } from '@/shared/context/LanguageContext';
 import { Button } from './Button';
+import { BrandLogo } from './BrandLogo';
 import { useRouter } from 'next/navigation';
 
 interface HeaderProps {
@@ -28,9 +29,11 @@ export const Header: React.FC<HeaderProps> = ({ title }) => {
     <header className="bg-primary-900 border-b border-primary-800">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
-          <h1 className="text-lg font-light tracking-wide text-white">
-            {title || 'Amor Amar'}
-          </h1>
+          {title ? (
+            <h1 className="text-lg font-light tracking-wide text-white">{title}</h1>
+          ) : (
+            <BrandLogo className="h-11 w-36" />
+          )}
           {user && (
             <div className="flex items-center gap-4">
               <span className="text-xs text-primary-400 font-light hidden sm:block">
@@ -46,5 +49,3 @@ export const Header: React.FC<HeaderProps> = ({ title }) => {
     </header>
   );
 };
-
-

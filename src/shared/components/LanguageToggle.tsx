@@ -1,11 +1,24 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { useLanguage } from '@/shared/context/LanguageContext';
+import { isWebsitePath } from '@/shared/lib/routes';
 import { cn } from '@/shared/lib/utils';
 
 export const LanguageToggle = () => {
   const { language, setLanguage, t } = useLanguage();
+  const [isMounted, setIsMounted] = useState(false);
+  const pathname = usePathname();
+  const isWebsiteRoute = isWebsitePath(pathname);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  if (!isMounted || !isWebsiteRoute) {
+    return null;
+  }
 
   return (
     <div
