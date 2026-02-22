@@ -153,10 +153,14 @@ export function AdminCalendar({
 
   const loadAvailability = async (employeeId: string, serviceId?: string) => {
     try {
-      let data = await getAvailability(employeeId, serviceId);
-      if (serviceId && data.length === 0) {
-        data = await getAvailability(employeeId);
-      }
+      const allAvailability = await getAvailability(employeeId);
+      const genericAvailability = allAvailability.filter((a) => !a.serviceId);
+      const data =
+        genericAvailability.length > 0
+          ? genericAvailability
+          : serviceId
+            ? allAvailability.filter((a) => a.serviceId === serviceId)
+            : allAvailability;
       setAvailability(data);
     } catch (error) {
       console.error('Error loading availability:', error);
@@ -242,32 +246,33 @@ export function AdminCalendar({
 
   const selectedService = employeeServices.find((service) => service.id === selectedServiceId);
   const slotDuration = selectedService?.duration || 30;
+  const serviceDurationById = useMemo(
+    () => new Map(services.map((service) => [service.id, service.duration])),
+    [services]
+  );
 
   const getAvailabilitiesForDay = (day: DayOfWeek, date: string): Availability[] => {
-    const dayAvailabilities = availability.filter((a) => {
+    return availability.filter((a) => {
       if (a.dayOfWeek !== day || !a.isAvailable) return false;
       if (a.startDate && date < a.startDate) return false;
       if (a.endDate && date > a.endDate) return false;
       return true;
     });
-    const exact = dayAvailabilities.filter((a) => a.serviceId === selectedServiceId);
-    if (exact.length > 0) return exact;
-    return dayAvailabilities.filter((a) => !a.serviceId);
   };
 
   const findBookingForSlot = (date: string, time: string) => {
     const slotStart = minutesFromTime(time);
     const slotEnd = slotStart + slotDuration;
     return bookings.find(
-      (booking) =>
-        booking.bookingDate === date &&
-        booking.status !== 'cancelled' &&
-        hasOverlap(
-          slotStart,
-          slotEnd,
-          minutesFromTime(booking.bookingTime),
-          minutesFromTime(booking.bookingTime) + slotDuration
-        )
+      (booking) => {
+        if (booking.bookingDate !== date || booking.status === 'cancelled') return false;
+        const bookingStart = minutesFromTime(booking.bookingTime);
+        const bookingDuration = booking.isConsultation
+          ? booking.consultationDuration || 20
+          : serviceDurationById.get(booking.serviceId) || slotDuration;
+        const bookingEnd = bookingStart + bookingDuration;
+        return hasOverlap(slotStart, slotEnd, bookingStart, bookingEnd);
+      }
     );
   };
 
@@ -365,6 +370,14 @@ export function AdminCalendar({
         if (!result.success) {
           throw new Error(result.error || 'No se pudo cancelar la reserva');
         }
+        if (result.data?.requiresClientWrite) {
+          await updateBooking(booking.id, {
+            status: 'cancelled',
+            cancelledAt: new Date(),
+            paymentStatus: result.data?.refundStatus === 'refunded' ? 'refunded' : booking.paymentStatus,
+            depositPaid: result.data?.refundStatus === 'refunded' ? false : booking.depositPaid,
+          });
+        }
         setBookings((prev) => prev.map((b) => (b.id === booking.id ? { ...b, status: 'cancelled' } : b)));
         onBookingPatched?.(booking.id, { status: 'cancelled' });
       } catch (error) {
@@ -453,6 +466,14 @@ export function AdminCalendar({
       const result = await response.json();
       if (!result.success) {
         throw new Error(result.error || 'No se pudo cancelar la reserva');
+      }
+      if (result.data?.requiresClientWrite) {
+        await updateBooking(booking.id, {
+          status: 'cancelled',
+          cancelledAt: new Date(),
+          paymentStatus: result.data?.refundStatus === 'refunded' ? 'refunded' : booking.paymentStatus,
+          depositPaid: result.data?.refundStatus === 'refunded' ? false : booking.depositPaid,
+        });
       }
       setBookings((prev) => prev.map((b) => (b.id === booking.id ? { ...b, status: 'cancelled' } : b)));
       onBookingPatched?.(booking.id, { status: 'cancelled' });

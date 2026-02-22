@@ -518,10 +518,14 @@ export default function EmployeeCalendarPage() {
 
   const loadAvailability = async (employeeId: string, serviceId?: string) => {
     try {
-      let data = await getAvailability(employeeId, serviceId);
-      if (serviceId && data.length === 0) {
-        data = await getAvailability(employeeId);
-      }
+      const allAvailability = await getAvailability(employeeId);
+      const genericAvailability = allAvailability.filter((a) => !a.serviceId);
+      const data =
+        genericAvailability.length > 0
+          ? genericAvailability
+          : serviceId
+            ? allAvailability.filter((a) => a.serviceId === serviceId)
+            : allAvailability;
       setAvailability(data);
     } catch (error) {
       console.error('Error loading availability:', error);
@@ -578,33 +582,34 @@ export default function EmployeeCalendarPage() {
 
   const selectedService = services.find((service) => service.id === selectedServiceId);
   const slotDuration = selectedService?.duration || 30;
+  const serviceDurationById = useMemo(
+    () => new Map(services.map((service) => [service.id, service.duration])),
+    [services]
+  );
 
   const getAvailabilitiesForDay = (day: DayOfWeek, date: string): Availability[] => {
-    const dayAvailabilities = availability.filter((a) => {
+    return availability.filter((a) => {
       if (a.dayOfWeek !== day || !a.isAvailable) return false;
       if (a.startDate && date < a.startDate) return false;
       if (a.endDate && date > a.endDate) return false;
       return true;
     });
-    const exact = dayAvailabilities.filter((a) => a.serviceId === selectedServiceId);
-    if (exact.length > 0) return exact;
-    return dayAvailabilities.filter((a) => !a.serviceId);
   };
 
   const findBookingForSlot = (date: string, time: string) => {
     const slotStart = minutesFromTime(time);
     const slotEnd = slotStart + slotDuration;
     return bookings.find(
-      (booking) =>
-        booking.bookingDate === date &&
-        booking.status !== 'cancelled' &&
-        booking.paymentStatus !== 'paid' && // Hide paid bookings from calendar slots
-        hasOverlap(
-          slotStart,
-          slotEnd,
-          minutesFromTime(booking.bookingTime),
-          minutesFromTime(booking.bookingTime) + slotDuration
-        )
+      (booking) => {
+        if (booking.bookingDate !== date || booking.status === 'cancelled') return false;
+        if (booking.paymentStatus === 'paid') return false; // Hide paid bookings from calendar slots
+        const bookingStart = minutesFromTime(booking.bookingTime);
+        const bookingDuration = booking.isConsultation
+          ? booking.consultationDuration || 20
+          : serviceDurationById.get(booking.serviceId) || slotDuration;
+        const bookingEnd = bookingStart + bookingDuration;
+        return hasOverlap(slotStart, slotEnd, bookingStart, bookingEnd);
+      }
     );
   };
 
@@ -714,6 +719,14 @@ export default function EmployeeCalendarPage() {
         const result = await response.json();
         if (!result.success) {
           throw new Error(result.error || 'Could not cancel booking');
+        }
+        if (result.data?.requiresClientWrite) {
+          await updateBookingWithGuard(booking, {
+            status: 'cancelled',
+            cancelledAt: new Date(),
+            paymentStatus: result.data?.refundStatus === 'refunded' ? 'refunded' : booking.paymentStatus,
+            depositPaid: result.data?.refundStatus === 'refunded' ? false : booking.depositPaid,
+          });
         }
         setBookings((prev) => prev.map((b) => (b.id === booking.id ? { ...b, status: 'cancelled' } : b)));
       } catch (error) {
@@ -850,7 +863,7 @@ export default function EmployeeCalendarPage() {
       
       if (isFullPayment) {
         await updateBookingWithGuard(bookingToMarkPaid, {
-          paymentStatus: noPaymentCollected ? 'pending' : 'paid',
+          paymentStatus: noPaymentCollected ? 'pending' : 'deposit_paid',
           depositPaid: !noPaymentCollected,
           finalPaymentReceived: !noPaymentCollected,
           finalPaymentAmount: finalAmount,
@@ -864,7 +877,7 @@ export default function EmployeeCalendarPage() {
             b.id === bookingToMarkPaid.id 
               ? { 
                   ...b, 
-                  paymentStatus: noPaymentCollected ? 'pending' : 'paid', 
+                  paymentStatus: noPaymentCollected ? 'pending' : 'deposit_paid', 
                   depositPaid: !noPaymentCollected, 
                   finalPaymentReceived: !noPaymentCollected, 
                   finalPaymentAmount: finalAmount, 
@@ -881,7 +894,7 @@ export default function EmployeeCalendarPage() {
                 saving: false,
                 booking: { 
                   ...prev.booking, 
-                  paymentStatus: noPaymentCollected ? 'pending' : 'paid', 
+                  paymentStatus: noPaymentCollected ? 'pending' : 'deposit_paid', 
                   depositPaid: !noPaymentCollected, 
                   finalPaymentReceived: !noPaymentCollected, 
                   finalPaymentAmount: finalAmount, 
@@ -893,14 +906,14 @@ export default function EmployeeCalendarPage() {
         );
       } else {
         await updateBookingWithGuard(bookingToMarkPaid, {
-          paymentStatus: noPaymentCollected ? 'pending' : 'paid',
+          paymentStatus: noPaymentCollected ? 'pending' : 'deposit_paid',
           depositPaid: !noPaymentCollected,
           finalPaymentMethod: noPaymentCollected ? undefined : paymentMethod,
           paymentNotes: notes || undefined,
         });
         setBookings((prev) =>
           prev.map((b) =>
-            b.id === bookingToMarkPaid.id ? { ...b, paymentStatus: noPaymentCollected ? 'pending' : 'paid', depositPaid: !noPaymentCollected, finalPaymentMethod: noPaymentCollected ? undefined : paymentMethod, paymentNotes: notes || undefined } : b
+            b.id === bookingToMarkPaid.id ? { ...b, paymentStatus: noPaymentCollected ? 'pending' : 'deposit_paid', depositPaid: !noPaymentCollected, finalPaymentMethod: noPaymentCollected ? undefined : paymentMethod, paymentNotes: notes || undefined } : b
           )
         );
         setBookingModal((prev) =>
@@ -908,7 +921,7 @@ export default function EmployeeCalendarPage() {
             ? {
                 ...prev,
                 saving: false,
-                booking: { ...prev.booking, paymentStatus: noPaymentCollected ? 'pending' : 'paid', depositPaid: !noPaymentCollected, finalPaymentMethod: noPaymentCollected ? undefined : paymentMethod, paymentNotes: notes || undefined },
+                booking: { ...prev.booking, paymentStatus: noPaymentCollected ? 'pending' : 'deposit_paid', depositPaid: !noPaymentCollected, finalPaymentMethod: noPaymentCollected ? undefined : paymentMethod, paymentNotes: notes || undefined },
               }
             : prev
         );
@@ -1011,6 +1024,14 @@ export default function EmployeeCalendarPage() {
       const result = await response.json();
       if (!result.success) {
         throw new Error(result.error || 'Could not cancel booking');
+      }
+      if (result.data?.requiresClientWrite) {
+        await updateBookingWithGuard(booking, {
+          status: 'cancelled',
+          cancelledAt: new Date(),
+          paymentStatus: result.data?.refundStatus === 'refunded' ? 'refunded' : booking.paymentStatus,
+          depositPaid: result.data?.refundStatus === 'refunded' ? false : booking.depositPaid,
+        });
       }
       setBookings((prev) => prev.map((b) => (b.id === booking.id ? { ...b, status: 'cancelled' } : b)));
       

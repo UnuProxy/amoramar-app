@@ -8,6 +8,7 @@ import { Button } from '@/shared/components/Button';
 import { AuditTrailPanel } from '@/shared/components/AuditTrailPanel';
 import { formatDate, formatTime, formatCurrency, cn } from '@/shared/lib/utils';
 import { trackStatusChange, trackNoShow, addModificationToBooking } from '@/shared/lib/audit-trail';
+import { calculateBookingTotals } from '@/shared/lib/booking-utils';
 import type { Booking, Client, Employee, Service, AdditionalServiceItem } from '@/shared/lib/types';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/shared/hooks/useAuth';
@@ -42,10 +43,47 @@ export default function BookingDetailPage() {
       try {
         const bookingData = await getBooking(bookingId);
         if (bookingData) {
-          setBooking(bookingData);
+          let normalizedBooking = bookingData;
+
+          // Self-heal stale cancelled records created before refund-state fixes.
+          if (
+            bookingData.status === 'cancelled' &&
+            bookingData.paymentStatus !== 'refunded' &&
+            bookingData.depositPaid &&
+            bookingData.paymentIntentId
+          ) {
+            try {
+              const response = await fetch(`/api/bookings/${bookingData.id}/cancel`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ role: 'owner', force: true }),
+              });
+              const result = await response.json();
+              const refunded = result?.success && result?.data?.refundStatus === 'refunded';
+
+              if (refunded) {
+                const updates: Partial<Booking> = {
+                  status: 'cancelled',
+                  paymentStatus: 'refunded',
+                  depositPaid: false,
+                  cancelledAt: bookingData.cancelledAt || new Date(),
+                };
+
+                if (result?.data?.requiresClientWrite) {
+                  await updateBooking(bookingData.id, updates);
+                }
+
+                normalizedBooking = { ...bookingData, ...updates };
+              }
+            } catch (syncError) {
+              console.error('Error syncing refund state for cancelled booking:', syncError);
+            }
+          }
+
+          setBooking(normalizedBooking);
           const [employeeData, serviceData, servicesData] = await Promise.all([
-            getEmployee(bookingData.employeeId),
-            getService(bookingData.serviceId),
+            getEmployee(normalizedBooking.employeeId),
+            getService(normalizedBooking.serviceId),
             getServices(),
           ]);
           setEmployee(employeeData);
@@ -53,8 +91,8 @@ export default function BookingDetailPage() {
           setAvailableServices(servicesData);
 
           // Load client profile by email to allow hair color notes edits
-          if (bookingData.clientEmail) {
-            const email = bookingData.clientEmail.toLowerCase().trim();
+          if (normalizedBooking.clientEmail) {
+            const email = normalizedBooking.clientEmail.toLowerCase().trim();
             const profile =
               (await getClientByEmail(email)) ||
               (await getClients()).find((c) => c.email.toLowerCase() === email);
@@ -97,6 +135,9 @@ export default function BookingDetailPage() {
         if (!result.success) {
           throw new Error(result.error || 'No se pudo cancelar la reserva');
         }
+        const refunded = result.data?.refundStatus === 'refunded';
+        const nextPaymentStatus = refunded ? 'refunded' : booking.paymentStatus;
+        const nextDepositPaid = refunded ? false : booking.depositPaid;
         
         // Track cancellation in audit trail
         const modification = trackStatusChange(auditContext, booking.status, 'cancelled');
@@ -105,6 +146,8 @@ export default function BookingDetailPage() {
         await updateBooking(booking.id, { 
           status: 'cancelled', 
           cancelledAt: new Date(),
+          paymentStatus: nextPaymentStatus,
+          depositPaid: nextDepositPaid,
           modifications: updatedBooking.modifications 
         });
         
@@ -112,7 +155,8 @@ export default function BookingDetailPage() {
           ...booking, 
           status: 'cancelled', 
           cancelledAt: new Date(), 
-          paymentStatus: result.data?.refundStatus === 'refunded' ? 'refunded' : booking.paymentStatus,
+          paymentStatus: nextPaymentStatus,
+          depositPaid: nextDepositPaid,
           modifications: updatedBooking.modifications 
         });
         return;
@@ -273,6 +317,18 @@ export default function BookingDetailPage() {
     return <div>Reserva no encontrada</div>;
   }
 
+  const paymentTotals = calculateBookingTotals(booking, service || undefined);
+  const hasDepositOnly =
+    !paymentTotals.isFullyPaid &&
+    (booking.paymentStatus === 'deposit_paid' || booking.depositPaid === true || booking.paymentStatus === 'paid');
+  const paidAmount = booking.paymentStatus === 'refunded'
+    ? 0
+    : paymentTotals.isFullyPaid
+      ? paymentTotals.totalPrice
+      : hasDepositOnly
+        ? paymentTotals.depositPaidValue
+        : 0;
+
   const getCreatedByLabel = (target: Booking) => {
     const createdName = target.createdByName?.trim();
     const clientName = target.clientName?.trim();
@@ -300,9 +356,10 @@ export default function BookingDetailPage() {
   };
 
   const getPaymentLabel = (target: Booking) => {
-    if (target.paymentStatus === 'paid' || target.depositPaid) return 'Pagado';
     if (target.paymentStatus === 'refunded') return 'Reembolsado';
     if (target.paymentStatus === 'failed') return 'Fallido';
+    if (paymentTotals.isFullyPaid) return 'Pagado completo';
+    if (hasDepositOnly) return 'Depósito pagado';
     return 'Pendiente';
   };
 
@@ -334,10 +391,18 @@ export default function BookingDetailPage() {
           <div className="flex items-center justify-between">
             <span className="text-xl font-black text-emerald-800">{getPaymentLabel(booking)}</span>
             <span className="px-3 py-1 text-[11px] font-black rounded-full bg-emerald-100 text-emerald-800">
-              {service ? formatCurrency(service.price) : '—'}
+              {formatCurrency(paidAmount)}
             </span>
           </div>
-          <p className="text-sm text-emerald-700 mt-2">{booking.depositPaid ? 'Depósito pagado' : 'Depósito pendiente'}</p>
+          <p className="text-sm text-emerald-700 mt-2">
+            {booking.paymentStatus === 'refunded'
+              ? 'Depósito reembolsado'
+              : paymentTotals.isFullyPaid
+              ? 'Sin saldo pendiente'
+              : hasDepositOnly
+              ? `Restante: ${formatCurrency(paymentTotals.outstanding)}`
+              : 'Depósito pendiente'}
+          </p>
         </div>
         <div className="p-4 rounded-2xl bg-gradient-to-br from-rose-50 to-white border border-rose-100">
           <p className="text-xs uppercase tracking-[0.25em] text-rose-700 mb-2">Empleado</p>

@@ -57,10 +57,12 @@ export async function GET(request: NextRequest) {
     const dateObj = new Date(`${date}T12:00:00`);
     const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
     const dayOfWeek = dayNames[dateObj.getDay()];
-    let availabilityList = await getAvailability(employeeId, serviceId);
-    if (!availabilityList.length) {
-      availabilityList = await getAvailability(employeeId);
-    }
+    const allAvailability = await getAvailability(employeeId);
+    const genericAvailability = allAvailability.filter((a) => !a.serviceId);
+    const availabilityList =
+      genericAvailability.length > 0
+        ? genericAvailability
+        : allAvailability.filter((a) => a.serviceId === serviceId);
 
     console.log(`[Slots API] Date: ${date}, DayOfWeek: ${dayOfWeek}, EmployeeId: ${employeeId}, ServiceId: ${serviceId}`);
     console.log(`[Slots API] Found ${availabilityList.length} availability records`);
@@ -135,9 +137,29 @@ export async function GET(request: NextRequest) {
     };
 
     // Treat any non-cancelled booking as blocking the slot (confirmed + completed, etc.)
-    const bookedSlots = bookings
-      .filter((b) => b.status !== 'cancelled' && b.bookingDate === date)
-      .map((b) => b.bookingTime);
+    // Use each booking's own service duration to compute overlap accurately.
+    const activeBookings = bookings.filter((b) => b.status !== 'cancelled' && b.bookingDate === date);
+    const bookingServiceIds = Array.from(new Set(activeBookings.filter((b) => !b.isConsultation).map((b) => b.serviceId)));
+    const bookingServiceDurations = new Map<string, number>();
+    await Promise.all(
+      bookingServiceIds.map(async (id) => {
+        const bookedService = await getService(id);
+        if (bookedService?.duration) {
+          bookingServiceDurations.set(id, bookedService.duration);
+        }
+      })
+    );
+
+    const bookingRanges = activeBookings.map((booking) => {
+      const start = toMinutes(booking.bookingTime);
+      const duration = booking.isConsultation
+        ? booking.consultationDuration || 20
+        : bookingServiceDurations.get(booking.serviceId) || slotDuration;
+      return {
+        start,
+        end: start + duration,
+      };
+    });
 
     // Check if this is today to filter out past slots
     const now = new Date();
@@ -159,17 +181,9 @@ export async function GET(request: NextRequest) {
       // Check if slot is in the past (for today only)
       const isPastSlot = isToday && slotTime < minimumSlotTime;
 
-      const isBooked = bookedSlots.some((bookedTime) => {
-        // Check if this slot conflicts with any booking
-        const bookedTimeMinutes = toMinutes(bookedTime);
-        const bookedEndTime = bookedTimeMinutes + slotDuration;
-
-        return (
-          (slotTime >= bookedTimeMinutes &&
-            slotTime < bookedEndTime) ||
-          (bookedTimeMinutes >= slotTime && bookedTimeMinutes < slotEndTime)
-        );
-      });
+      const isBooked = bookingRanges.some(
+        (booking) => (slotTime >= booking.start && slotTime < booking.end) || (booking.start >= slotTime && booking.start < slotEndTime)
+      );
 
       const isBlocked = blockedSlotsForDay.some((blocked) => {
         const blockStart = toMinutes(blocked.startTime);

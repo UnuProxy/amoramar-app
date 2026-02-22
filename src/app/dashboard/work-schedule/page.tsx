@@ -45,11 +45,6 @@ export default function WorkSchedulePage() {
 
   return (
     <div className="max-w-[1600px] mx-auto space-y-8 pb-10">
-      <div>
-        <h1 className="text-4xl font-bold text-slate-800 tracking-tight">Work Schedule</h1>
-        <p className="text-slate-500 text-sm mt-2">Set and manage staff working hours and availability.</p>
-      </div>
-
       {employees.length === 0 ? (
         <div className="bg-white border border-slate-200 rounded-2xl p-10 text-center">
           <p className="text-lg font-semibold text-slate-700">No active employees found</p>

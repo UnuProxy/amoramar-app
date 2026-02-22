@@ -15,19 +15,34 @@ export function calculateBookingTotals(booking: Booking, service?: Service) {
   const totalPrice = basePrice + extrasTotal;
 
   // 4. Deposit Calculation
+  const expectedDeposit = totalPrice * 0.5;
   let depositPaidValue = 0;
   if (booking.depositPaid) {
     if (booking.depositAmount !== undefined) {
       depositPaidValue = booking.depositAmount / 100; // cents to euros
     } else {
       // Fallback to 50% of base price if no specific amount stored
-      depositPaidValue = basePrice * 0.5;
+      depositPaidValue = expectedDeposit;
     }
   }
 
+  const hasDepositWorkflow =
+    booking.requiresDeposit === true ||
+    Boolean(booking.paymentIntentId) ||
+    booking.paymentStatus === 'deposit_paid' ||
+    booking.paymentStatus === 'refunded' ||
+    (booking.depositPaid === true && booking.finalPaymentReceived !== true);
+
+  if (hasDepositWorkflow) {
+    // Guard against legacy rows incorrectly storing full price as deposit.
+    depositPaidValue = Math.min(depositPaidValue, expectedDeposit);
+  }
+
   // 5. Outstanding Balance
-  // If paymentStatus is 'paid', outstanding is 0 regardless of the math
-  const isFullyPaid = booking.paymentStatus === 'paid';
+  // A deposit does not mean the booking is fully paid.
+  const isFullyPaid =
+    booking.finalPaymentReceived === true ||
+    (booking.paymentStatus === 'paid' && (!hasDepositWorkflow || booking.status === 'completed'));
   const outstanding = isFullyPaid ? 0 : Math.max(0, totalPrice - depositPaidValue);
 
   return {
@@ -39,6 +54,3 @@ export function calculateBookingTotals(booking: Booking, service?: Service) {
     isFullyPaid
   };
 }
-
-
-

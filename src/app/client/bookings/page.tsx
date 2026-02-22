@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAuth } from '@/shared/hooks/useAuth';
-import { getBookings, getServices, getEmployees, getClient } from '@/shared/lib/firestore';
+import { getBookings, getServices, getEmployees, getClient, updateBooking } from '@/shared/lib/firestore';
 import { Loading } from '@/shared/components/Loading';
 import type { Booking, Service, Employee, BookingFormData, Client } from '@/shared/lib/types';
 import { formatDate, formatTime, formatCurrency, cn, canCancelWithNotice, hoursUntilBooking } from '@/shared/lib/utils';
@@ -226,6 +226,14 @@ export default function ClientBookingsPage() {
       const result = await response.json();
       if (!result.success) {
         throw new Error(result.error || 'No se pudo cancelar la reserva');
+      }
+      if (result.data?.requiresClientWrite) {
+        await updateBooking(selectedBooking.id, {
+          status: 'cancelled',
+          cancelledAt: new Date(),
+          paymentStatus: result.data?.refundStatus === 'refunded' ? 'refunded' : selectedBooking.paymentStatus,
+          depositPaid: result.data?.refundStatus === 'refunded' ? false : selectedBooking.depositPaid,
+        });
       }
       await fetchData(); // Refresh
       setShowCancelModal(false);

@@ -71,8 +71,25 @@ export async function createRefund(paymentIntentId: string, amount?: number): Pr
     });
     return refund;
   } catch (error: any) {
+    const alreadyRefunded =
+      error?.code === 'charge_already_refunded' ||
+      /already been refunded/i.test(error?.message || '');
+
+    if (alreadyRefunded && stripe) {
+      // Idempotent behavior: if Stripe says already refunded, return existing refund record.
+      const existing = await stripe.refunds.list({
+        payment_intent: paymentIntentId,
+        limit: 1,
+      });
+      if (existing.data.length > 0) {
+        return existing.data[0]!;
+      }
+    }
+
     console.error('Error creating refund:', error);
-    throw new Error(error.message || 'Failed to create refund');
+    const normalizedError = new Error(error.message || 'Failed to create refund') as Error & { code?: string };
+    normalizedError.code = error?.code;
+    throw normalizedError;
   }
 }
 
@@ -113,7 +130,6 @@ export function formatAmount(amountInCents: number, currency: string = 'eur'): s
   
   return `${amount.toFixed(2)}${symbol}`;
 }
-
 
 
 

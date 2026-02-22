@@ -66,7 +66,12 @@ export const validateBookingSchedule = async ({
   const requestedEnd = requestedStart + requestedDuration;
   const dayOfWeek = DAY_NAMES[dateObj.getDay()];
 
-  const availability = await getAvailability(employeeId, serviceId);
+  const allAvailability = await getAvailability(employeeId);
+  const genericAvailability = allAvailability.filter((a) => !a.serviceId);
+  const availability =
+    genericAvailability.length > 0
+      ? genericAvailability
+      : allAvailability.filter((a) => a.serviceId === serviceId);
   const dayAvailabilities = availability.filter((a) => {
     if (!a.isAvailable) return false;
     if (a.dayOfWeek !== dayOfWeek) return false;

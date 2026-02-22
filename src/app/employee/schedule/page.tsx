@@ -6,7 +6,6 @@ import {
   getAvailability,
   getEmployeeByUserId, // Use this more reliable function
   createAvailability,
-  updateAvailability,
   getServices,
   getEmployeeServices,
   deleteAvailability,
@@ -55,13 +54,13 @@ export default function SchedulePage() {
   const [showGenerator, setShowGenerator] = useState(false);
   const [generationMode, setGenerationMode] = useState<GenerationMode>('weekly');
   const [generatorDays, setGeneratorDays] = useState<Record<DayOfWeek, { enabled: boolean; startTime: string; endTime: string }>>({
-    monday: { enabled: true, startTime: '10:00', endTime: '18:00' },
-    tuesday: { enabled: true, startTime: '10:00', endTime: '18:00' },
-    wednesday: { enabled: true, startTime: '10:00', endTime: '18:00' },
-    thursday: { enabled: true, startTime: '10:00', endTime: '18:00' },
-    friday: { enabled: true, startTime: '10:00', endTime: '18:00' },
-    saturday: { enabled: false, startTime: '10:00', endTime: '14:00' },
-    sunday: { enabled: false, startTime: '10:00', endTime: '14:00' },
+    monday: { enabled: true, startTime: '09:00', endTime: '17:00' },
+    tuesday: { enabled: true, startTime: '09:00', endTime: '17:00' },
+    wednesday: { enabled: true, startTime: '09:00', endTime: '17:00' },
+    thursday: { enabled: true, startTime: '09:00', endTime: '17:00' },
+    friday: { enabled: true, startTime: '09:00', endTime: '17:00' },
+    saturday: { enabled: false, startTime: '09:00', endTime: '14:00' },
+    sunday: { enabled: false, startTime: '09:00', endTime: '14:00' },
   });
   const [generatorDateRange, setGeneratorDateRange] = useState<{ start: string; end: string }>({
     start: todayStr,
@@ -87,9 +86,7 @@ export default function SchedulePage() {
 
   // Calculate slot preview for generator
   const slotPreview = useMemo(() => {
-    if (!selectedService) return null;
-    
-    const duration = selectedService.duration;
+    const duration = selectedService?.duration || 30;
     const preview: Record<DayOfWeek, { count: number; slots: string[] }> = {} as any;
     let totalSlots = 0;
     
@@ -104,7 +101,7 @@ export default function SchedulePage() {
       }
     });
     
-    return { days: preview, total: totalSlots };
+    return { days: preview, total: totalSlots, previewDuration: duration };
   }, [selectedService, generatorDays]);
 
   useEffect(() => {
@@ -134,25 +131,7 @@ export default function SchedulePage() {
           setServices(assignedServices);
           const defaultServiceId = assignedServices[0]?.id;
           setSelectedServiceId(defaultServiceId);
-
-          if (defaultServiceId) {
-            await loadAvailability(foundEmployee.id, defaultServiceId);
-          } else {
-            // If no assignments found, maybe try one more time after a short delay
-            // in case the assignment was JUST created
-            setTimeout(async () => {
-              const freshEmployeeServices = await getEmployeeServices(foundEmployee.id);
-              if (freshEmployeeServices.length > 0) {
-                const freshAssignedServices = allServices.filter((s) =>
-                  freshEmployeeServices.some((es) => es.serviceId === s.id)
-                );
-                setServices(freshAssignedServices);
-                const freshDefaultId = freshAssignedServices[0]?.id;
-                setSelectedServiceId(freshDefaultId);
-                if (freshDefaultId) await loadAvailability(foundEmployee.id, freshDefaultId);
-              }
-            }, 2000);
-          }
+          await loadAvailability(foundEmployee.id, defaultServiceId);
         }
       } catch (error) {
         console.error('Error fetching data:', error);
@@ -167,10 +146,17 @@ export default function SchedulePage() {
   const loadAvailability = async (employeeId: string, serviceId?: string) => {
     setLoadingAvailability(true);
     try {
-      let availabilityData = await getAvailability(employeeId, serviceId);
-      // Fallback: if no availability tied to this service yet, show general availability
-      if (serviceId && availabilityData.length === 0) {
-        availabilityData = await getAvailability(employeeId);
+      const allAvailability = await getAvailability(employeeId);
+      const genericAvailability = allAvailability.filter((a) => !a.serviceId);
+      let availabilityData = genericAvailability;
+      if (!availabilityData.length && serviceId) {
+        availabilityData = allAvailability.filter((a) => a.serviceId === serviceId);
+      }
+      if (!availabilityData.length && !serviceId) {
+        const firstLegacyServiceId = allAvailability.find((a) => !!a.serviceId)?.serviceId;
+        if (firstLegacyServiceId) {
+          availabilityData = allAvailability.filter((a) => a.serviceId === firstLegacyServiceId);
+        }
       }
       setExistingAvailabilityCount(availabilityData.length);
       setAvailability(availabilityData);
@@ -240,8 +226,7 @@ export default function SchedulePage() {
   }, [selectedServiceId, todayStr]);
 
   const handleGenerateSchedule = async () => {
-    if (!employee || !selectedServiceId || !selectedService) {
-      alert('Primero selecciona un servicio.');
+    if (!employee) {
       return;
     }
     if (generatorDateRange.start && generatorDateRange.start < todayStr) {
@@ -255,8 +240,18 @@ export default function SchedulePage() {
 
     setSaving(true);
     try {
-      // First, delete existing availability for this service
-      const existingAvailability = await getAvailability(employee.id, selectedServiceId);
+      for (const day of daysOfWeek) {
+        const dayConfig = generatorDays[day];
+        if (!dayConfig.enabled) continue;
+        if (!dayConfig.startTime || !dayConfig.endTime || dayConfig.startTime >= dayConfig.endTime) {
+          alert(`Rango de horario inválido en ${dayNames[day]}.`);
+          setSaving(false);
+          return;
+        }
+      }
+
+      // Replace all existing availability with employee-wide schedule
+      const existingAvailability = await getAvailability(employee.id);
       for (const avail of existingAvailability) {
         await deleteAvailability(avail.id);
       }
@@ -267,7 +262,6 @@ export default function SchedulePage() {
         if (dayConfig.enabled && dayConfig.startTime && dayConfig.endTime) {
           await createAvailability({
             employeeId: employee.id,
-            serviceId: selectedServiceId,
             dayOfWeek: day,
             startTime: dayConfig.startTime,
             endTime: dayConfig.endTime,
@@ -281,7 +275,7 @@ export default function SchedulePage() {
       // Refresh availability
       await loadAvailability(employee.id, selectedServiceId);
       setShowGenerator(false);
-      alert('¡Horario generado con éxito! Los slots se calcularán automáticamente según la duración del servicio.');
+      alert('¡Horario generado con éxito! La disponibilidad se guardó para todos los servicios.');
     } catch (error) {
       console.error('Error generating schedule:', error);
       alert('Error al generar el horario');
@@ -292,10 +286,6 @@ export default function SchedulePage() {
 
   const handleSave = async () => {
     if (!employee) return;
-    if (!selectedServiceId) {
-      alert('Primero asigna un servicio para configurar tu disponibilidad.');
-      return;
-    }
     if (dateRange.start && dateRange.start < todayStr) {
       alert('La fecha "Desde" no puede estar en el pasado.');
       return;
@@ -307,11 +297,9 @@ export default function SchedulePage() {
 
     setSaving(true);
     try {
-      // For each day, create/update/delete availability based on slots
+      // Validate all active ranges first
       for (const day of daysOfWeek) {
         const dayState = daySlots[day];
-        const existing = availability.filter((a) => a.dayOfWeek === day);
-        const usedIds = new Set<string>();
         const sortedSlots = [...dayState.slots].sort((a, b) => a.startTime.localeCompare(b.startTime));
 
         // Basic overlap validation per day
@@ -324,63 +312,37 @@ export default function SchedulePage() {
             return;
           }
         }
+      }
 
-        if (!dayState.enabled) {
-          // Disable all existing slots for that day
-          for (const slot of existing) {
-            await updateAvailability(slot.id, {
-              isAvailable: false,
-              serviceId: selectedServiceId,
-              startDate: dateRange.start || undefined,
-              endDate: dateRange.end || undefined,
-            });
-          }
-          continue;
-        }
+      // Replace all existing availability with employee-wide schedule
+      const existingAvailability = await getAvailability(employee.id);
+      for (const slot of existingAvailability) {
+        await deleteAvailability(slot.id);
+      }
 
-        // Validate and save active slots
+      for (const day of daysOfWeek) {
+        const dayState = daySlots[day];
+        if (!dayState.enabled) continue;
+
         for (const slot of dayState.slots) {
           const startTime = slot.startTime;
           const endTime = slot.endTime;
-          if (!startTime || !endTime) {
-            continue;
-          }
+          if (!startTime || !endTime) continue;
           if (startTime >= endTime) {
             alert('La hora de inicio debe ser anterior a la hora de fin en cada franja.');
             setSaving(false);
             return;
           }
 
-          if (slot.id) {
-            usedIds.add(slot.id);
-            await updateAvailability(slot.id, {
-              startTime,
-              endTime,
-              isAvailable: true,
-              serviceId: selectedServiceId,
-              startDate: dateRange.start || undefined,
-              endDate: dateRange.end || undefined,
-            });
-          } else {
-            const newId = await createAvailability({
-              employeeId: employee.id,
-              serviceId: selectedServiceId,
-              dayOfWeek: day,
-              startTime,
-              endTime,
-              isAvailable: true,
-              startDate: dateRange.start || undefined,
-              endDate: dateRange.end || undefined,
-            });
-            usedIds.add(newId);
-          }
-        }
-
-        // Remove any existing slots not present in the form
-        for (const slot of existing) {
-          if (!usedIds.has(slot.id)) {
-            await deleteAvailability(slot.id);
-          }
+          await createAvailability({
+            employeeId: employee.id,
+            dayOfWeek: day,
+            startTime,
+            endTime,
+            isAvailable: true,
+            startDate: dateRange.start || undefined,
+            endDate: dateRange.end || undefined,
+          });
         }
       }
 
@@ -397,14 +359,14 @@ export default function SchedulePage() {
 
   // Calculate slots for current day config
   const getSlotsForDay = (day: DayOfWeek) => {
-    if (!selectedService) return [];
     const dayState = daySlots[day];
     if (!dayState.enabled || dayState.slots.length === 0) return [];
+    const previewDuration = selectedService?.duration || 30;
     
     const allSlots: string[] = [];
     dayState.slots.forEach((slot) => {
       if (slot.startTime && slot.endTime) {
-        const generated = generateTimeSlots(slot.startTime, slot.endTime, selectedService.duration);
+        const generated = generateTimeSlots(slot.startTime, slot.endTime, previewDuration);
         allSlots.push(...generated);
       }
     });
@@ -433,7 +395,6 @@ export default function SchedulePage() {
         <Button 
           onClick={() => setShowGenerator(true)} 
           variant="outline"
-          disabled={!selectedServiceId}
         >
           ✨ Generar Horario Rápido
         </Button>
@@ -444,14 +405,14 @@ export default function SchedulePage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wide text-primary-700 mb-2">
-              Servicio
+              Servicio (solo vista previa)
             </label>
             <select
               value={selectedServiceId || ''}
               onChange={(e) => setSelectedServiceId(e.target.value || undefined)}
               className="w-full px-4 py-3 border border-primary-300 rounded-sm bg-white text-primary-900 focus:outline-none focus:ring-1 focus:ring-accent-500"
             >
-              {services.length === 0 && <option value="">No tienes servicios asignados</option>}
+              <option value="">Predeterminado (30 min)</option>
               {services.map((service) => (
                 <option key={service.id} value={service.id}>
                   {service.serviceName} ({service.duration} min)
@@ -469,13 +430,13 @@ export default function SchedulePage() {
                       Duración: {selectedService.duration} minutos
                     </p>
                     <p className="text-xs text-accent-600">
-                      Los slots se generarán automáticamente según esta duración
+                      Vista previa de slots usando esta duración
                     </p>
                   </div>
                 </div>
                 {existingAvailabilityCount > 0 && (
                   <p className="mt-3 text-xs text-accent-700">
-                    Ya tienes disponibilidad guardada para este servicio. Las nuevas fechas reemplazarán la existente.
+                    Ya tienes disponibilidad general guardada. Al guardar se reemplazará.
                   </p>
                 )}
               </div>
@@ -624,9 +585,9 @@ export default function SchedulePage() {
                         </div>
                         
                         {/* Slot preview for this time window */}
-                        {selectedService && slot.startTime && slot.endTime && (
+                        {slot.startTime && slot.endTime && (
                           <div className="ml-0 sm:ml-4 flex flex-wrap gap-1">
-                            {generateTimeSlots(slot.startTime, slot.endTime, selectedService.duration).map((time) => (
+                            {generateTimeSlots(slot.startTime, slot.endTime, slotPreview.previewDuration).map((time) => (
                               <span key={time} className="text-[10px] px-1.5 py-0.5 bg-white border border-primary-200 rounded text-primary-600">
                                 {time}
                               </span>
@@ -691,20 +652,18 @@ export default function SchedulePage() {
 
             <div className="p-6 space-y-6 overflow-y-auto flex-1">
               {/* Service Info */}
-              {selectedService && (
-                <div className="p-4 bg-accent-50 border border-accent-200 rounded-sm">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium text-primary-900">{selectedService.serviceName}</p>
-                      <p className="text-sm text-primary-600">Duración: {selectedService.duration} minutos por cita</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-2xl font-light text-accent-700">{slotPreview?.total || 0}</p>
-                      <p className="text-xs text-primary-600">slots/semana</p>
-                    </div>
+              <div className="p-4 bg-accent-50 border border-accent-200 rounded-sm">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-primary-900">{selectedService?.serviceName || 'Duración predeterminada'}</p>
+                    <p className="text-sm text-primary-600">Duración: {slotPreview.previewDuration} minutos por cita</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-2xl font-light text-accent-700">{slotPreview.total}</p>
+                    <p className="text-xs text-primary-600">slots/semana</p>
                   </div>
                 </div>
-              )}
+              </div>
 
               {/* Date Range */}
               <div>
@@ -746,7 +705,7 @@ export default function SchedulePage() {
                 
                 {daysOfWeek.map((day) => {
                   const dayConfig = generatorDays[day];
-                  const dayPreview = slotPreview?.days[day];
+                  const dayPreview = slotPreview.days[day];
                   
                   return (
                     <div
@@ -833,7 +792,7 @@ export default function SchedulePage() {
               </div>
 
               {/* Summary */}
-              {slotPreview && slotPreview.total > 0 && (
+              {slotPreview.total > 0 && (
                 <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-sm">
                   <div className="flex items-center gap-3">
                     <span className="text-2xl">📅</span>
@@ -842,7 +801,7 @@ export default function SchedulePage() {
                         {slotPreview.total} slots por semana
                       </p>
                       <p className="text-sm text-emerald-600">
-                        Cada slot tiene una duración de {selectedService?.duration} minutos
+                        Cada slot tiene una duración de {slotPreview.previewDuration} minutos
                       </p>
                     </div>
                   </div>
@@ -862,7 +821,7 @@ export default function SchedulePage() {
                 onClick={handleGenerateSchedule}
                 isLoading={saving}
                 className="flex-1"
-                disabled={!slotPreview || slotPreview.total === 0}
+                disabled={slotPreview.total === 0}
               >
                 Generar Horario
               </Button>

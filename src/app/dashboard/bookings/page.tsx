@@ -533,11 +533,20 @@ const BookingCard: React.FC<BookingCardProps> = ({
   };
 
   const getPaymentStatus = () => {
-    if (booking.paymentStatus === 'paid' || booking.depositPaid) {
-      return { label: t('paid'), color: 'text-emerald-600' };
-    }
+    const isFullyPaid =
+      booking.finalPaymentReceived === true ||
+      (booking.paymentStatus === 'paid' && (booking.requiresDeposit !== true || booking.status === 'completed'));
+    const hasDepositOnly =
+      !isFullyPaid &&
+      (booking.paymentStatus === 'deposit_paid' || booking.depositPaid === true || booking.paymentStatus === 'paid');
     if (booking.paymentStatus === 'refunded') {
       return { label: t('refunded'), color: 'text-slate-500' };
+    }
+    if (isFullyPaid) {
+      return { label: t('payment_paid_in_full'), color: 'text-emerald-700' };
+    }
+    if (hasDepositOnly) {
+      return { label: t('payment_deposit_paid'), color: 'text-emerald-600' };
     }
     if (booking.paymentStatus === 'failed') {
       return { label: t('failed'), color: 'text-red-500' };
@@ -732,8 +741,8 @@ const DatePickerModal: React.FC<DatePickerModalProps> = ({
 
         {/* Day Headers */}
         <div className="grid grid-cols-7 mb-2">
-          {WEEKDAY_HEADERS[language].map((day) => (
-            <div key={day} className="text-center text-xs font-bold text-slate-400 uppercase tracking-wider py-2">
+          {WEEKDAY_HEADERS[language].map((day, idx) => (
+            <div key={`${day}-${idx}`} className="text-center text-xs font-bold text-slate-400 uppercase tracking-wider py-2">
               {day}
             </div>
           ))}

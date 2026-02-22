@@ -105,15 +105,21 @@ export default function FinancialDashboard() {
 
   const getBookingAmount = (booking: Booking): number => {
     const servicePrice = getServicePrice(booking.serviceId);
+    const additionalServicesTotal = (booking.additionalServices || []).reduce((sum, item) => sum + item.price, 0);
+    const totalPrice = servicePrice + additionalServicesTotal;
+    const depositAmount = booking.depositAmount !== undefined ? booking.depositAmount / 100 : totalPrice * 0.5;
+    const hasDepositPaid = booking.depositPaid === true || booking.paymentStatus === 'deposit_paid' || booking.paymentStatus === 'paid';
+    const isFullyPaid = booking.paymentStatus === 'paid' && (booking.finalPaymentReceived === true || booking.status === 'completed');
     const employee = employees.find((e) => e.id === booking.employeeId);
     
     // For self-employed, we only collect 50% deposit (the other 50% is their business)
     if (employee?.employmentType === 'self-employed') {
-      return servicePrice * 0.5;
+      return hasDepositPaid ? depositAmount : 0;
     }
-    
-    // For regular employees, we collect 100%
-    return servicePrice;
+
+    if (isFullyPaid) return totalPrice;
+    if (hasDepositPaid) return depositAmount;
+    return 0;
   };
 
   // Date range filtering (confirmed or completed bookings for accurate revenue)
@@ -152,7 +158,7 @@ export default function FinancialDashboard() {
       (b) => {
         // Only count bookings that have ACTUAL PAYMENT or are completed
         const isCompleted = b.status === 'completed';
-        const hasPaidDeposit = b.depositPaid === true;
+        const hasPaidDeposit = b.depositPaid === true || b.paymentStatus === 'deposit_paid';
         const isPaid = b.paymentStatus === 'paid';
         
         // Must have either: completed status, paid deposit, or paid payment status
@@ -191,7 +197,7 @@ export default function FinancialDashboard() {
       (b) => {
         // Only count bookings that have ACTUAL PAYMENT or are completed
         const isCompleted = b.status === 'completed';
-        const hasPaidDeposit = b.depositPaid === true;
+        const hasPaidDeposit = b.depositPaid === true || b.paymentStatus === 'deposit_paid';
         const isPaid = b.paymentStatus === 'paid';
         
         // Must have either: completed status, paid deposit, or paid payment status

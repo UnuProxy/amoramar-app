@@ -16,7 +16,6 @@ import {
 import { Loading } from '@/shared/components/Loading';
 import { cn, formatDate, formatTime } from '@/shared/lib/utils';
 import type { Booking, Client, Employee, Service, TimeSlot, PaymentMethod } from '@/shared/lib/types';
-import { AdminCalendar } from './AdminCalendar';
 import { CurrentBookingPanel } from '@/shared/components/CurrentBookingPanel';
 import { PaymentMethodModal } from '@/shared/components/PaymentMethodModal';
 import { ClosingSaleModal } from '@/shared/components/ClosingSaleModal';
@@ -25,7 +24,7 @@ import { useAuth } from '@/shared/hooks/useAuth';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 
-type TabType = 'overview' | 'clients' | 'bookings' | 'calendar';
+type TabType = 'overview' | 'clients' | 'bookings';
 
 interface ClientData {
   name: string;
@@ -51,7 +50,7 @@ export default function DashboardPage() {
   const pathname = usePathname();
   const router = useRouter();
   const parseTab = (value: string | null): TabType => {
-    if (value === 'clients' || value === 'bookings' || value === 'calendar') return value;
+    if (value === 'clients' || value === 'bookings') return value;
     return 'overview';
   };
   const [activeTab, setActiveTab] = useState<TabType>(() => parseTab(searchParams?.get('tab') || null));
@@ -162,9 +161,16 @@ export default function DashboardPage() {
   }, []);
 
   const getPaymentLabel = useCallback((booking: Booking) => {
-    if (booking.paymentStatus === 'paid' || booking.depositPaid) return 'Paid';
+    const isFullyPaid =
+      booking.finalPaymentReceived === true ||
+      (booking.paymentStatus === 'paid' && (booking.requiresDeposit !== true || booking.status === 'completed'));
+    const hasDepositOnly =
+      !isFullyPaid &&
+      (booking.paymentStatus === 'deposit_paid' || booking.depositPaid === true || booking.paymentStatus === 'paid');
     if (booking.paymentStatus === 'refunded') return 'Refunded';
     if (booking.paymentStatus === 'failed') return 'Failed';
+    if (isFullyPaid) return 'Paid in full';
+    if (hasDepositOnly) return 'Deposit paid';
     return 'Pending';
   }, []);
 
@@ -489,7 +495,7 @@ export default function DashboardPage() {
         status: 'pending',
         requiresDeposit: true,
         depositPaid: !noPaymentCollected,
-        paymentStatus: noPaymentCollected ? 'pending' : 'paid',
+        paymentStatus: noPaymentCollected ? 'pending' : 'deposit_paid',
         finalPaymentMethod: noPaymentCollected ? undefined : paymentMethod,
         createdByRole: user?.role ?? 'owner',
         createdByName,
@@ -992,7 +998,6 @@ export default function DashboardPage() {
             { id: 'overview', label: 'Overview' },
             { id: 'clients', label: 'Clients' },
             { id: 'bookings', label: 'Bookings' },
-            { id: 'calendar', label: 'Calendar' },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -1598,12 +1603,18 @@ export default function DashboardPage() {
                             <span
                               className={cn(
                                 "px-2 py-1 rounded-full text-[10px] font-black uppercase tracking-[0.15em]",
-                                booking.paymentStatus === 'paid' || booking.depositPaid
+                                booking.paymentStatus === 'refunded'
+                                  ? 'bg-slate-200 text-slate-900'
+                                  : booking.finalPaymentReceived === true ||
+                                    (booking.paymentStatus === 'paid' &&
+                                      (booking.requiresDeposit !== true || booking.status === 'completed'))
                                   ? 'bg-success-500 text-white'
+                                  : booking.paymentStatus === 'deposit_paid' ||
+                                    booking.depositPaid ||
+                                    booking.paymentStatus === 'paid'
+                                  ? 'bg-emerald-100 text-emerald-700'
                                   : booking.paymentStatus === 'failed'
                                   ? 'bg-sky-500 text-white'
-                                  : booking.paymentStatus === 'refunded'
-                                  ? 'bg-slate-200 text-slate-900'
                                   : 'bg-warning-500 text-slate-900'
                               )}
                             >
@@ -1680,26 +1691,6 @@ export default function DashboardPage() {
               </table>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Calendar Tab - Modern Admin View */}
-      {activeTab === 'calendar' && (
-        <div className="bg-white border-2 border-slate-100 rounded-[40px] p-8 shadow-sm">
-          <AdminCalendar
-            employees={employees}
-            services={services}
-            refreshKey={bookingRefreshKey}
-            onRequestBooking={(defaults) =>
-              openBookingModal(undefined, {
-                serviceId: defaults.serviceId,
-                employeeId: defaults.employeeId,
-                bookingDate: defaults.bookingDate,
-                bookingTime: defaults.bookingTime,
-              })
-            }
-            onBookingPatched={handleBookingPatched}
-          />
         </div>
       )}
 

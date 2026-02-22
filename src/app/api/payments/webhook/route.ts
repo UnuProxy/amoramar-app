@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
         const booking = await getBookingByPaymentIntentId(intent.id);
         if (booking) {
           await updateBooking(booking.id, {
-            paymentStatus: 'paid',
+            paymentStatus: 'deposit_paid',
             depositPaid: true,
             depositAmount: intent.amount_received || intent.amount || booking.depositAmount,
             status: booking.status === 'pending' ? 'confirmed' : booking.status,
@@ -81,4 +81,3 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: error.message || 'Webhook processing failed.' }, { status: 500 });
   }
 }
-

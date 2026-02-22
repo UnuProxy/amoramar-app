@@ -18,7 +18,14 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const availability = await getAvailability(employeeId, serviceId || undefined);
+    const allAvailability = await getAvailability(employeeId);
+    const genericAvailability = allAvailability.filter((a) => !a.serviceId);
+    const availability =
+      genericAvailability.length > 0
+        ? genericAvailability
+        : serviceId
+          ? allAvailability.filter((a) => a.serviceId === serviceId)
+          : allAvailability;
 
     return NextResponse.json<ApiResponse<Availability[]>>({
       success: true,
@@ -64,7 +71,6 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-
 
 
 

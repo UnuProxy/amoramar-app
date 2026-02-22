@@ -253,7 +253,7 @@ export interface Booking {
   depositAmount?: number; // Amount in cents
   depositPaid?: boolean;
   paymentIntentId?: string; // Stripe Payment Intent ID
-  paymentStatus?: 'pending' | 'paid' | 'refunded' | 'failed';
+  paymentStatus?: 'pending' | 'deposit_paid' | 'paid' | 'refunded' | 'failed';
   paymentNotes?: string; // Notes about payment adjustments
   // Final payment tracking (for regular employees only)
   finalPaymentAmount?: number; // Remaining amount after deposit (in euros)

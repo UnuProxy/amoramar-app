@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getBooking, updateBooking } from '@/shared/lib/firestore';
+import type { DocumentReference } from 'firebase-admin/firestore';
 import { createRefund } from '@/shared/lib/stripe';
+import { getAdminDb } from '@/shared/lib/firebaseAdmin';
+import { getBooking } from '@/shared/lib/firestore';
 import { hoursUntilBooking } from '@/shared/lib/utils';
 import type { ApiResponse, Booking, UserRole } from '@/shared/lib/types';
 
@@ -20,7 +22,36 @@ export async function POST(
     const { id } = await context.params;
     const body = (await request.json().catch(() => ({}))) as CancelRequest;
     const role = body.role || 'client';
-    const booking = await getBooking(id);
+    let booking: Booking | null = null;
+    let bookingRef: DocumentReference | null = null;
+    let requiresClientWrite = false;
+
+    try {
+      const db = getAdminDb();
+      bookingRef = db.collection('bookings').doc(id);
+      const bookingSnap = await bookingRef.get();
+
+      if (!bookingSnap.exists) {
+        return NextResponse.json<ApiResponse<null>>(
+          {
+            success: false,
+            error: 'Booking not found',
+          },
+          { status: 404 }
+        );
+      }
+
+      const bookingData = bookingSnap.data() as Omit<Booking, 'id'>;
+      booking = { id: bookingSnap.id, ...bookingData };
+    } catch (adminError: any) {
+      // Fallback for environments without Admin SDK (e.g. local dev)
+      if (/Firebase Admin SDK is not configured/i.test(adminError?.message || '')) {
+        booking = await getBooking(id);
+        requiresClientWrite = true;
+      } else {
+        throw adminError;
+      }
+    }
 
     if (!booking) {
       return NextResponse.json<ApiResponse<null>>(
@@ -31,6 +62,7 @@ export async function POST(
         { status: 404 }
       );
     }
+
 
     const hoursUntil = hoursUntilBooking(booking.bookingDate, booking.bookingTime);
     const isAdmin = role === 'owner' || role === 'employee' || role === 'admin' || body.force;
@@ -46,13 +78,25 @@ export async function POST(
     }
 
     let refundStatus: 'none' | 'refunded' | 'failed' = 'none';
-    if (booking.paymentStatus === 'paid' && booking.paymentIntentId && booking.depositAmount) {
+    const shouldAttemptRefund =
+      !!booking.paymentIntentId &&
+      (booking.depositPaid === true ||
+        booking.paymentStatus === 'paid' ||
+        booking.paymentStatus === 'deposit_paid');
+
+    if (booking.paymentStatus === 'refunded') {
+      refundStatus = 'refunded';
+    } else if (shouldAttemptRefund) {
       try {
-        await createRefund(booking.paymentIntentId, booking.depositAmount);
+        await createRefund(booking.paymentIntentId!, booking.depositAmount);
         refundStatus = 'refunded';
-      } catch (error) {
+      } catch (error: any) {
+        if (error?.code === 'charge_already_refunded' || /already been refunded/i.test(error?.message || '')) {
+          refundStatus = 'refunded';
+        } else {
         console.error('Error refunding deposit:', error);
         refundStatus = 'failed';
+        }
       }
     }
 
@@ -63,16 +107,23 @@ export async function POST(
       depositPaid: refundStatus === 'refunded' ? false : booking.depositPaid,
     };
 
-    await updateBooking(id, updates);
+    if (bookingRef) {
+      await bookingRef.update({
+        ...updates,
+        updatedAt: new Date(),
+      });
+    }
 
-    return NextResponse.json<ApiResponse<{ refundStatus: string; hoursUntil: number }>>({
+    return NextResponse.json<ApiResponse<{ refundStatus: string; hoursUntil: number; requiresClientWrite: boolean }>>({
       success: true,
       data: {
         refundStatus,
         hoursUntil,
+        requiresClientWrite,
       },
     });
   } catch (error: any) {
+    console.error('Cancel booking API failed:', error);
     return NextResponse.json<ApiResponse<null>>(
       {
         success: false,

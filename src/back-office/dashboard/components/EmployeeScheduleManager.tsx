@@ -5,14 +5,11 @@ import {
   createAvailability,
   deleteAvailability,
   getAvailability,
-  getEmployeeServices,
-  getServices,
-  updateAvailability,
 } from '@/shared/lib/firestore';
 import { Button } from '@/shared/components/Button';
 import { Loading } from '@/shared/components/Loading';
 import { generateTimeSlots } from '@/shared/lib/utils';
-import type { Availability, DayOfWeek, Service } from '@/shared/lib/types';
+import type { Availability, DayOfWeek } from '@/shared/lib/types';
 
 const daysOfWeek: DayOfWeek[] = [
   'monday',
@@ -40,9 +37,8 @@ type Props = {
 };
 
 export function EmployeeScheduleManager({ employeeId, employeeName }: Props) {
+  const SLOT_PREVIEW_DURATION = 30;
   const todayStr = new Date().toISOString().split('T')[0];
-  const [services, setServices] = useState<Service[]>([]);
-  const [selectedServiceId, setSelectedServiceId] = useState<string | undefined>(undefined);
   const [availability, setAvailability] = useState<Availability[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingAvailability, setLoadingAvailability] = useState(false);
@@ -56,13 +52,13 @@ export function EmployeeScheduleManager({ employeeId, employeeName }: Props) {
   });
 
   const [generatorDays, setGeneratorDays] = useState<Record<DayOfWeek, { enabled: boolean; startTime: string; endTime: string }>>({
-    monday: { enabled: true, startTime: '10:00', endTime: '18:00' },
-    tuesday: { enabled: true, startTime: '10:00', endTime: '18:00' },
-    wednesday: { enabled: true, startTime: '10:00', endTime: '18:00' },
-    thursday: { enabled: true, startTime: '10:00', endTime: '18:00' },
-    friday: { enabled: true, startTime: '10:00', endTime: '18:00' },
-    saturday: { enabled: false, startTime: '10:00', endTime: '14:00' },
-    sunday: { enabled: false, startTime: '10:00', endTime: '14:00' },
+    monday: { enabled: true, startTime: '09:00', endTime: '17:00' },
+    tuesday: { enabled: true, startTime: '09:00', endTime: '17:00' },
+    wednesday: { enabled: true, startTime: '09:00', endTime: '17:00' },
+    thursday: { enabled: true, startTime: '09:00', endTime: '17:00' },
+    friday: { enabled: true, startTime: '09:00', endTime: '17:00' },
+    saturday: { enabled: false, startTime: '09:00', endTime: '14:00' },
+    sunday: { enabled: false, startTime: '09:00', endTime: '14:00' },
   });
 
   const [generatorDateRange, setGeneratorDateRange] = useState<{ start: string; end: string }>({
@@ -82,10 +78,8 @@ export function EmployeeScheduleManager({ employeeId, employeeName }: Props) {
     sunday: { enabled: false, slots: [] },
   });
 
-  const selectedService = useMemo(() => services.find((s) => s.id === selectedServiceId), [services, selectedServiceId]);
-
   const slotPreview = useMemo(() => {
-    if (!selectedService) return null;
+    const previewDuration = SLOT_PREVIEW_DURATION;
     const preview: Record<DayOfWeek, { count: number; slots: string[] }> = {} as Record<
       DayOfWeek,
       { count: number; slots: string[] }
@@ -95,7 +89,7 @@ export function EmployeeScheduleManager({ employeeId, employeeName }: Props) {
     daysOfWeek.forEach((day) => {
       const cfg = generatorDays[day];
       if (cfg.enabled && cfg.startTime && cfg.endTime) {
-        const slots = generateTimeSlots(cfg.startTime, cfg.endTime, selectedService.duration);
+        const slots = generateTimeSlots(cfg.startTime, cfg.endTime, previewDuration);
         preview[day] = { count: slots.length, slots };
         total += slots.length;
       } else {
@@ -103,15 +97,21 @@ export function EmployeeScheduleManager({ employeeId, employeeName }: Props) {
       }
     });
 
-    return { days: preview, total };
-  }, [generatorDays, selectedService]);
+    return { days: preview, total, previewDuration };
+  }, [generatorDays]);
 
-  const loadAvailability = async (serviceId?: string) => {
+  const loadAvailability = async () => {
     setLoadingAvailability(true);
     try {
-      let data = await getAvailability(employeeId, serviceId);
-      if (serviceId && data.length === 0) {
-        data = await getAvailability(employeeId);
+      const allAvailability = await getAvailability(employeeId);
+      const genericAvailability = allAvailability.filter((a) => !a.serviceId);
+      let data = genericAvailability;
+      // Legacy fallback: if no employee-wide availability exists, show first service-specific schedule.
+      if (!data.length) {
+        const firstLegacyServiceId = allAvailability.find((a) => !!a.serviceId)?.serviceId;
+        if (firstLegacyServiceId) {
+          data = allAvailability.filter((a) => a.serviceId === firstLegacyServiceId);
+        }
       }
       setAvailability(data);
       setExistingAvailabilityCount(data.length);
@@ -156,14 +156,7 @@ export function EmployeeScheduleManager({ employeeId, employeeName }: Props) {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [employeeServices, allServices] = await Promise.all([getEmployeeServices(employeeId), getServices()]);
-        const assignedServices = allServices.filter((s) => employeeServices.some((es) => es.serviceId === s.id));
-        setServices(assignedServices);
-        const defaultServiceId = assignedServices[0]?.id;
-        setSelectedServiceId(defaultServiceId);
-        if (defaultServiceId) {
-          await loadAvailability(defaultServiceId);
-        }
+        await loadAvailability();
       } catch (error) {
         console.error('Error fetching employee schedule data:', error);
       } finally {
@@ -176,21 +169,10 @@ export function EmployeeScheduleManager({ employeeId, employeeName }: Props) {
   }, [employeeId]);
 
   useEffect(() => {
-    if (selectedServiceId) {
-      loadAvailability(selectedServiceId);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedServiceId]);
-
-  useEffect(() => {
     setGeneratorDateRange((prev) => ({ start: prev.start || todayStr, end: prev.end }));
-  }, [selectedServiceId, todayStr]);
+  }, [todayStr]);
 
   const handleGenerateSchedule = async () => {
-    if (!selectedServiceId || !selectedService) {
-      alert('Select a service first.');
-      return;
-    }
     if (generatorDateRange.start && generatorDateRange.start < todayStr) {
       alert('Start date cannot be in the past.');
       return;
@@ -202,7 +184,17 @@ export function EmployeeScheduleManager({ employeeId, employeeName }: Props) {
 
     setSaving(true);
     try {
-      const existing = await getAvailability(employeeId, selectedServiceId);
+      for (const day of daysOfWeek) {
+        const cfg = generatorDays[day];
+        if (!cfg.enabled) continue;
+        if (!cfg.startTime || !cfg.endTime || cfg.startTime >= cfg.endTime) {
+          alert(`Invalid time range on ${dayNames[day]}.`);
+          setSaving(false);
+          return;
+        }
+      }
+
+      const existing = await getAvailability(employeeId);
       for (const item of existing) {
         await deleteAvailability(item.id);
       }
@@ -212,7 +204,6 @@ export function EmployeeScheduleManager({ employeeId, employeeName }: Props) {
         if (cfg.enabled && cfg.startTime && cfg.endTime) {
           await createAvailability({
             employeeId,
-            serviceId: selectedServiceId,
             dayOfWeek: day,
             startTime: cfg.startTime,
             endTime: cfg.endTime,
@@ -223,7 +214,7 @@ export function EmployeeScheduleManager({ employeeId, employeeName }: Props) {
         }
       }
 
-      await loadAvailability(selectedServiceId);
+      await loadAvailability();
       setShowGenerator(false);
       alert('Schedule generated successfully.');
     } catch (error) {
@@ -235,10 +226,6 @@ export function EmployeeScheduleManager({ employeeId, employeeName }: Props) {
   };
 
   const handleSave = async () => {
-    if (!selectedServiceId) {
-      alert('Select a service first.');
-      return;
-    }
     if (dateRange.start && dateRange.start < todayStr) {
       alert('Start date cannot be in the past.');
       return;
@@ -252,8 +239,6 @@ export function EmployeeScheduleManager({ employeeId, employeeName }: Props) {
     try {
       for (const day of daysOfWeek) {
         const state = daySlots[day];
-        const existing = availability.filter((a) => a.dayOfWeek === day);
-        const usedIds = new Set<string>();
         const sortedSlots = [...state.slots].sort((a, b) => a.startTime.localeCompare(b.startTime));
 
         for (let i = 0; i < sortedSlots.length - 1; i += 1) {
@@ -265,60 +250,31 @@ export function EmployeeScheduleManager({ employeeId, employeeName }: Props) {
             return;
           }
         }
+      }
 
-        if (!state.enabled) {
-          for (const slot of existing) {
-            await updateAvailability(slot.id, {
-              isAvailable: false,
-              serviceId: selectedServiceId,
-              startDate: dateRange.start || undefined,
-              endDate: dateRange.end || undefined,
-            });
-          }
-          continue;
-        }
+      const existingAvailability = await getAvailability(employeeId);
+      for (const slot of existingAvailability) {
+        await deleteAvailability(slot.id);
+      }
 
+      for (const day of daysOfWeek) {
+        const state = daySlots[day];
+        if (!state.enabled) continue;
         for (const slot of state.slots) {
           if (!slot.startTime || !slot.endTime) continue;
-          if (slot.startTime >= slot.endTime) {
-            alert('Each slot start time must be before end time.');
-            setSaving(false);
-            return;
-          }
-
-          if (slot.id) {
-            usedIds.add(slot.id);
-            await updateAvailability(slot.id, {
-              startTime: slot.startTime,
-              endTime: slot.endTime,
-              isAvailable: true,
-              serviceId: selectedServiceId,
-              startDate: dateRange.start || undefined,
-              endDate: dateRange.end || undefined,
-            });
-          } else {
-            const createdId = await createAvailability({
-              employeeId,
-              serviceId: selectedServiceId,
-              dayOfWeek: day,
-              startTime: slot.startTime,
-              endTime: slot.endTime,
-              isAvailable: true,
-              startDate: dateRange.start || undefined,
-              endDate: dateRange.end || undefined,
-            });
-            usedIds.add(createdId);
-          }
-        }
-
-        for (const slot of existing) {
-          if (!usedIds.has(slot.id)) {
-            await deleteAvailability(slot.id);
-          }
+          await createAvailability({
+            employeeId,
+            dayOfWeek: day,
+            startTime: slot.startTime,
+            endTime: slot.endTime,
+            isAvailable: true,
+            startDate: dateRange.start || undefined,
+            endDate: dateRange.end || undefined,
+          });
         }
       }
 
-      await loadAvailability(selectedServiceId);
+      await loadAvailability();
       alert('Schedule saved successfully.');
     } catch (error) {
       console.error('Error saving schedule:', error);
@@ -329,14 +285,14 @@ export function EmployeeScheduleManager({ employeeId, employeeName }: Props) {
   };
 
   const getSlotsForDay = (day: DayOfWeek) => {
-    if (!selectedService) return [];
     const state = daySlots[day];
     if (!state.enabled || state.slots.length === 0) return [];
+    const previewDuration = SLOT_PREVIEW_DURATION;
 
     const allSlots: string[] = [];
     state.slots.forEach((slot) => {
       if (slot.startTime && slot.endTime) {
-        allSlots.push(...generateTimeSlots(slot.startTime, slot.endTime, selectedService.duration));
+        allSlots.push(...generateTimeSlots(slot.startTime, slot.endTime, previewDuration));
       }
     });
 
@@ -360,38 +316,24 @@ export function EmployeeScheduleManager({ employeeId, employeeName }: Props) {
             {employeeName ? `Manage schedule for ${employeeName}` : 'Manage employee schedule'}
           </p>
         </div>
-        <Button onClick={() => setShowGenerator(true)} variant="outline" disabled={!selectedServiceId}>
+        <Button onClick={() => setShowGenerator(true)} variant="outline">
           Generate Quick Schedule
         </Button>
       </div>
 
       <div className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 space-y-5">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wide text-slate-600 mb-2">Service</label>
-            <select
-              value={selectedServiceId || ''}
-              onChange={(e) => setSelectedServiceId(e.target.value || undefined)}
-              className="w-full px-3 py-2.5 border border-slate-300 rounded-lg bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-300"
-            >
-              {services.length === 0 && <option value="">No assigned services</option>}
-              {services.map((service) => (
-                <option key={service.id} value={service.id}>
-                  {service.serviceName} ({service.duration} min)
-                </option>
-              ))}
-            </select>
-            {selectedService && (
-              <div className="mt-3 p-3 bg-sky-50 border border-sky-200 rounded-lg">
-                <p className="text-sm font-medium text-sky-800">Duration: {selectedService.duration} minutes</p>
-                <p className="text-xs text-sky-700 mt-1">Generated slots follow this service duration.</p>
-                {existingAvailabilityCount > 0 && (
-                  <p className="text-xs text-sky-700 mt-2">Existing schedule found for this service. Saving will update it.</p>
-                )}
-              </div>
+        <div className="space-y-3">
+          <div className="p-3 bg-sky-50 border border-sky-200 rounded-lg">
+            <p className="text-sm font-medium text-sky-800">Employee-wide availability</p>
+            <p className="text-xs text-sky-700 mt-1">This schedule applies to all assigned services.</p>
+            <p className="text-xs text-sky-700 mt-1">Service duration determines if there is enough remaining time for another booking.</p>
+            <p className="text-xs text-sky-700 mt-1">Quick preset: Monday-Friday 09:00-17:00.</p>
+            {existingAvailabilityCount > 0 && (
+              <p className="text-xs text-sky-700 mt-2">Existing availability found. Saving will replace it.</p>
             )}
           </div>
-
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wide text-slate-600 mb-2">Start date</label>
@@ -516,9 +458,9 @@ export function EmployeeScheduleManager({ employeeId, employeeName }: Props) {
                             </button>
                           </div>
 
-                          {selectedService && slot.startTime && slot.endTime && (
+                          {slot.startTime && slot.endTime && (
                             <div className="ml-0 sm:ml-4 flex flex-wrap gap-1">
-                              {generateTimeSlots(slot.startTime, slot.endTime, selectedService.duration).map((time) => (
+                              {generateTimeSlots(slot.startTime, slot.endTime, slotPreview.previewDuration).map((time) => (
                                 <span key={time} className="text-[10px] px-1.5 py-0.5 bg-white border border-slate-200 rounded text-slate-600">
                                   {time}
                                 </span>
@@ -576,18 +518,16 @@ export function EmployeeScheduleManager({ employeeId, employeeName }: Props) {
             </div>
 
             <div className="p-6 space-y-5 overflow-y-auto">
-              {selectedService && (
-                <div className="p-3 bg-sky-50 border border-sky-200 rounded-lg flex items-center justify-between">
-                  <div>
-                    <p className="font-medium text-slate-900">{selectedService.serviceName}</p>
-                    <p className="text-sm text-slate-600">Duration: {selectedService.duration} min / booking</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-2xl font-semibold text-sky-700">{slotPreview?.total || 0}</p>
-                    <p className="text-xs text-slate-500">slots/week</p>
-                  </div>
+            <div className="p-3 bg-sky-50 border border-sky-200 rounded-lg flex items-center justify-between">
+              <div>
+                <p className="font-medium text-slate-900">General schedule preview</p>
+                <p className="text-sm text-slate-600">Duration: {slotPreview.previewDuration} min / booking</p>
+              </div>
+                <div className="text-right">
+                  <p className="text-2xl font-semibold text-sky-700">{slotPreview.total}</p>
+                  <p className="text-xs text-slate-500">slots/week</p>
                 </div>
-              )}
+              </div>
 
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wide text-slate-600 mb-2">Validity period (optional)</label>
@@ -619,7 +559,7 @@ export function EmployeeScheduleManager({ employeeId, employeeName }: Props) {
                 <label className="block text-xs font-semibold uppercase tracking-wide text-slate-600">Weekly hours</label>
                 {daysOfWeek.map((day) => {
                   const cfg = generatorDays[day];
-                  const dayPreview = slotPreview?.days[day];
+                  const dayPreview = slotPreview.days[day];
                   return (
                     <div
                       key={day}
@@ -686,7 +626,7 @@ export function EmployeeScheduleManager({ employeeId, employeeName }: Props) {
               <Button variant="outline" onClick={() => setShowGenerator(false)} className="flex-1">
                 Cancel
               </Button>
-              <Button onClick={handleGenerateSchedule} isLoading={saving} className="flex-1" disabled={!slotPreview || slotPreview.total === 0}>
+              <Button onClick={handleGenerateSchedule} isLoading={saving} className="flex-1" disabled={slotPreview.total === 0}>
                 Generate
               </Button>
             </div>

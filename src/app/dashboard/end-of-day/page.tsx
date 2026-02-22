@@ -6,13 +6,34 @@ import { getBookings, getEmployees, getServices } from '@/shared/lib/firestore';
 import type { Booking, Employee, Service } from '@/shared/lib/types';
 import { formatCurrency, cn } from '@/shared/lib/utils';
 
+type EndOfDayMethod = 'cash' | 'pos' | 'online';
+type EndOfDayTransactionType = 'deposit' | 'final_payment' | 'refund';
+
+interface EndOfDayTransaction {
+  id: string;
+  bookingId: string;
+  dateKey: string;
+  timestamp: Date;
+  displayTime: string;
+  clientName: string;
+  serviceName: string;
+  employeeType?: Employee['employmentType'];
+  method: EndOfDayMethod;
+  type: EndOfDayTransactionType;
+  amount: number; // refunds are negative
+  createdByName?: string;
+  closedByName?: string;
+  staffId: string;
+  staffName: string;
+}
+
 export default function EndOfDayPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
-  const [filterMethod, setFilterMethod] = useState<'all' | 'cash' | 'pos'>('all');
+  const [filterMethod, setFilterMethod] = useState<'all' | EndOfDayMethod>('all');
   const [filterStaff, setFilterStaff] = useState<string>('all');
 
   useEffect(() => {
@@ -36,142 +57,232 @@ export default function EndOfDayPage() {
     }
   };
 
-  // Filter bookings for selected date with payments
-  const paymentsForDay = useMemo(() => {
-    return bookings
-      .filter((booking) => {
-        // Must have payment registered
-        const hasPayment = booking.depositPaid || booking.paymentStatus === 'paid';
-        if (!hasPayment) return false;
+  const toDateKey = (value: unknown): string | null => {
+    if (!value) return null;
+    const date =
+      value instanceof Date
+        ? value
+        : typeof (value as any)?.toDate === 'function'
+        ? (value as any).toDate()
+        : new Date(value as any);
+    if (Number.isNaN(date.getTime())) return null;
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
 
-        // Must match selected date
-        if (booking.bookingDate !== selectedDate) return false;
+  const toDate = (value: unknown): Date | null => {
+    if (!value) return null;
+    if (value instanceof Date) return value;
+    if (typeof (value as any)?.toDate === 'function') return (value as any).toDate();
+    const parsed = new Date(value as any);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  };
 
-        // Filter by payment method
-        if (filterMethod !== 'all') {
-          const bookingMethod = booking.finalPaymentMethod;
-          if (filterMethod === 'cash' && bookingMethod !== 'cash') return false;
-          if (filterMethod === 'pos' && bookingMethod !== 'pos') return false;
-        }
+  const toTimeLabel = (date: Date | null, fallback: string): string => {
+    if (!date) return fallback;
+    const hh = String(date.getHours()).padStart(2, '0');
+    const mm = String(date.getMinutes()).padStart(2, '0');
+    return `${hh}:${mm}`;
+  };
 
-        // Filter by staff (who closed the sale)
-        if (filterStaff !== 'all') {
-          const closedBy = booking.completedBy || booking.finalPaymentReceivedBy || booking.createdByUserId;
-          if (closedBy !== filterStaff) return false;
-        }
+  const allTransactions = useMemo<EndOfDayTransaction[]>(() => {
+    const rows: EndOfDayTransaction[] = [];
 
-        return true;
-      })
-      .sort((a, b) => `${a.bookingTime}`.localeCompare(`${b.bookingTime}`));
-  }, [bookings, selectedDate, filterMethod, filterStaff]);
+    bookings.forEach((booking) => {
+      const service = services.find((s) => s.id === booking.serviceId);
+      const employee = employees.find((e) => e.id === booking.employeeId);
+      const basePrice = service?.price || 0;
+      const additionalTotal = (booking.additionalServices || []).reduce((sum, item) => sum + item.price, 0);
+      const totalPrice = basePrice + additionalTotal;
+      const expectedDeposit = totalPrice * 0.5;
+      const rawDepositAmount = booking.depositAmount !== undefined ? booking.depositAmount / 100 : expectedDeposit;
+      const hasDepositWorkflow =
+        booking.requiresDeposit === true ||
+        Boolean(booking.paymentIntentId) ||
+        booking.paymentStatus === 'deposit_paid' ||
+        booking.paymentStatus === 'refunded' ||
+        (booking.depositPaid === true && booking.finalPaymentReceived !== true);
+      const depositAmount = hasDepositWorkflow
+        ? Math.min(rawDepositAmount > 0 ? rawDepositAmount : expectedDeposit, expectedDeposit)
+        : rawDepositAmount;
+      const isFullyPaid =
+        booking.finalPaymentReceived === true ||
+        (booking.paymentStatus === 'paid' && (!hasDepositWorkflow || booking.status === 'completed'));
+      const finalAmountFallback = Math.max(0, totalPrice - depositAmount);
+      const finalAmount = isFullyPaid
+        ? (booking.finalPaymentAmount !== undefined ? booking.finalPaymentAmount : finalAmountFallback)
+        : 0;
+
+      const createdAt = toDate(booking.createdAt);
+      const finalPaymentAt = toDate(booking.finalPaymentReceivedAt);
+      const cancelledAt = toDate(booking.cancelledAt);
+
+      const creatorId = booking.createdByUserId || 'unknown';
+      const creatorName = booking.createdByName || booking.clientName || 'Unspecified';
+
+      const closerId = booking.finalPaymentReceivedBy || booking.completedBy || creatorId;
+      const closerName =
+        booking.finalPaymentReceivedByName ||
+        booking.completedByName ||
+        creatorName ||
+        'Unspecified';
+
+      const cancellationModification = [...(booking.modifications || [])]
+        .reverse()
+        .find((mod) => mod.action === 'cancelled' || (mod.action === 'status_changed' && mod.newValue === 'cancelled'));
+      const refundStaffId = cancellationModification?.userId || closerId;
+      const refundStaffName = cancellationModification?.userName || closerName || 'Unspecified';
+
+      const depositMethod: EndOfDayMethod = booking.paymentIntentId ? 'online' : (booking.finalPaymentMethod === 'pos' ? 'pos' : 'cash');
+      const finalMethod: EndOfDayMethod = booking.finalPaymentMethod === 'pos' ? 'pos' : 'cash';
+      const refundMethod: EndOfDayMethod = booking.paymentIntentId ? 'online' : finalMethod;
+
+      const hasDepositEvent =
+        booking.depositPaid === true ||
+        booking.paymentStatus === 'deposit_paid' ||
+        booking.paymentStatus === 'paid' ||
+        booking.paymentStatus === 'refunded' ||
+        Boolean(booking.paymentIntentId);
+
+      if (hasDepositEvent && createdAt) {
+        rows.push({
+          id: `${booking.id}-deposit`,
+          bookingId: booking.id,
+          dateKey: toDateKey(createdAt)!,
+          timestamp: createdAt,
+          displayTime: toTimeLabel(createdAt, booking.bookingTime),
+          clientName: booking.clientName,
+          serviceName: service?.serviceName || booking.serviceName || 'Service',
+          employeeType: employee?.employmentType,
+          method: depositMethod,
+          type: 'deposit',
+          amount: depositAmount,
+          createdByName: creatorName,
+          closedByName: closerName,
+          staffId: creatorId,
+          staffName: creatorName,
+        });
+      }
+
+      if (finalPaymentAt && finalAmount > 0) {
+        rows.push({
+          id: `${booking.id}-final`,
+          bookingId: booking.id,
+          dateKey: toDateKey(finalPaymentAt)!,
+          timestamp: finalPaymentAt,
+          displayTime: toTimeLabel(finalPaymentAt, booking.bookingTime),
+          clientName: booking.clientName,
+          serviceName: service?.serviceName || booking.serviceName || 'Service',
+          employeeType: employee?.employmentType,
+          method: finalMethod,
+          type: 'final_payment',
+          amount: finalAmount,
+          createdByName: creatorName,
+          closedByName: closerName,
+          staffId: closerId,
+          staffName: closerName,
+        });
+      }
+
+      if (booking.paymentStatus === 'refunded' && cancelledAt) {
+        rows.push({
+          id: `${booking.id}-refund`,
+          bookingId: booking.id,
+          dateKey: toDateKey(cancelledAt)!,
+          timestamp: cancelledAt,
+          displayTime: toTimeLabel(cancelledAt, booking.bookingTime),
+          clientName: booking.clientName,
+          serviceName: service?.serviceName || booking.serviceName || 'Service',
+          employeeType: employee?.employmentType,
+          method: refundMethod,
+          type: 'refund',
+          amount: -Math.abs(depositAmount),
+          createdByName: creatorName,
+          closedByName: refundStaffName,
+          staffId: refundStaffId,
+          staffName: refundStaffName,
+        });
+      }
+    });
+
+    return rows.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+  }, [bookings, services, employees]);
+
+  const transactionsForDay = useMemo(() => {
+    return allTransactions
+      .filter((tx) => tx.dateKey === selectedDate)
+      .filter((tx) => (filterMethod === 'all' ? true : tx.method === filterMethod))
+      .filter((tx) => (filterStaff === 'all' ? true : tx.staffId === filterStaff));
+  }, [allTransactions, selectedDate, filterMethod, filterStaff]);
 
   // Calculate totals
   const totals = useMemo(() => {
     let totalCash = 0;
     let totalPos = 0;
+    let totalOnline = 0;
     let totalAmount = 0;
+    let grossCollected = 0;
+    let totalRefunds = 0;
 
     const byStaff: Record<string, { name: string; amount: number; count: number }> = {};
-    const byMethod: Record<string, { amount: number; count: number }> = {
+    const byMethod: Record<EndOfDayMethod, { amount: number; count: number }> = {
       cash: { amount: 0, count: 0 },
       pos: { amount: 0, count: 0 },
+      online: { amount: 0, count: 0 },
     };
 
-    paymentsForDay.forEach((booking) => {
-      const service = services.find((s) => s.id === booking.serviceId);
-      const servicePrice = service?.price || 0;
-      const employee = employees.find((e) => e.id === booking.employeeId);
-      
-      // Calculate actual amount collected by the salon
-      let amountCollected = servicePrice;
-      
-      // For self-employed, only count the deposit (50%)
-      if (employee?.employmentType === 'self-employed') {
-        amountCollected = servicePrice * 0.5;
+    transactionsForDay.forEach((tx) => {
+      totalAmount += tx.amount;
+      if (tx.amount >= 0) {
+        grossCollected += tx.amount;
+      } else {
+        totalRefunds += Math.abs(tx.amount);
       }
 
-      // Add additional services
-      const additionalTotal = (booking.additionalServices || []).reduce((sum, item) => sum + item.price, 0);
-      amountCollected += additionalTotal;
+      if (tx.method === 'cash') totalCash += tx.amount;
+      if (tx.method === 'pos') totalPos += tx.amount;
+      if (tx.method === 'online') totalOnline += tx.amount;
 
-      // Count by payment method
-      const method = booking.finalPaymentMethod || 'cash';
-      if (method === 'cash') {
-        totalCash += amountCollected;
-        byMethod.cash.amount += amountCollected;
-        byMethod.cash.count += 1;
-      } else if (method === 'pos') {
-        totalPos += amountCollected;
-        byMethod.pos.amount += amountCollected;
-        byMethod.pos.count += 1;
-      }
+      byMethod[tx.method].amount += tx.amount;
+      byMethod[tx.method].count += 1;
 
-      totalAmount += amountCollected;
-
-      // Count by staff member who CLOSED/COMPLETED the booking (not who created it)
-      const staffId = booking.completedBy || booking.finalPaymentReceivedBy || booking.createdByUserId || 'unknown';
-      
-      // Try to get the name with fallback logic
-      let staffName = booking.completedByName || booking.finalPaymentReceivedByName;
-      if (!staffName && staffId !== 'unknown') {
-        // Look up employee by user ID
-        const emp = employees.find(e => e.userId === staffId);
-        if (emp) {
-          staffName = `${emp.firstName} ${emp.lastName}`.trim();
-        } else {
-          staffName = booking.createdByName || 'Unspecified';
-        }
-      }
-      if (!staffName) staffName = 'Unspecified';
-      
-      if (!byStaff[staffId]) {
-        byStaff[staffId] = {
-          name: staffName,
+      if (!byStaff[tx.staffId]) {
+        byStaff[tx.staffId] = {
+          name: tx.staffName || 'Unspecified',
           amount: 0,
           count: 0,
         };
       }
-      byStaff[staffId].amount += amountCollected;
-      byStaff[staffId].count += 1;
+      byStaff[tx.staffId].amount += tx.amount;
+      byStaff[tx.staffId].count += 1;
     });
+
+    const byStaffList = Object.entries(byStaff).map(([id, data]) => ({ id, ...data }));
+    const totalAbsAmount = byStaffList.reduce((sum, item) => sum + Math.abs(item.amount), 0);
 
     return {
       totalCash,
       totalPos,
+      totalOnline,
       totalAmount,
-      byStaff: Object.entries(byStaff).map(([id, data]) => ({ id, ...data })),
+      grossCollected,
+      totalRefunds,
+      byStaff: byStaffList,
       byMethod,
-      transactionCount: paymentsForDay.length,
+      totalAbsAmount,
+      transactionCount: transactionsForDay.length,
     };
-  }, [paymentsForDay, services, employees]);
+  }, [transactionsForDay]);
 
-  // Get unique staff members who CLOSED sales (collected final payments)
   const staffMembers = useMemo(() => {
     const uniqueStaff = new Map<string, string>();
-    bookings.forEach((b) => {
-      if (b.depositPaid || b.paymentStatus === 'paid') {
-        const closedBy = b.completedBy || b.finalPaymentReceivedBy || b.createdByUserId;
-        
-        // Try to get the name with fallback logic
-        let closedByName = b.completedByName || b.finalPaymentReceivedByName;
-        if (!closedByName && closedBy) {
-          // Look up employee by user ID
-          const emp = employees.find(e => e.userId === closedBy);
-          if (emp) {
-            closedByName = `${emp.firstName} ${emp.lastName}`.trim();
-          } else {
-            closedByName = b.createdByName || 'Sin especificar';
-          }
-        }
-        if (!closedByName) closedByName = 'Unspecified';
-        
-        if (closedBy) {
-          uniqueStaff.set(closedBy, closedByName);
-        }
-      }
+    allTransactions.forEach((tx) => {
+      uniqueStaff.set(tx.staffId, tx.staffName || 'Unspecified');
     });
     return Array.from(uniqueStaff).map(([id, name]) => ({ id, name }));
-  }, [bookings, employees]);
+  }, [allTransactions]);
 
   if (loading) {
     return (
@@ -209,7 +320,7 @@ export default function EndOfDayPage() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         {/* Total Cash */}
         <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition-all">
           <div className="flex items-center justify-between mb-4">
@@ -237,6 +348,20 @@ export default function EndOfDayPage() {
           <p className="text-xs text-slate-400">{totals.byMethod.pos.count} transactions</p>
         </div>
 
+        {/* Total Online / Stripe */}
+        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition-all">
+          <div className="flex items-center justify-between mb-4">
+            <div className="w-12 h-12 bg-violet-100 rounded-lg flex items-center justify-center">
+              <svg className="w-6 h-6 text-violet-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7h-5a3 3 0 000 6h2a3 3 0 010 6H8m4-14v14" />
+              </svg>
+            </div>
+          </div>
+          <p className="text-sm font-medium text-slate-500 mb-1">Online / Stripe</p>
+          <p className="text-3xl font-bold text-violet-600 mb-2">{formatCurrency(totals.totalOnline)}</p>
+          <p className="text-xs text-slate-400">{totals.byMethod.online.count} transactions</p>
+        </div>
+
         {/* Total Amount */}
         <div className="bg-slate-800 rounded-2xl p-6 shadow-lg">
           <div className="flex items-center justify-between mb-4">
@@ -248,7 +373,9 @@ export default function EndOfDayPage() {
           </div>
           <p className="text-sm font-medium text-white/60 mb-1">Daily Total</p>
           <p className="text-3xl font-bold text-white mb-2">{formatCurrency(totals.totalAmount)}</p>
-          <p className="text-xs text-white/50">{totals.transactionCount} transactions</p>
+          <p className="text-xs text-white/50">
+            {totals.transactionCount} transactions · refunds {formatCurrency(totals.totalRefunds)}
+          </p>
         </div>
       </div>
 
@@ -292,6 +419,17 @@ export default function EndOfDayPage() {
             >
               💳 Card
             </button>
+            <button
+              onClick={() => setFilterMethod('online')}
+              className={cn(
+                "px-3 py-1.5 text-sm font-medium rounded-lg transition-all",
+                filterMethod === 'online'
+                  ? "bg-violet-600 text-white"
+                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+              )}
+            >
+              🌐 Online
+            </button>
           </div>
 
           {/* Staff Filter */}
@@ -307,59 +445,6 @@ export default function EndOfDayPage() {
               </option>
             ))}
           </select>
-        </div>
-      </div>
-
-      {/* Revenue by Staff */}
-      <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
-        <div className="px-6 py-4 border-b border-slate-200 bg-slate-50">
-          <h2 className="text-lg font-semibold text-slate-800">
-            Collections by Staff
-          </h2>
-        </div>
-        
-        <div className="p-6">
-          {totals.byStaff.length === 0 ? (
-            <div className="text-center py-12 text-slate-400 text-sm">
-              No data for this day
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {totals.byStaff.sort((a, b) => b.amount - a.amount).map((staff, index) => (
-                <div key={staff.id} className="group">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center text-white font-semibold text-sm">
-                        {index + 1}
-                      </div>
-                      <div>
-                        <p className="text-base font-semibold text-slate-900">
-                          {staff.name}
-                        </p>
-                        <p className="text-xs text-slate-500">
-                          {staff.count} {staff.count === 1 ? 'payment' : 'payments'}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-lg font-bold text-slate-800 tabular-nums">
-                        {formatCurrency(staff.amount)}
-                      </p>
-                      <p className="text-xs text-slate-500">
-                        {((staff.amount / totals.totalAmount) * 100).toFixed(0)}% of total
-                      </p>
-                    </div>
-                  </div>
-                  <div className="w-full bg-slate-100 rounded-full h-1 overflow-hidden">
-                    <div
-                      className="h-full bg-rose-600 rounded-full transition-all duration-1000"
-                      style={{ width: `${(staff.amount / totals.totalAmount) * 100}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
       </div>
 
@@ -393,57 +478,64 @@ export default function EndOfDayPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {paymentsForDay.length === 0 ? (
+              {transactionsForDay.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-10 py-12 text-center text-slate-300 font-bold uppercase tracking-widest text-xs">
                     Sin transacciones para este día
                   </td>
                 </tr>
               ) : (
-                paymentsForDay.map((booking) => {
-                  const service = services.find((s) => s.id === booking.serviceId);
-                  const employee = employees.find((e) => e.id === booking.employeeId);
-                  const servicePrice = service?.price || 0;
-                  
-                  // Calculate actual amount collected
-                  let amountCollected = servicePrice;
-                  if (employee?.employmentType === 'self-employed') {
-                    amountCollected = servicePrice * 0.5;
-                  }
-                  
-                  const additionalTotal = (booking.additionalServices || []).reduce((sum, item) => sum + item.price, 0);
-                  amountCollected += additionalTotal;
-
-                  const method = booking.finalPaymentMethod || 'cash';
-
+                transactionsForDay.map((tx) => {
+                  const transactionTypeLabel =
+                    tx.type === 'deposit'
+                      ? 'Depósito'
+                      : tx.type === 'final_payment'
+                      ? 'Pago final'
+                      : 'Reembolso';
                   return (
-                    <tr key={booking.id} className="hover:bg-slate-50 transition-all group">
+                    <tr key={tx.id} className="hover:bg-slate-50 transition-all group">
                       <td className="px-6 sm:px-10 py-6">
                         <div className="text-sm font-black text-slate-800 uppercase tracking-tight leading-none mb-1">
-                          {booking.bookingTime}
+                          {tx.displayTime}
                         </div>
                         <div className="text-xs font-bold text-slate-500 uppercase tracking-wide">
-                          {booking.clientName}
+                          {tx.clientName}
                         </div>
                       </td>
                       <td className="px-6 sm:px-10 py-6">
                         <div className="text-sm font-bold text-slate-700 uppercase tracking-wide">
-                          {service?.serviceName || 'Service'}
+                          {tx.serviceName}
                         </div>
-                        {employee?.employmentType === 'self-employed' && (
+                        {tx.employeeType === 'self-employed' && tx.type !== 'refund' && (
                           <span className="inline-block mt-1 px-2 py-0.5 text-[8px] font-black uppercase tracking-wider bg-amber-100 text-amber-700 rounded-md">
                             50% (Autónomo)
                           </span>
                         )}
+                        <span
+                          className={cn(
+                            "inline-block mt-1 ml-2 px-2 py-0.5 text-[8px] font-black uppercase tracking-wider rounded-md",
+                            tx.type === 'refund'
+                              ? "bg-rose-100 text-rose-700"
+                              : tx.type === 'final_payment'
+                              ? "bg-sky-100 text-sky-700"
+                              : "bg-emerald-100 text-emerald-700"
+                          )}
+                        >
+                          {transactionTypeLabel}
+                        </span>
                       </td>
                       <td className="px-6 sm:px-10 py-6 text-center">
-                        {method === 'cash' ? (
+                        {tx.method === 'cash' ? (
                           <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-emerald-100 text-emerald-700 text-xs font-black uppercase tracking-wider">
                             € Cash
                           </span>
-                        ) : (
+                        ) : tx.method === 'pos' ? (
                           <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-blue-100 text-blue-700 text-xs font-black uppercase tracking-wider">
                             💳 Card Terminal
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-violet-100 text-violet-700 text-xs font-black uppercase tracking-wider">
+                            🌐 Online
                           </span>
                         )}
                       </td>
@@ -452,34 +544,27 @@ export default function EndOfDayPage() {
                           <div className="flex items-center gap-2">
                             <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Creó:</span>
                             <span className="text-xs font-bold text-slate-600 uppercase tracking-wide">
-                              {booking.createdByName || 'Sin especificar'}
+                              {tx.createdByName || 'Sin especificar'}
                             </span>
                           </div>
                           <div className="flex items-center gap-2">
-                            <span className="text-[9px] font-black text-emerald-600 uppercase tracking-wider">Cerró:</span>
+                            <span className="text-[9px] font-black text-emerald-600 uppercase tracking-wider">
+                              {tx.type === 'refund' ? 'Reembolsó:' : 'Cerró:'}
+                            </span>
                             <span className="text-xs font-black text-emerald-700 uppercase tracking-wide">
-                              {(() => {
-                                // Try to get the name from the booking
-                                if (booking.completedByName) return booking.completedByName;
-                                if (booking.finalPaymentReceivedByName) return booking.finalPaymentReceivedByName;
-                                
-                                // Fallback: look up by user ID
-                                const closedByUserId = booking.completedBy || booking.finalPaymentReceivedBy || booking.createdByUserId;
-                                if (closedByUserId) {
-                                  const emp = employees.find(e => e.userId === closedByUserId);
-                                  if (emp) return `${emp.firstName} ${emp.lastName}`.trim();
-                                }
-                                
-                                // Last resort: use createdByName if it exists
-                                return booking.createdByName || 'Sin especificar';
-                              })()}
+                              {tx.closedByName || 'Sin especificar'}
                             </span>
                           </div>
                         </div>
                       </td>
                       <td className="px-6 sm:px-10 py-6 text-right">
-                        <p className="text-lg font-black text-slate-900 tabular-nums">
-                          {formatCurrency(amountCollected)}
+                        <p
+                          className={cn(
+                            "text-lg font-black tabular-nums",
+                            tx.amount < 0 ? 'text-rose-700' : 'text-slate-900'
+                          )}
+                        >
+                          {tx.amount < 0 ? '-' : '+'}{formatCurrency(Math.abs(tx.amount))}
                         </p>
                       </td>
                     </tr>
@@ -493,4 +578,3 @@ export default function EndOfDayPage() {
     </div>
   );
 }
-

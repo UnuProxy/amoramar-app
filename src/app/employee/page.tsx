@@ -290,7 +290,7 @@ export default function EmployeeBookingsPage() {
       if (isFullPayment) {
         await updateBooking(bookingToMarkPaid.id, {
           depositPaid: !noPaymentCollected,
-          paymentStatus: noPaymentCollected ? 'pending' : 'paid',
+          paymentStatus: noPaymentCollected ? 'pending' : 'deposit_paid',
           finalPaymentReceived: !noPaymentCollected,
           finalPaymentAmount: adjustedAmount,
           finalPaymentMethod: noPaymentCollected ? undefined : paymentMethod,
@@ -303,7 +303,7 @@ export default function EmployeeBookingsPage() {
             ? { 
                 ...b, 
                 depositPaid: !noPaymentCollected, 
-                paymentStatus: noPaymentCollected ? 'pending' : 'paid', 
+                paymentStatus: noPaymentCollected ? 'pending' : 'deposit_paid', 
                 finalPaymentReceived: !noPaymentCollected, 
                 finalPaymentAmount: adjustedAmount, 
                 finalPaymentMethod: noPaymentCollected ? undefined : paymentMethod,
@@ -314,13 +314,13 @@ export default function EmployeeBookingsPage() {
       } else {
         await updateBooking(bookingToMarkPaid.id, {
           depositPaid: !noPaymentCollected,
-          paymentStatus: noPaymentCollected ? 'pending' : 'paid',
+          paymentStatus: noPaymentCollected ? 'pending' : 'deposit_paid',
           finalPaymentMethod: noPaymentCollected ? undefined : paymentMethod,
           paymentNotes: notes || undefined,
         });
         setBookings((prev) => prev.map((b) => 
           b.id === bookingToMarkPaid.id 
-            ? { ...b, depositPaid: !noPaymentCollected, paymentStatus: noPaymentCollected ? 'pending' : 'paid', finalPaymentMethod: noPaymentCollected ? undefined : paymentMethod, paymentNotes: notes || undefined } 
+            ? { ...b, depositPaid: !noPaymentCollected, paymentStatus: noPaymentCollected ? 'pending' : 'deposit_paid', finalPaymentMethod: noPaymentCollected ? undefined : paymentMethod, paymentNotes: notes || undefined } 
             : b
         ));
       }
@@ -345,6 +345,14 @@ export default function EmployeeBookingsPage() {
       const result = await response.json();
       if (!result.success) {
         throw new Error(result.error || 'No se pudo cancelar la reserva');
+      }
+      if (result.data?.requiresClientWrite) {
+        await updateBooking(booking.id, {
+          status: 'cancelled',
+          cancelledAt: new Date(),
+          paymentStatus: result.data?.refundStatus === 'refunded' ? 'refunded' : booking.paymentStatus,
+          depositPaid: result.data?.refundStatus === 'refunded' ? false : booking.depositPaid,
+        });
       }
       setBookings((prev) => prev.map((b) => (b.id === booking.id ? { ...b, status: 'cancelled' } : b)));
     } catch (error) {

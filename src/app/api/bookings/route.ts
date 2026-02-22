@@ -198,7 +198,7 @@ export async function POST(request: NextRequest) {
       depositAmount: isConsultation ? 0 : depositAmount,
       depositPaid: isConsultation ? true : !allowUnpaid,
       paymentIntentId: data.paymentIntentId,
-      paymentStatus: isConsultation ? 'paid' : (allowUnpaid ? 'pending' : 'paid'),
+      paymentStatus: isConsultation ? 'paid' : (allowUnpaid ? 'pending' : 'deposit_paid'),
       isConsultation,
       consultationDuration: isConsultation ? data.consultationDuration : undefined,
     });
@@ -226,7 +226,7 @@ export async function POST(request: NextRequest) {
         depositAmount: isConsultation ? 0 : depositAmount,
         depositPaid: isConsultation ? true : !allowUnpaid,
         paymentIntentId: data.paymentIntentId,
-        paymentStatus: isConsultation ? 'paid' : (allowUnpaid ? 'pending' : 'paid'),
+        paymentStatus: isConsultation ? 'paid' : (allowUnpaid ? 'pending' : 'deposit_paid'),
         isConsultation,
         consultationDuration: isConsultation ? data.consultationDuration : undefined,
         createdAt: new Date(),

@@ -67,15 +67,29 @@ const getCreatedByLabel = (booking: Booking) => {
 };
 
 const getPaymentBadgeClass = (booking: Booking) => {
-  if (booking.paymentStatus === 'paid' || booking.depositPaid) return 'bg-success-500 text-white';
-  if (booking.paymentStatus === 'failed') return 'bg-accent-500 text-white';
+  const isFullyPaid =
+    booking.finalPaymentReceived === true ||
+    (booking.paymentStatus === 'paid' && (booking.requiresDeposit !== true || booking.status === 'completed'));
+  const hasDepositOnly =
+    !isFullyPaid &&
+    (booking.paymentStatus === 'deposit_paid' || booking.depositPaid === true || booking.paymentStatus === 'paid');
   if (booking.paymentStatus === 'refunded') return 'bg-primary-200 text-primary-900';
+  if (isFullyPaid) return 'bg-success-500 text-white';
+  if (hasDepositOnly) return 'bg-success-100 text-success-700';
+  if (booking.paymentStatus === 'failed') return 'bg-accent-500 text-white';
   return 'bg-warning-500 text-primary-900';
 };
 
 const getPaymentLabel = (booking: Booking) => {
-  if (booking.paymentStatus === 'paid' || booking.depositPaid) return 'Pagado';
+  const isFullyPaid =
+    booking.finalPaymentReceived === true ||
+    (booking.paymentStatus === 'paid' && (booking.requiresDeposit !== true || booking.status === 'completed'));
+  const hasDepositOnly =
+    !isFullyPaid &&
+    (booking.paymentStatus === 'deposit_paid' || booking.depositPaid === true || booking.paymentStatus === 'paid');
   if (booking.paymentStatus === 'refunded') return 'Reembolsado';
+  if (isFullyPaid) return 'Pagado completo';
+  if (hasDepositOnly) return 'Deposito pagado';
   if (booking.paymentStatus === 'failed') return 'Fallido';
   return 'Pendiente';
 };
