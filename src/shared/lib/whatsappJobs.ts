@@ -40,9 +40,17 @@ const bookingStartAt = (booking: Pick<Booking, 'bookingDate' | 'bookingTime'>): 
 
 const getLocationLabel = (): string => process.env.WHATSAPP_LOCATION_LABEL || 'Amor Amar';
 
+const formatTemplateDate = (date?: string): string => {
+  if (!date) return '';
+  const match = date.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return date;
+  const [, year, month, day] = match;
+  return `${day}.${month}.${year}`;
+};
+
 const buildVars = (booking: Booking): Record<string, string> => ({
   client_name: booking.clientName || '',
-  date: booking.bookingDate || '',
+  date: formatTemplateDate(booking.bookingDate),
   time: booking.bookingTime || '',
   location: getLocationLabel(),
 });

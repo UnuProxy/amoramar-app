@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { Loading } from '@/shared/components/Loading';
 import { ClientAuthModal } from '@/shared/components/ClientAuthModal';
-import { formatCurrency, cn } from '@/shared/lib/utils';
+import { formatCurrency, cn, getDateKeyInMadrid } from '@/shared/lib/utils';
 import type { Service, Employee, BookingFormData, Client } from '@/shared/lib/types';
 import { loadStripe, type Stripe, type StripeCardElement, type StripeElements } from '@stripe/stripe-js';
 import Link from 'next/link';
@@ -187,12 +187,15 @@ const isOnlineBookingRestricted = (service: Service): boolean => {
 
 
 const clampStep = (n: number): Step => Math.min(4, Math.max(1, n)) as Step;
+const getLocalDateKey = (): string => {
+  return getDateKeyInMadrid();
+};
 
-// Format date from yyyy-mm-dd to dd-mm-yyyy
+// Format date from yyyy-mm-dd to dd.mm.yyyy
 const formatDisplayDate = (dateStr: string): string => {
   if (!dateStr) return '';
   const [year, month, day] = dateStr.split('-');
-  return `${day}-${month}-${year}`;
+  return `${day}.${month}.${year}`;
 };
 
 export default function BookAllServicesPage() {
@@ -1408,7 +1411,7 @@ export default function BookAllServicesPage() {
                         onDateSelect={(date) => setFormData({ ...formData, date, time: '' })}
                         employeeId={formData.employeeId}
                         serviceId={selectedService.id}
-                        minDate={new Date().toISOString().split('T')[0]}
+                        minDate={getLocalDateKey()}
                         isConsultation={false}
                       />
                     ) : (

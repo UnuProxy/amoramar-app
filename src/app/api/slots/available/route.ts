@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAvailability, getBlockedSlots, getBookings, getService } from '@/shared/lib/firestore';
-import { addMinutesToTime, generateTimeSlots, isPastDate } from '@/shared/lib/utils';
+import { addMinutesToTime, generateTimeSlots, getDateKeyInMadrid, getMinutesInMadrid, isPastDate } from '@/shared/lib/utils';
 import type { ApiResponse, AvailableSlotsResponse, TimeSlot } from '@/shared/lib/types';
 
 // Minimum minutes ahead required for booking (e.g., 30 minutes buffer)
@@ -163,9 +163,9 @@ export async function GET(request: NextRequest) {
 
     // Check if this is today to filter out past slots
     const now = new Date();
-    const today = now.toISOString().split('T')[0];
+    const today = getDateKeyInMadrid(now);
     const isToday = date === today;
-    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    const currentMinutes = getMinutesInMadrid(now);
     // Add buffer time - only for client bookings, not for staff (walk-ins)
     const minimumSlotTime = isStaffBooking ? currentMinutes : currentMinutes + MIN_BOOKING_BUFFER_MINUTES;
     

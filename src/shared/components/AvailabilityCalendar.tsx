@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { cn } from '@/shared/lib/utils';
+import { cn, getDateKeyInMadrid } from '@/shared/lib/utils';
 
 interface AvailabilityCalendarProps {
   selectedDate: string;
@@ -23,7 +23,7 @@ export function AvailabilityCalendar({
   onDateSelect,
   employeeId,
   serviceId,
-  minDate = new Date().toISOString().split('T')[0],
+  minDate = getDateKeyInMadrid(),
   isConsultation = false,
   consultationDuration,
 }: AvailabilityCalendarProps) {
@@ -50,7 +50,7 @@ export function AvailabilityCalendar({
         
         for (let day = 1; day <= daysInMonth; day++) {
           const date = new Date(year, month, day);
-          const dateStr = date.toISOString().split('T')[0];
+          const dateStr = getDateKeyInMadrid(date);
           
           // Skip past dates
           if (dateStr < minDate) continue;
@@ -181,11 +181,11 @@ export function AvailabilityCalendar({
             return <div key={`empty-${index}`} className="aspect-square" />;
           }
           
-          const dateStr = day.toISOString().split('T')[0];
+          const dateStr = getDateKeyInMadrid(day);
           const isPast = dateStr < minDate;
           const isSelected = dateStr === selectedDate;
           const hasAvailability = availabilityMap.get(dateStr) || false;
-          const isToday = dateStr === new Date().toISOString().split('T')[0];
+          const isToday = dateStr === getDateKeyInMadrid();
           
           return (
             <button
@@ -241,4 +241,3 @@ export function AvailabilityCalendar({
     </div>
   );
 }
-

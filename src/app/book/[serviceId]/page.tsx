@@ -6,7 +6,7 @@ import { useAuth } from '@/shared/hooks/useAuth';
 import { Loading } from '@/shared/components/Loading';
 import { ClientAuthModal } from '@/shared/components/ClientAuthModal';
 import { AvailabilityCalendar } from '@/shared/components/AvailabilityCalendar';
-import { formatCurrency, cn } from '@/shared/lib/utils';
+import { formatCurrency, cn, getDateKeyInMadrid } from '@/shared/lib/utils';
 import type { Service, Employee, BookingFormData, Client } from '@/shared/lib/types';
 import { loadStripe, type Stripe, type StripeCardElement, type StripeElements } from '@stripe/stripe-js';
 import Link from 'next/link';
@@ -32,12 +32,15 @@ type TimeSlot = {
 };
 
 const clampStep = (n: number): Step => Math.min(3, Math.max(1, n)) as Step;
+const getLocalDateKey = (): string => {
+  return getDateKeyInMadrid();
+};
 
-// Format date from yyyy-mm-dd to dd-mm-yyyy
+// Format date from yyyy-mm-dd to dd.mm.yyyy
 const formatDisplayDate = (dateStr: string): string => {
   if (!dateStr) return '';
   const [year, month, day] = dateStr.split('-');
-  return `${day}-${month}-${year}`;
+  return `${day}.${month}.${year}`;
 };
 
 export default function DirectBookingPage() {
@@ -955,7 +958,7 @@ export default function DirectBookingPage() {
                         onDateSelect={(date) => setFormData({ ...formData, date, time: '' })}
                         employeeId={formData.employeeId}
                         serviceId={service.id}
-                        minDate={new Date().toISOString().split('T')[0]}
+                        minDate={getLocalDateKey()}
                         isConsultation={formData.isConsultation}
                         consultationDuration={formData.isConsultation ? service.consultationDuration : undefined}
                       />
