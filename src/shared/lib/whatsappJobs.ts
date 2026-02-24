@@ -8,7 +8,7 @@ type JobDoc = {
   bookingId: string;
   type: WhatsAppJobType;
   toPhoneE164: string;
-  templateName: 'booking_confirmed' | 'booking_reminder_24h';
+  templateName: 'booking_confirmed_new' | 'booking_reminder_24h' | (string & {});
   lang: string;
   vars: Record<string, string>;
   dueAt: Timestamp;
@@ -38,11 +38,13 @@ const bookingStartAt = (booking: Pick<Booking, 'bookingDate' | 'bookingTime'>): 
   return Number.isNaN(candidate.getTime()) ? null : candidate;
 };
 
+const getLocationLabel = (): string => process.env.WHATSAPP_LOCATION_LABEL || 'Amor Amar';
+
 const buildVars = (booking: Booking): Record<string, string> => ({
   client_name: booking.clientName || '',
-  start_at: `${booking.bookingDate} ${booking.bookingTime}`,
-  service_name: booking.serviceName || '',
-  pickup: booking.notes || '',
+  date: booking.bookingDate || '',
+  time: booking.bookingTime || '',
+  location: getLocationLabel(),
 });
 
 const getLanguageCode = (): string => process.env.WHATSAPP_TEMPLATE_LANG || 'en_US';
@@ -55,7 +57,7 @@ const createJobPayload = (
   bookingId: booking.id,
   type,
   toPhoneE164: safeE164(booking.clientPhoneE164 || booking.clientPhone),
-  templateName: type === 'WHATSAPP_CONFIRMATION' ? 'booking_confirmed' : 'booking_reminder_24h',
+  templateName: type === 'WHATSAPP_CONFIRMATION' ? 'booking_confirmed_new' : 'booking_reminder_24h',
   lang: getLanguageCode(),
   vars: buildVars(booking),
   dueAt,
@@ -93,7 +95,7 @@ export const enqueueWhatsAppJobsForConfirmedBooking = async (booking: Booking): 
 };
 
 const buildTemplateComponents = (vars: Record<string, string>) => {
-  const ordered = ['client_name', 'start_at', 'service_name', 'pickup'];
+  const ordered = ['client_name', 'date', 'time', 'location'];
   return [
     {
       type: 'body',
@@ -115,8 +117,11 @@ const sendWhatsAppTemplate = async (
   const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
   const version = process.env.WHATSAPP_GRAPH_VERSION || 'v21.0';
 
-  if (!token || !phoneNumberId) {
-    throw new Error('Missing WhatsApp API config (META_ACCESS_TOKEN or WHATSAPP_PHONE_NUMBER_ID).');
+  const missingVars: string[] = [];
+  if (!token) missingVars.push('META_ACCESS_TOKEN');
+  if (!phoneNumberId) missingVars.push('WHATSAPP_PHONE_NUMBER_ID');
+  if (missingVars.length > 0) {
+    throw new Error(`Missing WhatsApp API config: ${missingVars.join(', ')}.`);
   }
 
   const url = `https://graph.facebook.com/${version}/${phoneNumberId}/messages`;
@@ -146,22 +151,49 @@ const sendWhatsAppTemplate = async (
   }
 };
 
+const isMissingIndexError = (error: unknown): boolean => {
+  const message = String((error as any)?.message ?? error ?? '');
+  return message.includes('FAILED_PRECONDITION') && message.includes('requires an index');
+};
+
+const getDueQueuedJobDocs = async (now: Timestamp, limit: number) => {
+  const jobsRef = db().collection('notification_jobs');
+
+  try {
+    const snap = await jobsRef
+      .where('status', '==', 'queued')
+      .where('dueAt', '<=', now)
+      .orderBy('dueAt', 'asc')
+      .limit(limit)
+      .get();
+    return snap.docs;
+  } catch (error) {
+    if (!isMissingIndexError(error)) throw error;
+
+    const fallbackSnap = await jobsRef
+      .where('dueAt', '<=', now)
+      .orderBy('dueAt', 'asc')
+      .limit(Math.max(limit * 5, 50))
+      .get();
+
+    return fallbackSnap.docs
+      .filter((doc) => {
+        const data = doc.data() as JobDoc | undefined;
+        return data?.status === 'queued';
+      })
+      .slice(0, limit);
+  }
+};
+
 export const processDueWhatsAppJobs = async (limit = 25): Promise<{ processed: number; sent: number; failed: number }> => {
   const now = Timestamp.now();
-  const queue = db()
-    .collection('notification_jobs')
-    .where('status', '==', 'queued')
-    .where('dueAt', '<=', now)
-    .orderBy('dueAt', 'asc')
-    .limit(limit);
-
-  const snap = await queue.get();
-  if (snap.empty) return { processed: 0, sent: 0, failed: 0 };
+  const queuedDocs = await getDueQueuedJobDocs(now, limit);
+  if (queuedDocs.length === 0) return { processed: 0, sent: 0, failed: 0 };
 
   let sent = 0;
   let failed = 0;
 
-  for (const doc of snap.docs) {
+  for (const doc of queuedDocs) {
     const ref = doc.ref;
     let claimed = false;
 
@@ -179,10 +211,12 @@ export const processDueWhatsAppJobs = async (limit = 25): Promise<{ processed: n
     if (!current || current.status !== 'processing') continue;
 
     try {
+      // Prefer current runtime language to recover queued jobs created with an outdated language code.
+      const runtimeLang = getLanguageCode();
       await sendWhatsAppTemplate(
         current.toPhoneE164,
         current.templateName,
-        current.lang || 'en_US',
+        runtimeLang || current.lang || 'en_US',
         current.vars || {}
       );
 
@@ -207,9 +241,8 @@ export const processDueWhatsAppJobs = async (limit = 25): Promise<{ processed: n
   }
 
   return {
-    processed: snap.docs.length,
+    processed: queuedDocs.length,
     sent,
     failed,
   };
 };
-

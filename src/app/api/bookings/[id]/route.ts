@@ -137,12 +137,16 @@ export async function PUT(
     await updateBooking(id, updates);
 
     if (statusBefore !== 'confirmed' && statusAfter === 'confirmed') {
-      await enqueueWhatsAppJobsForConfirmedBooking({
-        ...booking,
-        ...updates,
-        id: booking.id,
-        status: 'confirmed',
-      } as Booking);
+      try {
+        await enqueueWhatsAppJobsForConfirmedBooking({
+          ...booking,
+          ...updates,
+          id: booking.id,
+          status: 'confirmed',
+        } as Booking);
+      } catch (whatsAppError) {
+        console.error('Failed to enqueue WhatsApp jobs on booking confirmation:', whatsAppError);
+      }
     }
 
     return NextResponse.json<ApiResponse<{ id: string }>>({
@@ -192,7 +196,6 @@ export async function DELETE(
     );
   }
 }
-
 
 
 

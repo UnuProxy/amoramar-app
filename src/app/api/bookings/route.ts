@@ -204,34 +204,38 @@ export async function POST(request: NextRequest) {
     });
 
     if (isConsultation || !allowUnpaid) {
-      await enqueueWhatsAppJobsForConfirmedBooking({
-        id: bookingId,
-        salonId,
-        employeeId: data.employeeId,
-        serviceId: data.serviceId,
-        serviceName: service.serviceName,
-        clientName: data.clientName,
-        clientEmail: data.clientEmail,
-        clientPhone: data.clientPhone,
-        clientPhoneE164: data.clientPhoneE164 || data.clientPhone,
-        whatsappOptIn: data.whatsappOptIn ?? true,
-        bookingDate: data.bookingDate,
-        bookingTime: data.bookingTime,
-        status: 'confirmed',
-        createdByRole,
-        createdByName,
-        createdByUserId,
-        notes: data.notes || undefined,
-        requiresDeposit: !isConsultation,
-        depositAmount: isConsultation ? 0 : depositAmount,
-        depositPaid: isConsultation ? true : !allowUnpaid,
-        paymentIntentId: data.paymentIntentId,
-        paymentStatus: isConsultation ? 'paid' : (allowUnpaid ? 'pending' : 'deposit_paid'),
-        isConsultation,
-        consultationDuration: isConsultation ? data.consultationDuration : undefined,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
+      try {
+        await enqueueWhatsAppJobsForConfirmedBooking({
+          id: bookingId,
+          salonId,
+          employeeId: data.employeeId,
+          serviceId: data.serviceId,
+          serviceName: service.serviceName,
+          clientName: data.clientName,
+          clientEmail: data.clientEmail,
+          clientPhone: data.clientPhone,
+          clientPhoneE164: data.clientPhoneE164 || data.clientPhone,
+          whatsappOptIn: data.whatsappOptIn ?? true,
+          bookingDate: data.bookingDate,
+          bookingTime: data.bookingTime,
+          status: 'confirmed',
+          createdByRole,
+          createdByName,
+          createdByUserId,
+          notes: data.notes || undefined,
+          requiresDeposit: !isConsultation,
+          depositAmount: isConsultation ? 0 : depositAmount,
+          depositPaid: isConsultation ? true : !allowUnpaid,
+          paymentIntentId: data.paymentIntentId,
+          paymentStatus: isConsultation ? 'paid' : (allowUnpaid ? 'pending' : 'deposit_paid'),
+          isConsultation,
+          consultationDuration: isConsultation ? data.consultationDuration : undefined,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+      } catch (whatsAppError) {
+        console.error('Failed to enqueue WhatsApp jobs:', whatsAppError);
+      }
     }
 
     if (!service || !employee) {

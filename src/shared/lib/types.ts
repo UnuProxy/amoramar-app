@@ -397,7 +397,7 @@ export interface NotificationJob {
   bookingId: string;
   type: NotificationJobType;
   toPhoneE164: string;
-  templateName: 'booking_confirmed' | 'booking_reminder_24h' | (string & {});
+  templateName: 'booking_confirmed_new' | 'booking_reminder_24h' | (string & {});
   lang: string;
   vars: Record<string, string>;
   dueAt: Date;
