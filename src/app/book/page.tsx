@@ -42,12 +42,12 @@ const MAJOR_GROUP_ORDER: MajorGroupKey[] = ['manicure', 'pedicure-care', 'combin
 
 const MAJOR_GROUP_META: Record<MajorGroupKey, { es: string; en: string }> = {
   manicure: { es: 'Manicura', en: 'Nails / Manicure' },
-  'pedicure-care': { es: 'Pedicura & Care', en: 'Pedicure & Care' },
+  'pedicure-care': { es: 'Pedicura y Cuidado', en: 'Pedicure & Care' },
   combinations: {
-    es: 'Manicura & Pedicura — Combinaciones / Combinations',
-    en: 'Manicura & Pedicura — Combinaciones / Combinations',
+    es: 'Combinaciones de Manicura y Pedicura',
+    en: 'Manicure & Pedicure Combinations',
   },
-  hair: { es: 'Hair', en: 'Hair' },
+  hair: { es: 'Peluqueria', en: 'Hair' },
 };
 
 type GroupTone = {
@@ -224,49 +224,223 @@ export default function BookAllServicesPage() {
     if (language === 'es') {
       return {
         myBookings: 'Mis Citas',
+        createAccount: 'Crear Cuenta',
+        hello: 'Hola',
         login: 'Entrar',
         title: 'Reserva tu experiencia',
+        subtitle: 'Elige y reserva en minutos.',
+        stepService: 'Servicio',
+        stepDetails: 'Datos',
+        stepDate: 'Fecha',
+        stepPayment: 'Pago',
         servicesTitle: 'Nuestros servicios',
+        noServicesNow: 'No hay servicios disponibles en este momento',
         search: 'Buscar servicio o grupo...',
+        clearSearch: 'Limpiar busqueda',
+        mainGroups: 'Grupos principales',
+        groups: 'grupos',
+        services: 'servicios',
+        from: 'Desde',
+        scrollForMoreGroups: 'Desliza para ver mas grupos',
+        noServicesForGroup: 'No encontramos servicios para este grupo.',
+        noServicesForGroupHint: 'Prueba con otro nombre o cambia de grupo.',
         selected: 'Seleccionado',
-        availableCount: 'servicios',
+        availableBadge: 'Disponible',
+        hidden: 'Oculto',
+        noSpecialist: 'Sin especialista',
+        specialistSingular: 'especialista',
+        specialistPlural: 'especialistas',
         book: 'Reservar',
+        unavailable: 'No disponible',
         onlineBookingUnavailable: 'No disponible online',
         consultationRequired: 'Consulta previa obligatoria',
+        autoSaveBooking: 'Tu reserva se guardara en tu cuenta automaticamente',
         selectedService: 'Servicio seleccionado',
         yourDetails: 'Tus Datos',
+        contactPrompt: 'Cuentanos como contactarte',
+        alreadyHaveAccount: 'Ya tienes cuenta? Reserva en segundos',
+        loginAutofill: 'Inicia sesion y rellenaremos todo automaticamente. O continua como invitado.',
+        iHaveAccount: 'Ya tengo cuenta',
+        createFreeAccount: 'Crear cuenta gratis',
         yourName: 'Tu Nombre *',
+        namePlaceholder: 'Maria Garcia',
+        fullNameHint: 'Escribe tu nombre completo.',
         yourEmail: 'Tu Email *',
+        emailPlaceholder: 'tu@email.com',
+        validEmailHint: 'Introduce un email valido.',
         yourPhone: 'Tu Teléfono *',
+        phoneHint: 'Anade un telefono de contacto.',
         chooseSpecialist: 'Elige Tu Profesional *',
+        loadingSpecialists: 'Cargando profesionales...',
+        chooseSpecialistHint: 'Selecciona un especialista para continuar.',
+        assignedSpecialist: 'Profesional asignado',
+        dateAndTime: 'Fecha y Hora',
+        selectEmployeeFirst: 'Selecciona un empleado primero',
+        selectTime: 'Selecciona Hora',
+        pickDateFirst: 'Primero elige una fecha',
+        searchingTimes: 'Buscando horarios...',
+        tryAnotherDate: 'Prueba con otra fecha',
+        noSlotsAvailable: 'Sin horarios disponibles',
+        noSlotsForDate: 'No hay horarios disponibles para esta fecha.',
+        slotsLoadError: 'Error al cargar horarios',
+        connectionError: 'Error de conexion',
+        bookingConfirmed: 'Reserva Confirmada!',
+        confirmationEmail: 'Hemos enviado un email de confirmacion a',
+        weAreWaiting: 'Te esperamos!',
+        professional: 'Profesional',
+        date: 'Fecha',
+        time: 'Hora',
+        dontLoseBooking: 'No pierdas tu reserva!',
+        createAccountManage: 'Crea tu cuenta para gestionar y modificar tus citas',
+        createMyAccountNow: 'Crear Mi Cuenta Ahora',
+        bookingSavedInAccount: 'Reserva guardada en tu cuenta',
+        bookingManageFromMyBookings: 'Puedes verla y gestionarla desde "Mis Citas"',
+        viewMyBookings: 'Ver Mis Citas',
+        backHome: 'Volver al inicio',
+        confirmAndPay: 'Confirmar y Pagar',
+        reviewAndPay: 'Revisa tu reserva y completa el pago',
+        service: 'Servicio',
+        deposit: 'Deposito (50%)',
+        remainingAtSalon: 'Restante en salon',
+        paymentDetails: 'Datos de pago',
+        secureCardPayment: 'Pago seguro con tarjeta',
+        paymentsUnavailable: 'Pagos no disponibles. Contacta con soporte.',
+        termsAcceptance: 'Al confirmar, aceptas nuestros terminos y condiciones.',
+        complete: 'Completa',
+        pay: 'Pagar',
         change: 'Cambiar',
         back: 'Atrás',
         processing: 'Procesando...',
         next: 'Continuar',
+        loadingServices: 'Cargando servicios...',
+        paymentGatewayNotConfigured: 'La pasarela de pago no esta configurada. Contacta con soporte.',
+        selectServiceValidation: 'Selecciona un servicio',
+        nameValidation: 'Nombre',
+        emailValidation: 'Email',
+        validEmailValidation: 'Email valido',
+        phoneValidation: 'Telefono',
+        specialistValidation: 'Especialista',
+        dateValidation: 'Fecha',
+        timeValidation: 'Hora',
+        serviceUnavailable: 'Servicio no disponible.',
+        paymentInitFailed: 'No se pudo iniciar el pago',
+        stripeInitFailed: 'No se pudo inicializar Stripe',
+        paymentFormNotReady: 'El formulario de pago no esta listo.',
+        paymentCouldNotComplete: 'El pago no pudo completarse',
+        paymentRetry: 'El pago no se completo. Intentalo de nuevo.',
+        bookingCreateFailed: 'No se pudo crear la reserva',
+        paymentProcessError: 'Error al procesar el pago',
       };
     }
 
     return {
       myBookings: 'My Bookings',
+      createAccount: 'Create Account',
+      hello: 'Hello',
       login: 'Login',
       title: 'Book your experience',
+      subtitle: 'Choose and book in minutes.',
+      stepService: 'Service',
+      stepDetails: 'Details',
+      stepDate: 'Date',
+      stepPayment: 'Payment',
       servicesTitle: 'Our services',
+      noServicesNow: 'No services are available right now',
       search: 'Search service or group...',
+      clearSearch: 'Clear search',
+      mainGroups: 'Main groups',
+      groups: 'groups',
+      services: 'services',
+      from: 'From',
+      scrollForMoreGroups: 'Scroll to view more groups',
+      noServicesForGroup: 'No services were found for this group.',
+      noServicesForGroupHint: 'Try another term or switch to a different group.',
       selected: 'Selected',
-      availableCount: 'services',
+      availableBadge: 'Available',
+      hidden: 'Hidden',
+      noSpecialist: 'No specialist',
+      specialistSingular: 'specialist',
+      specialistPlural: 'specialists',
       book: 'Book',
+      unavailable: 'Unavailable',
       onlineBookingUnavailable: 'Not available online',
       consultationRequired: 'Consultation required',
+      autoSaveBooking: 'Your booking will be saved to your account automatically',
       selectedService: 'Selected service',
       yourDetails: 'Your Details',
+      contactPrompt: 'Tell us how to reach you',
+      alreadyHaveAccount: 'Already have an account? Book in seconds',
+      loginAutofill: 'Log in and we will autofill your details. Or continue as guest.',
+      iHaveAccount: 'I have an account',
+      createFreeAccount: 'Create free account',
       yourName: 'Your Name *',
+      namePlaceholder: 'Maria Garcia',
+      fullNameHint: 'Enter your full name.',
       yourEmail: 'Your Email *',
+      emailPlaceholder: 'you@email.com',
+      validEmailHint: 'Enter a valid email.',
       yourPhone: 'Your Phone *',
+      phoneHint: 'Add a contact phone number.',
       chooseSpecialist: 'Choose Specialist *',
+      loadingSpecialists: 'Loading specialists...',
+      chooseSpecialistHint: 'Select a specialist to continue.',
+      assignedSpecialist: 'Assigned specialist',
+      dateAndTime: 'Date and Time',
+      selectEmployeeFirst: 'Select a specialist first',
+      selectTime: 'Select Time',
+      pickDateFirst: 'Choose a date first',
+      searchingTimes: 'Searching time slots...',
+      tryAnotherDate: 'Try another date',
+      noSlotsAvailable: 'No available times',
+      noSlotsForDate: 'No available times for this date.',
+      slotsLoadError: 'Error loading time slots',
+      connectionError: 'Connection error',
+      bookingConfirmed: 'Booking Confirmed!',
+      confirmationEmail: 'We sent a confirmation email to',
+      weAreWaiting: 'See you soon!',
+      professional: 'Specialist',
+      date: 'Date',
+      time: 'Time',
+      dontLoseBooking: 'Do not lose your booking!',
+      createAccountManage: 'Create your account to manage and edit your bookings',
+      createMyAccountNow: 'Create My Account Now',
+      bookingSavedInAccount: 'Booking saved in your account',
+      bookingManageFromMyBookings: 'You can view and manage it from "My Bookings"',
+      viewMyBookings: 'View My Bookings',
+      backHome: 'Back to home',
+      confirmAndPay: 'Confirm and Pay',
+      reviewAndPay: 'Review your booking and complete payment',
+      service: 'Service',
+      deposit: 'Deposit (50%)',
+      remainingAtSalon: 'Remaining at salon',
+      paymentDetails: 'Payment details',
+      secureCardPayment: 'Secure card payment',
+      paymentsUnavailable: 'Payments are unavailable. Contact support.',
+      termsAcceptance: 'By confirming, you accept our terms and conditions.',
+      complete: 'Complete',
+      pay: 'Pay',
       change: 'Change',
       back: 'Back',
       processing: 'Processing...',
       next: 'Continue',
+      loadingServices: 'Loading services...',
+      paymentGatewayNotConfigured: 'Payment gateway is not configured. Contact support.',
+      selectServiceValidation: 'Select a service',
+      nameValidation: 'Name',
+      emailValidation: 'Email',
+      validEmailValidation: 'Valid email',
+      phoneValidation: 'Phone',
+      specialistValidation: 'Specialist',
+      dateValidation: 'Date',
+      timeValidation: 'Time',
+      serviceUnavailable: 'Service unavailable.',
+      paymentInitFailed: 'Could not start payment',
+      stripeInitFailed: 'Could not initialize Stripe',
+      paymentFormNotReady: 'Payment form is not ready.',
+      paymentCouldNotComplete: 'Payment could not be completed',
+      paymentRetry: 'Payment did not complete. Please try again.',
+      bookingCreateFailed: 'Could not create booking',
+      paymentProcessError: 'Error processing payment',
     };
   }, [language]);
 
@@ -525,15 +699,15 @@ export default function BookAllServicesPage() {
             const slots = data.data?.slots || [];
             setAvailableSlots(slots);
             if (slots.length === 0) {
-              setSlotsError('No hay horarios disponibles para esta fecha.');
+              setSlotsError(copy.noSlotsForDate);
             }
           } else {
-            setSlotsError(data.error || 'Error al cargar horarios');
+            setSlotsError(data.error || copy.slotsLoadError);
             setAvailableSlots([]);
           }
         } catch (err) {
           console.error('Error fetching slots:', err);
-          setSlotsError('Error de conexión');
+          setSlotsError(copy.connectionError);
           setAvailableSlots([]);
         } finally {
           setLoadingSlots(false);
@@ -545,7 +719,7 @@ export default function BookAllServicesPage() {
       setSlotsError(null);
       setLoadingSlots(false);
     }
-  }, [formData.date, selectedService?.id, formData.employeeId]);
+  }, [formData.date, selectedService?.id, formData.employeeId, copy]);
 
   // Load Stripe
   useEffect(() => {
@@ -680,27 +854,27 @@ export default function BookAllServicesPage() {
   }, [bookingStep, selectedService, formData]);
 
   const stepMissingItems = useMemo<string[]>(() => {
-    if (bookingStep === 1 && !selectedService) return ['Selecciona un servicio'];
+    if (bookingStep === 1 && !selectedService) return [copy.selectServiceValidation];
 
     if (bookingStep === 2) {
       const missing: string[] = [];
-      if (!formData.name.trim()) missing.push('Nombre');
-      if (!formData.email.trim()) missing.push('Email');
-      if (formData.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) missing.push('Email válido');
-      if (!formData.phone.trim()) missing.push('Teléfono');
-      if (!formData.employeeId) missing.push('Especialista');
+      if (!formData.name.trim()) missing.push(copy.nameValidation);
+      if (!formData.email.trim()) missing.push(copy.emailValidation);
+      if (formData.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) missing.push(copy.validEmailValidation);
+      if (!formData.phone.trim()) missing.push(copy.phoneValidation);
+      if (!formData.employeeId) missing.push(copy.specialistValidation);
       return missing;
     }
 
     if (bookingStep === 3) {
       const missing: string[] = [];
-      if (!formData.date) missing.push('Fecha');
-      if (!formData.time) missing.push('Hora');
+      if (!formData.date) missing.push(copy.dateValidation);
+      if (!formData.time) missing.push(copy.timeValidation);
       return missing;
     }
 
     return [];
-  }, [bookingStep, selectedService, formData]);
+  }, [bookingStep, selectedService, formData, copy]);
 
   const ensurePaymentIntent = async () => {
     if (clientSecret && paymentIntentId && depositAmount) {
@@ -708,7 +882,7 @@ export default function BookAllServicesPage() {
     }
 
     if (!selectedService) {
-      throw new Error('Servicio no disponible.');
+      throw new Error(copy.serviceUnavailable);
     }
     if (isOnlineBookingRestricted(selectedService)) {
       throw new Error(
@@ -733,7 +907,7 @@ export default function BookAllServicesPage() {
 
     const result = await response.json();
     if (!result.success) {
-      throw new Error(result.error || 'No se pudo iniciar el pago');
+      throw new Error(result.error || copy.paymentInitFailed);
     }
 
     setClientSecret(result.data.clientSecret);
@@ -745,7 +919,7 @@ export default function BookAllServicesPage() {
   const handleSubmitBooking = async () => {
     if (!selectedService || !formData.employeeId) return;
     if (!stripePublicKey) {
-      alert('La pasarela de pago no está configurada. Contacta con soporte.');
+      alert(copy.paymentGatewayNotConfigured);
       return;
     }
 
@@ -758,7 +932,7 @@ export default function BookAllServicesPage() {
         stripeRef.current = await loadStripe(stripePublicKey);
       }
       if (!stripeRef.current) {
-        throw new Error('No se pudo inicializar Stripe');
+        throw new Error(copy.stripeInitFailed);
       }
       if (!elementsRef.current) {
         elementsRef.current = stripeRef.current.elements();
@@ -769,7 +943,7 @@ export default function BookAllServicesPage() {
         cardElementRef.current = card;
       }
       if (!cardElementRef.current) {
-        throw new Error('El formulario de pago no está listo.');
+        throw new Error(copy.paymentFormNotReady);
       }
 
       const intent = await ensurePaymentIntent();
@@ -786,10 +960,10 @@ export default function BookAllServicesPage() {
       });
 
       if (error || !paymentIntent) {
-        throw new Error(error?.message || 'El pago no pudo completarse');
+        throw new Error(error?.message || copy.paymentCouldNotComplete);
       }
       if (paymentIntent.status !== 'succeeded') {
-        throw new Error('El pago no se completó. Inténtalo de nuevo.');
+        throw new Error(copy.paymentRetry);
       }
 
       const bookingData: BookingFormData = {
@@ -815,11 +989,11 @@ export default function BookAllServicesPage() {
         setBookingSuccess(true);
         setPaymentError(null);
       } else {
-        throw new Error(result.error || 'No se pudo crear la reserva');
+        throw new Error(result.error || copy.bookingCreateFailed);
       }
     } catch (err: any) {
       console.error('Booking error:', err);
-      setPaymentError(err.message || 'Error al procesar el pago');
+      setPaymentError(err.message || copy.paymentProcessError);
     } finally {
       setSubmitting(false);
       setPaymentLoading(false);
@@ -830,7 +1004,7 @@ export default function BookAllServicesPage() {
   if (loading || authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-neutral-50">
-        <Loading text="Cargando servicios..." />
+        <Loading text={copy.loadingServices} />
       </div>
     );
   }
@@ -856,7 +1030,7 @@ export default function BookAllServicesPage() {
               {user ? (
                 <>
                   <span className="hidden md:block text-xs font-bold text-neutral-400 uppercase tracking-widest">
-                    Hola, {user.firstName || user.email?.split('@')[0]}
+                    {copy.hello}, {user.firstName || user.email?.split('@')[0]}
                   </span>
                   <Link
                     href="/client/bookings"
@@ -883,7 +1057,7 @@ export default function BookAllServicesPage() {
                     <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
                     </svg>
-                    <span className="hidden xs:inline">Crear</span> Cuenta
+                    {copy.createAccount}
                   </button>
                 </>
               )}
@@ -904,44 +1078,49 @@ export default function BookAllServicesPage() {
                 {copy.title}
               </h1>
               <p className="text-stone-500 font-medium text-sm sm:text-base max-w-2xl mx-auto lg:mx-0">
-                Elige y reserva en minutos.
+                {copy.subtitle}
               </p>
             </div>
 
-            <div className="mt-6 lg:mt-0 flex flex-col items-center lg:items-end">
-              <div className="flex items-center justify-center gap-2 sm:gap-4 mb-3 lg:mb-2">
-                {[1, 2, 3, 4].map((step) => (
-                  <div key={step} className="flex items-center gap-2 sm:gap-4">
-                    <div className={cn(
-                      "w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-semibold text-xs sm:text-sm transition-all border",
-                      bookingStep > step
-                        ? "bg-emerald-600 border-emerald-600 text-white"
-                        : bookingStep === step
-                          ? "bg-stone-800 border-stone-800 text-white shadow-md"
-                          : "bg-white border-stone-200 text-stone-400"
-                    )}>
-                      {bookingStep > step ? (
-                        <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                        </svg>
-                      ) : step}
-                    </div>
-                    {step < 4 && (
+            <div className="mt-6 lg:mt-0">
+              <div className="flex items-start justify-center lg:justify-end">
+                {[
+                  { step: 1, label: copy.stepService },
+                  { step: 2, label: copy.stepDetails },
+                  { step: 3, label: copy.stepDate },
+                  { step: 4, label: copy.stepPayment }
+                ].map(({ step, label }, index, items) => (
+                  <React.Fragment key={step}>
+                    <div className="flex flex-col items-center min-w-[44px] sm:min-w-[56px]">
                       <div className={cn(
-                        "w-6 sm:w-12 md:w-16 h-0.5 sm:h-1 rounded-full transition-all",
+                        "w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-semibold text-xs sm:text-sm transition-all border",
+                        bookingStep > step
+                          ? "bg-emerald-600 border-emerald-600 text-white"
+                          : bookingStep === step
+                            ? "bg-stone-800 border-stone-800 text-white shadow-md"
+                            : "bg-white border-stone-200 text-stone-400"
+                      )}>
+                        {bookingStep > step ? (
+                          <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                        ) : step}
+                      </div>
+                      <span className={cn(
+                        "hidden xs:block mt-2 text-[9px] sm:text-[10px] font-medium tracking-wide text-center",
+                        bookingStep === step ? "text-stone-600" : "text-stone-400"
+                      )}>
+                        {label}
+                      </span>
+                    </div>
+                    {index < items.length - 1 && (
+                      <div className={cn(
+                        "w-6 sm:w-12 md:w-16 h-0.5 sm:h-1 rounded-full transition-all mt-4 sm:mt-5 mx-2 sm:mx-3 md:mx-4",
                         bookingStep > step ? "bg-emerald-400" : "bg-stone-100"
                       )} />
                     )}
-                  </div>
+                  </React.Fragment>
                 ))}
-              </div>
-
-              {/* Step Labels - Hidden on very small screens, shown compactly on mobile */}
-              <div className="hidden xs:flex justify-center gap-4 sm:gap-8 md:gap-16 text-center">
-                <span className={cn("text-[9px] sm:text-[10px] font-medium tracking-wide", bookingStep === 1 ? "text-stone-600" : "text-stone-400")}>Servicio</span>
-                <span className={cn("text-[9px] sm:text-[10px] font-medium tracking-wide", bookingStep === 2 ? "text-stone-600" : "text-stone-400")}>Datos</span>
-                <span className={cn("text-[9px] sm:text-[10px] font-medium tracking-wide", bookingStep === 3 ? "text-stone-600" : "text-stone-400")}>Fecha</span>
-                <span className={cn("text-[9px] sm:text-[10px] font-medium tracking-wide", bookingStep === 4 ? "text-stone-600" : "text-stone-400")}>Pago</span>
               </div>
             </div>
           </div>
@@ -964,7 +1143,7 @@ export default function BookAllServicesPage() {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
                         </svg>
                       </div>
-                      <p className="text-stone-500 font-medium text-sm sm:text-base">No hay servicios disponibles en este momento</p>
+                      <p className="text-stone-500 font-medium text-sm sm:text-base">{copy.noServicesNow}</p>
                     </div>
                   ) : (
                     <div className="relative">
@@ -993,7 +1172,7 @@ export default function BookAllServicesPage() {
                                   type="button"
                                   onClick={() => setServiceSearch('')}
                                   className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-stone-400 hover:bg-stone-100 hover:text-stone-600"
-                                  aria-label="Limpiar búsqueda"
+                                  aria-label={copy.clearSearch}
                                 >
                                   <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1017,10 +1196,10 @@ export default function BookAllServicesPage() {
                             </div>
                             <div className="hidden sm:block rounded-2xl border border-stone-200 bg-white px-4 py-3">
                               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-500">
-                                {language === 'es' ? 'Grupos principales' : 'Main groups'}
+                                {copy.mainGroups}
                               </p>
                               <p className="mt-1 text-xs text-stone-400">
-                                {visibleCategories.length} {language === 'es' ? 'grupos' : 'groups'} · {totalVisibleServices} {language === 'es' ? 'servicios' : 'services'}
+                                {visibleCategories.length} {copy.groups} · {totalVisibleServices} {copy.services}
                               </p>
                             </div>
 
@@ -1029,8 +1208,8 @@ export default function BookAllServicesPage() {
                                 const isActive = group.key === activeCategory;
                                 const groupTone = GROUP_TONE[group.key];
                                 const priceLabel = group.count === 0
-                                  ? (language === 'es' ? 'No disponible' : 'Not available')
-                                  : `${language === 'es' ? 'Desde' : 'From'} ${formatCurrency(group.minPrice)}`;
+                                  ? copy.unavailable
+                                  : `${copy.from} ${formatCurrency(group.minPrice)}`;
                                 const durationLabel = `${group.minDuration}-${group.maxDuration} min`;
 
                                 return (
@@ -1076,7 +1255,7 @@ export default function BookAllServicesPage() {
                             </div>
                             {groupedCatalog.length > 4 && (
                               <div className="hidden lg:flex items-center justify-center text-[11px] text-stone-400">
-                                {language === 'es' ? 'Desliza para ver más grupos' : 'Scroll to view more groups'}
+                                {copy.scrollForMoreGroups}
                               </div>
                             )}
                           </div>
@@ -1087,10 +1266,10 @@ export default function BookAllServicesPage() {
                             {!activeGroup || activeGroup.count === 0 ? (
                               <div className="rounded-2xl border border-dashed border-stone-200 bg-stone-50/60 p-8 text-center">
                                 <p className="text-sm font-medium text-stone-600">
-                                  {language === 'es' ? 'No encontramos servicios para este grupo.' : 'No services were found for this group.'}
+                                  {copy.noServicesForGroup}
                                 </p>
                                 <p className="mt-1 text-xs text-stone-400">
-                                  {language === 'es' ? 'Prueba con otro nombre o cambia de grupo.' : 'Try another term or switch to a different group.'}
+                                  {copy.noServicesForGroupHint}
                                 </p>
                               </div>
                             ) : (
@@ -1119,14 +1298,14 @@ export default function BookAllServicesPage() {
                                   >
                                   <div className="mb-2">
                                     {canBook ? (
-                                      <span className="inline-flex rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-semibold text-emerald-700">Disponible</span>
+                                      <span className="inline-flex rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-semibold text-emerald-700">{copy.availableBadge}</span>
                                     ) : !isActive ? (
-                                      <span className="inline-flex rounded-full bg-stone-200 px-2.5 py-1 text-[10px] font-semibold text-stone-600">Oculto</span>
+                                      <span className="inline-flex rounded-full bg-stone-200 px-2.5 py-1 text-[10px] font-semibold text-stone-600">{copy.hidden}</span>
                                     ) : isRestrictedOnline ? (
                                       <span className="inline-flex rounded-full bg-rose-100 px-2.5 py-1 text-[10px] font-semibold text-rose-700">{copy.consultationRequired}</span>
                                     ) : (
                                       <span className="inline-flex rounded-full bg-stone-100 px-2.5 py-1 text-[10px] font-semibold text-stone-700">
-                                        {language === 'es' ? 'Sin especialista' : 'No specialist'}
+                                        {copy.noSpecialist}
                                       </span>
                                     )}
                                   </div>
@@ -1145,7 +1324,9 @@ export default function BookAllServicesPage() {
                                   </div>
 
                                   {hasEmployees ? (
-                                    <p className="mt-3 text-xs text-stone-500">{specialistCount} especialistas</p>
+                                    <p className="mt-3 text-xs text-stone-500">
+                                      {specialistCount} {specialistCount === 1 ? copy.specialistSingular : copy.specialistPlural}
+                                    </p>
                                   ) : null}
 
                                   <div className="mt-4 pt-3 border-t border-stone-100">
@@ -1158,7 +1339,7 @@ export default function BookAllServicesPage() {
                                       </span>
                                     ) : !isActive ? (
                                       <span className="text-stone-400 text-[11px] font-medium">
-                                        Oculto
+                                        {copy.hidden}
                                       </span>
                                     ) : isRestrictedOnline ? (
                                       <span className="text-rose-600 text-[11px] font-medium">
@@ -1166,7 +1347,7 @@ export default function BookAllServicesPage() {
                                       </span>
                                     ) : (
                                       <span className="text-stone-500 text-[11px] font-medium">
-                                        {language === 'es' ? 'No disponible' : 'Unavailable'}
+                                        {copy.unavailable}
                                       </span>
                                     )}
                                   </div>
@@ -1195,9 +1376,9 @@ export default function BookAllServicesPage() {
                         </div>
                         <div>
                           <p className="font-black text-stone-800 uppercase tracking-tight">
-                            ¡Hola, {user.firstName || user.email?.split('@')[0]}!
+                            {copy.hello}, {user.firstName || user.email?.split('@')[0]}!
                           </p>
-                          <p className="text-sm text-stone-600">Tu reserva se guardará en tu cuenta automáticamente</p>
+                          <p className="text-sm text-stone-600">{copy.autoSaveBooking}</p>
                         </div>
                       </div>
                     </div>
@@ -1224,7 +1405,7 @@ export default function BookAllServicesPage() {
 
                   <div className="text-center mb-8">
                     <h2 className="text-2xl font-black text-neutral-800 uppercase tracking-tight mb-2">{copy.yourDetails}</h2>
-                    <p className="text-neutral-500 font-medium">Cuéntanos cómo contactarte</p>
+                    <p className="text-neutral-500 font-medium">{copy.contactPrompt}</p>
                   </div>
 
                   {/* Smart Login Prompt - Non-intrusive */}
@@ -1237,22 +1418,22 @@ export default function BookAllServicesPage() {
                           </svg>
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm sm:text-base font-black text-neutral-900 mb-1">¿Ya tienes cuenta? Reserva en segundos</p>
+                          <p className="text-sm sm:text-base font-black text-neutral-900 mb-1">{copy.alreadyHaveAccount}</p>
                           <p className="text-xs sm:text-sm text-neutral-600 font-medium mb-3">
-                            Inicia sesión y rellenaremos todo automáticamente. O continúa como invitado.
+                            {copy.loginAutofill}
                           </p>
                           <div className="flex flex-col xs:flex-row gap-2">
                             <button
                               onClick={() => openAuthModal('login')}
                               className="px-4 py-2.5 bg-neutral-900 text-white text-xs font-black uppercase tracking-widest rounded-xl hover:bg-stone-700 transition-all"
                             >
-                              Ya tengo cuenta
+                              {copy.iHaveAccount}
                             </button>
                             <button
                               onClick={() => openAuthModal('signup')}
                               className="px-4 py-2.5 border-2 border-neutral-900 text-neutral-900 text-xs font-black uppercase tracking-widest rounded-xl hover:bg-neutral-900 hover:text-white transition-all"
                             >
-                              Crear cuenta gratis
+                              {copy.createFreeAccount}
                             </button>
                           </div>
                         </div>
@@ -1266,11 +1447,11 @@ export default function BookAllServicesPage() {
                       <input 
                         value={formData.name} 
                         onChange={(e) => setFormData({ ...formData, name: e.target.value })} 
-                        placeholder="María García" 
+                        placeholder={copy.namePlaceholder}
                         className="w-full px-6 py-4 bg-neutral-50 border-2 border-neutral-100 rounded-2xl text-neutral-800 font-bold focus:border-stone-600 transition-all outline-none"
                       />
                       {!formData.name.trim() && (
-                        <p className="mt-2 text-xs text-amber-700">Escribe tu nombre completo.</p>
+                        <p className="mt-2 text-xs text-amber-700">{copy.fullNameHint}</p>
                       )}
                     </div>
                     <div>
@@ -1279,11 +1460,11 @@ export default function BookAllServicesPage() {
                         type="email" 
                         value={formData.email} 
                         onChange={(e) => setFormData({ ...formData, email: e.target.value })} 
-                        placeholder="tu@email.com" 
+                        placeholder={copy.emailPlaceholder}
                         className="w-full px-6 py-4 bg-neutral-50 border-2 border-neutral-100 rounded-2xl text-neutral-800 font-bold focus:border-stone-600 transition-all outline-none"
                       />
                       {formData.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim()) && (
-                        <p className="mt-2 text-xs text-amber-700">Introduce un email válido.</p>
+                        <p className="mt-2 text-xs text-amber-700">{copy.validEmailHint}</p>
                       )}
                     </div>
                     <div>
@@ -1296,7 +1477,7 @@ export default function BookAllServicesPage() {
                         className="w-full px-6 py-4 bg-neutral-50 border-2 border-neutral-100 rounded-2xl text-neutral-800 font-bold focus:border-stone-600 transition-all outline-none"
                       />
                       {!formData.phone.trim() && (
-                        <p className="mt-2 text-xs text-amber-700">Añade un teléfono de contacto.</p>
+                        <p className="mt-2 text-xs text-amber-700">{copy.phoneHint}</p>
                       )}
                     </div>
                   </div>
@@ -1308,7 +1489,7 @@ export default function BookAllServicesPage() {
                       {serviceEmployees.length === 0 ? (
                         <div className="p-8 bg-neutral-50 rounded-2xl text-center">
                           <div className="w-3 h-3 rounded-full bg-stone-700 animate-ping mx-auto mb-4" />
-                          <p className="text-neutral-500 font-medium">Cargando profesionales...</p>
+                          <p className="text-neutral-500 font-medium">{copy.loadingSpecialists}</p>
                         </div>
                       ) : (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1364,7 +1545,7 @@ export default function BookAllServicesPage() {
                         </div>
                       )}
                       {!formData.employeeId && (
-                        <p className="mt-3 text-xs text-amber-700">Selecciona un especialista para continuar.</p>
+                        <p className="mt-3 text-xs text-amber-700">{copy.chooseSpecialistHint}</p>
                       )}
                     </div>
                   )}
@@ -1383,7 +1564,7 @@ export default function BookAllServicesPage() {
                           )}
                         </div>
                         <div>
-                          <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest mb-0.5">Profesional asignado</p>
+                          <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest mb-0.5">{copy.assignedSpecialist}</p>
                           <p className="font-black text-neutral-900 uppercase tracking-tight">{serviceEmployees[0].firstName} {serviceEmployees[0].lastName}</p>
                         </div>
                         <div className="ml-auto w-8 h-8 rounded-full bg-stone-50 flex items-center justify-center">
@@ -1401,7 +1582,7 @@ export default function BookAllServicesPage() {
               {bookingStep === 3 && selectedService && (
                 <div className="max-w-2xl mx-auto space-y-8">
                   <div className="text-center mb-8">
-                    <h2 className="text-2xl font-black text-neutral-800 uppercase tracking-tight">Fecha y Hora</h2>
+                    <h2 className="text-2xl font-black text-neutral-800 uppercase tracking-tight">{copy.dateAndTime}</h2>
                   </div>
 
                   <div>
@@ -1416,31 +1597,31 @@ export default function BookAllServicesPage() {
                       />
                     ) : (
                       <div className="p-8 bg-neutral-50 rounded-2xl text-center border-2 border-dashed border-neutral-200">
-                        <p className="text-neutral-400 font-bold">Selecciona un empleado primero</p>
+                        <p className="text-neutral-400 font-bold">{copy.selectEmployeeFirst}</p>
                       </div>
                     )}
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-black text-neutral-400 uppercase tracking-widest mb-4">Selecciona Hora</label>
+                    <label className="block text-[10px] font-black text-neutral-400 uppercase tracking-widest mb-4">{copy.selectTime}</label>
                     {!formData.date ? (
                       <div className="p-8 bg-neutral-50 rounded-2xl text-center border-2 border-dashed border-neutral-200">
-                        <p className="text-neutral-400 font-bold">Primero elige una fecha</p>
+                        <p className="text-neutral-400 font-bold">{copy.pickDateFirst}</p>
                       </div>
                     ) : loadingSlots ? (
                       <div className="p-8 bg-neutral-50 rounded-2xl text-center">
                         <div className="w-3 h-3 rounded-full bg-stone-700 animate-ping mx-auto mb-4" />
-                        <p className="text-neutral-500 font-medium">Buscando horarios...</p>
+                        <p className="text-neutral-500 font-medium">{copy.searchingTimes}</p>
                       </div>
                     ) : slotsError ? (
                       <div className="p-8 bg-amber-50 rounded-2xl text-center border border-amber-200">
                         <p className="text-amber-700 font-bold">{slotsError}</p>
-                        <p className="text-amber-600 text-sm mt-2">Prueba con otra fecha</p>
+                        <p className="text-amber-600 text-sm mt-2">{copy.tryAnotherDate}</p>
                       </div>
                     ) : availableSlots.filter(s => s.available).length === 0 ? (
                       <div className="p-8 bg-neutral-50 rounded-2xl text-center border border-neutral-200">
-                        <p className="text-neutral-700 font-bold">Sin horarios disponibles</p>
-                        <p className="text-neutral-500 text-sm mt-2">Prueba con otra fecha</p>
+                        <p className="text-neutral-700 font-bold">{copy.noSlotsAvailable}</p>
+                        <p className="text-neutral-500 text-sm mt-2">{copy.tryAnotherDate}</p>
                       </div>
                     ) : (
                       <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2 sm:gap-3">
@@ -1474,29 +1655,29 @@ export default function BookAllServicesPage() {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                         </svg>
                       </div>
-                      <h2 className="text-3xl font-black text-neutral-800 uppercase tracking-tight mb-4">¡Reserva Confirmada!</h2>
+                      <h2 className="text-3xl font-black text-neutral-800 uppercase tracking-tight mb-4">{copy.bookingConfirmed}</h2>
                       <p className="text-neutral-500 font-medium mb-8 max-w-md mx-auto">
-                        Hemos enviado un email de confirmación a {formData.email}. ¡Te esperamos!
+                        {copy.confirmationEmail} {formData.email}. {copy.weAreWaiting}
                       </p>
                       
                       <div className="bg-neutral-50 rounded-[24px] p-8 mb-8 text-left">
                         <div className="grid grid-cols-2 gap-4">
                           <div>
-                            <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest mb-1">Servicio</p>
+                            <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest mb-1">{copy.service}</p>
                             <p className="font-bold text-neutral-800">{selectedService.serviceName}</p>
                           </div>
                           <div>
-                            <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest mb-1">Profesional</p>
+                            <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest mb-1">{copy.professional}</p>
                             <p className="font-bold text-neutral-800">
                               {serviceEmployees.find(e => e.id === formData.employeeId)?.firstName}
                             </p>
                           </div>
                           <div>
-                            <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest mb-1">Fecha</p>
+                            <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest mb-1">{copy.date}</p>
                             <p className="font-bold text-neutral-800">{formatDisplayDate(formData.date)}</p>
                           </div>
                           <div>
-                            <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest mb-1">Hora</p>
+                            <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest mb-1">{copy.time}</p>
                             <p className="font-bold text-neutral-800">{formData.time}</p>
                           </div>
                         </div>
@@ -1512,8 +1693,8 @@ export default function BookAllServicesPage() {
                               </svg>
                             </div>
                             <div className="text-left">
-                              <p className="font-black uppercase tracking-tight">¡No pierdas tu reserva!</p>
-                              <p className="text-white/80 text-sm">Crea tu cuenta para gestionar y modificar tus citas</p>
+                              <p className="font-black uppercase tracking-tight">{copy.dontLoseBooking}</p>
+                              <p className="text-white/80 text-sm">{copy.createAccountManage}</p>
                             </div>
                           </div>
                           <button
@@ -1523,7 +1704,7 @@ export default function BookAllServicesPage() {
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
                             </svg>
-                            Crear Mi Cuenta Ahora
+                            {copy.createMyAccountNow}
                           </button>
                         </div>
                       ) : (
@@ -1535,8 +1716,8 @@ export default function BookAllServicesPage() {
                               </svg>
                             </div>
                             <div className="text-left">
-                              <p className="font-black text-stone-800 uppercase tracking-tight">Reserva guardada en tu cuenta</p>
-                              <p className="text-sm text-stone-600">Puedes verla y gestionarla desde "Mis Citas"</p>
+                              <p className="font-black text-stone-800 uppercase tracking-tight">{copy.bookingSavedInAccount}</p>
+                              <p className="text-sm text-stone-600">{copy.bookingManageFromMyBookings}</p>
                             </div>
                           </div>
                         </div>
@@ -1548,57 +1729,57 @@ export default function BookAllServicesPage() {
                             href="/client/bookings"
                             className="px-8 py-4 bg-stone-700 text-white font-bold uppercase tracking-widest rounded-2xl hover:bg-neutral-800 transition-all text-center"
                           >
-                            Ver Mis Citas
+                            {copy.viewMyBookings}
                           </Link>
                         ) : (
                           <button
                             onClick={() => openAuthModal('login')}
                             className="px-8 py-4 bg-neutral-100 text-neutral-700 font-bold uppercase tracking-widest rounded-2xl hover:bg-neutral-200 transition-all"
                           >
-                            Ya tengo cuenta
+                            {copy.iHaveAccount}
                           </button>
                         )}
                         <Link
                           href="/"
                           className="px-8 py-4 bg-neutral-100 text-neutral-700 font-bold uppercase tracking-widest rounded-2xl hover:bg-neutral-200 transition-all text-center"
                         >
-                          Volver al inicio
+                          {copy.backHome}
                         </Link>
                       </div>
                     </div>
                   ) : (
                     <>
                       <div className="text-center mb-8">
-                        <h2 className="text-2xl font-black text-neutral-800 uppercase tracking-tight mb-2">Confirmar y Pagar</h2>
-                        <p className="text-neutral-500 font-medium">Revisa tu reserva y completa el pago</p>
+                        <h2 className="text-2xl font-black text-neutral-800 uppercase tracking-tight mb-2">{copy.confirmAndPay}</h2>
+                        <p className="text-neutral-500 font-medium">{copy.reviewAndPay}</p>
                       </div>
 
                       {/* Booking Summary */}
                       <div className="bg-neutral-50 rounded-[24px] p-8 space-y-4">
                         <div className="flex justify-between items-center pb-4 border-b border-neutral-200">
-                          <span className="text-neutral-600 font-medium">Servicio</span>
+                          <span className="text-neutral-600 font-medium">{copy.service}</span>
                           <span className="font-bold text-neutral-800">{selectedService.serviceName}</span>
                         </div>
                         <div className="flex justify-between items-center pb-4 border-b border-neutral-200">
-                          <span className="text-neutral-600 font-medium">Profesional</span>
+                          <span className="text-neutral-600 font-medium">{copy.professional}</span>
                           <span className="font-bold text-neutral-800">
                             {serviceEmployees.find(e => e.id === formData.employeeId)?.firstName} {serviceEmployees.find(e => e.id === formData.employeeId)?.lastName}
                           </span>
                         </div>
                         <div className="flex justify-between items-center pb-4 border-b border-neutral-200">
-                          <span className="text-neutral-600 font-medium">Fecha</span>
+                          <span className="text-neutral-600 font-medium">{copy.date}</span>
                           <span className="font-bold text-neutral-800">{formatDisplayDate(formData.date)}</span>
                         </div>
                         <div className="flex justify-between items-center pb-4 border-b border-neutral-200">
-                          <span className="text-neutral-600 font-medium">Hora</span>
+                          <span className="text-neutral-600 font-medium">{copy.time}</span>
                           <span className="font-bold text-neutral-800">{formData.time}</span>
                         </div>
                         <div className="flex justify-between items-center pb-4 border-b border-neutral-200">
-                          <span className="text-neutral-600 font-medium">Depósito (50%)</span>
+                          <span className="text-neutral-600 font-medium">{copy.deposit}</span>
                           <span className="font-black text-stone-700 text-lg">{depositDisplay}</span>
                         </div>
                         <div className="flex justify-between items-center">
-                          <span className="text-neutral-600 font-medium">Restante en salón</span>
+                          <span className="text-neutral-600 font-medium">{copy.remainingAtSalon}</span>
                           <span className="font-bold text-neutral-800">{formatCurrency(remainingBalance)}</span>
                         </div>
                       </div>
@@ -1607,8 +1788,8 @@ export default function BookAllServicesPage() {
                       <div className="bg-white rounded-[24px] p-8 border-2 border-neutral-100 space-y-4">
                         <div className="flex items-center justify-between mb-4">
                           <div>
-                            <p className="font-bold text-neutral-800">Datos de pago</p>
-                            <p className="text-sm text-neutral-500">Pago seguro con tarjeta</p>
+                            <p className="font-bold text-neutral-800">{copy.paymentDetails}</p>
+                            <p className="text-sm text-neutral-500">{copy.secureCardPayment}</p>
                           </div>
                           <div className="flex gap-2">
                             <div className="w-10 h-6 bg-neutral-100 rounded flex items-center justify-center">
@@ -1627,7 +1808,7 @@ export default function BookAllServicesPage() {
                           />
                         ) : (
                           <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-sm">
-                            Pagos no disponibles. Contacta con soporte.
+                            {copy.paymentsUnavailable}
                           </div>
                         )}
 
@@ -1638,7 +1819,7 @@ export default function BookAllServicesPage() {
                         )}
 
                         <p className="text-xs text-neutral-400 text-center">
-                          Al confirmar, aceptas nuestros términos y condiciones.
+                          {copy.termsAcceptance}
                         </p>
                       </div>
                     </>
@@ -1651,7 +1832,7 @@ export default function BookAllServicesPage() {
                 <div className="max-w-2xl mx-auto mt-8 sm:mt-12 space-y-3">
                   {!stepValid && stepMissingItems.length > 0 && (
                     <div className="w-full rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                      Completa: {stepMissingItems.join(', ')}
+                      {copy.complete}: {stepMissingItems.join(', ')}
                     </div>
                   )}
                   <div className="flex flex-col-reverse sm:flex-row gap-3 sm:gap-4">
@@ -1672,7 +1853,7 @@ export default function BookAllServicesPage() {
                       {submitting || paymentLoading
                         ? copy.processing
                         : bookingStep === 4
-                          ? `Pagar ${depositDisplay}`
+                          ? `${copy.pay} ${depositDisplay}`
                           : copy.next}
                     </button>
                   </div>

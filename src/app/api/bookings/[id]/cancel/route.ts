@@ -14,6 +14,16 @@ type CancelRequest = {
 
 const MIN_CANCEL_HOURS = 24;
 
+const isAdminUnavailableError = (error: unknown): boolean => {
+  const message = String((error as any)?.message ?? error ?? '');
+  return (
+    /Firebase Admin SDK is not configured/i.test(message) ||
+    /Failed to initialize Firebase Admin SDK credentials/i.test(message) ||
+    /DECODER routines::unsupported/i.test(message) ||
+    /Getting metadata from plugin failed/i.test(message)
+  );
+};
+
 export async function POST(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
@@ -45,7 +55,7 @@ export async function POST(
       booking = { id: bookingSnap.id, ...bookingData };
     } catch (adminError: any) {
       // Fallback for environments without Admin SDK (e.g. local dev)
-      if (/Firebase Admin SDK is not configured/i.test(adminError?.message || '')) {
+      if (isAdminUnavailableError(adminError)) {
         booking = await getBooking(id);
         requiresClientWrite = true;
       } else {

@@ -4,10 +4,42 @@ import { getFirestore, type Firestore } from 'firebase-admin/firestore';
 let adminApp: App | null = null;
 let adminDb: Firestore | null = null;
 
+const unwrapWrappingQuotes = (value: string): string => {
+  const trimmed = value.trim();
+  const hasDoubleQuotes = trimmed.startsWith('"') && trimmed.endsWith('"');
+  const hasSingleQuotes = trimmed.startsWith("'") && trimmed.endsWith("'");
+  if (hasDoubleQuotes || hasSingleQuotes) {
+    return trimmed.slice(1, -1);
+  }
+  return trimmed;
+};
+
+const normalizePrivateKey = (value: string): string => {
+  const normalized = unwrapWrappingQuotes(value)
+    .replace(/\\n/g, '\n')
+    .replace(/\r/g, '')
+    .trim();
+
+  const lines = normalized
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+
+  if (
+    lines.length >= 3 &&
+    lines[0] === '-----BEGIN PRIVATE KEY-----' &&
+    lines[lines.length - 1] === '-----END PRIVATE KEY-----'
+  ) {
+    return `${lines[0]}\n${lines.slice(1, -1).join('\n')}\n${lines[lines.length - 1]}\n`;
+  }
+
+  return normalized;
+};
+
 const getPrivateKey = () => {
   const raw = process.env.FIREBASE_ADMIN_PRIVATE_KEY;
   if (!raw) return null;
-  return raw.replace(/\\n/g, '\n');
+  return normalizePrivateKey(raw);
 };
 
 const initAdmin = (): void => {
@@ -29,14 +61,20 @@ const initAdmin = (): void => {
     );
   }
 
-  adminApp = initializeApp({
-    credential: cert({
+  try {
+    adminApp = initializeApp({
+      credential: cert({
+        projectId,
+        clientEmail,
+        privateKey,
+      }),
       projectId,
-      clientEmail,
-      privateKey,
-    }),
-    projectId,
-  });
+    });
+  } catch (error: any) {
+    throw new Error(
+      `Failed to initialize Firebase Admin SDK credentials. Check FIREBASE_ADMIN_PRIVATE_KEY format (no extra wrapping quotes and use \\n for line breaks). Original error: ${error?.message || error}`
+    );
+  }
 
   adminDb = getFirestore(adminApp);
 };
@@ -48,4 +86,3 @@ export const getAdminDb = (): Firestore => {
   }
   return adminDb;
 };
-

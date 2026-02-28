@@ -71,7 +71,10 @@ export function AvailabilityCalendar({
               .then(res => res.json())
               .then(data => ({
                 date: dateStr,
-                hasAvailability: data.success && (data.data?.slots || []).length > 0,
+                hasAvailability:
+                  data.success &&
+                  Array.isArray(data.data?.slots) &&
+                  data.data.slots.some((slot: { available?: boolean }) => slot.available === true),
               }))
               .catch(() => ({ date: dateStr, hasAvailability: false }))
           );
@@ -191,7 +194,7 @@ export function AvailabilityCalendar({
             <button
               key={dateStr}
               onClick={() => !isPast && onDateSelect(dateStr)}
-              disabled={isPast || loading}
+              disabled={isPast || loading || !hasAvailability}
               className={cn(
                 "aspect-square rounded-lg flex flex-col items-center justify-center relative transition-all",
                 "text-xs font-bold",

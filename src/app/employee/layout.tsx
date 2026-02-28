@@ -2,9 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { ProtectedRoute } from '@/shared/components/ProtectedRoute';
-import { Header } from '@/shared/components/Header';
 import { EmployeeSidebar } from '@/back-office/employee/components/EmployeeSidebar';
-import { cn } from '@/shared/lib/utils';
 
 export default function EmployeeLayout({
   children,
@@ -25,10 +23,8 @@ export default function EmployeeLayout({
           {/* Hamburger / Close Button - Only visible on mobile */}
           <button
             onClick={toggleSidebar}
-            className={cn(
-              'lg:hidden fixed z-[60] p-3 bg-neutral-800 border-2 border-neutral-700 rounded-xl text-white shadow-lg hover:bg-neutral-700 active:bg-neutral-600 transition-all',
-              mobileMenuOpen ? 'top-4 left-64' : 'top-4 left-4'
-            )}
+            className="lg:hidden fixed z-[60] right-4 p-3 bg-neutral-800 border-2 border-neutral-700 rounded-xl text-white shadow-lg hover:bg-neutral-700 active:bg-neutral-600 transition-all"
+            style={{ top: 'calc(env(safe-area-inset-top, 0px) + 1rem)' }}
             aria-label={mobileMenuOpen ? 'Cerrar menú' : 'Abrir menú'}
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
@@ -47,6 +43,3 @@ export default function EmployeeLayout({
     </ProtectedRoute>
   );
 }
-
-
-

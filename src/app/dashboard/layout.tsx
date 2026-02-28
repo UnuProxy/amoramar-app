@@ -34,7 +34,7 @@ export default function DashboardLayout({
           {/* Hamburger / Close Button - Only visible on mobile */}
           <button
             onClick={toggleSidebar}
-            className="lg:hidden fixed z-[60] left-4 p-3 bg-slate-800 border-2 border-slate-700 rounded-xl text-white shadow-lg hover:bg-slate-700 active:bg-slate-600 transition-all"
+            className="lg:hidden fixed z-[60] right-4 p-3 bg-slate-800 border-2 border-slate-700 rounded-xl text-white shadow-lg hover:bg-slate-700 active:bg-slate-600 transition-all"
             style={{ top: 'calc(env(safe-area-inset-top, 0px) + 1rem)' }}
             aria-label={mobileMenuOpen ? 'Cerrar menú' : 'Abrir menú'}
             aria-expanded={mobileMenuOpen}
