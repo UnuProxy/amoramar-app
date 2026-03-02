@@ -88,7 +88,7 @@ export function MomentsGallery({ id }: MomentsGalleryProps) {
   );
 
   return (
-    <section id={id} className="bg-[#F4EFE8]">
+    <section id={id} className="bg-[#ECECEA]">
       <div className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
         <motion.div
           initial={{ opacity: 0, y: 16 }}
@@ -97,10 +97,10 @@ export function MomentsGallery({ id }: MomentsGalleryProps) {
           transition={{ duration: 0.6 }}
           className="mx-auto mb-10 max-w-4xl text-center sm:mb-12"
         >
-          <h2 className="font-display text-[2.65rem] leading-[1.05] text-[#2A2622] sm:text-[3.45rem] lg:text-[4.2rem]">
+          <h2 className="font-display text-[2.65rem] leading-[1.05] text-[#4A3D34] sm:text-[3.45rem] lg:text-[4.2rem]">
             {copy.title}
           </h2>
-          <p className="mx-auto mt-4 max-w-3xl text-lg leading-relaxed text-[#5E5751] sm:text-[2rem]">
+          <p className="mx-auto mt-4 max-w-3xl text-lg leading-relaxed text-[#5B5149] sm:text-[2rem]">
             {copy.subtitle}
           </p>
         </motion.div>
@@ -118,7 +118,7 @@ export function MomentsGallery({ id }: MomentsGalleryProps) {
                   transition={{ duration: 0.45, delay: index * 0.05 }}
                   whileHover={{ y: -2 }}
                   onClick={() => setSelectedIndex(index)}
-                  className="group relative aspect-square min-w-0 flex-[0_0_86%] overflow-hidden rounded-[22px] border border-[#E9DED2] bg-white shadow-[0_10px_30px_rgba(42,38,34,0.09)]"
+                  className="group relative aspect-square min-w-0 flex-[0_0_86%] overflow-hidden rounded-[22px] border border-[#DDD3C8] bg-white shadow-[0_10px_30px_rgba(42,38,34,0.09)]"
                 >
                   <Image
                     src={image}
@@ -145,7 +145,7 @@ export function MomentsGallery({ id }: MomentsGalleryProps) {
                 type="button"
                 onClick={() => scrollToMobile(index)}
                 className={`h-2 rounded-full transition-all ${
-                  index === mobileSelectedIndex ? 'w-8 bg-[#B08A57]' : 'w-2 bg-[#D8CDBF]'
+                  index === mobileSelectedIndex ? 'w-8 bg-[#8A6F58]' : 'w-2 bg-[#CEC4B8]'
                 }`}
                 aria-label={`Ir al momento ${index + 1}`}
                 aria-current={index === mobileSelectedIndex ? 'true' : 'false'}
@@ -165,7 +165,7 @@ export function MomentsGallery({ id }: MomentsGalleryProps) {
               transition={{ duration: 0.45, delay: index * 0.05 }}
               whileHover={{ y: -5 }}
               onClick={() => setSelectedIndex(index)}
-              className="group relative aspect-square overflow-hidden rounded-[22px] border border-[#E9DED2] bg-white shadow-[0_10px_30px_rgba(42,38,34,0.09)]"
+              className="group relative aspect-square overflow-hidden rounded-[22px] border border-[#DDD3C8] bg-white shadow-[0_10px_30px_rgba(42,38,34,0.09)]"
             >
               <Image
                 src={image}

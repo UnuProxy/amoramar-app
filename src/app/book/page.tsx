@@ -14,6 +14,16 @@ import { getClient, getClientByEmail } from '@/shared/lib/firestore';
 import { AvailabilityCalendar } from '@/shared/components/AvailabilityCalendar';
 import { useLanguage } from '@/shared/context/LanguageContext';
 import { BrandLogo } from '@/shared/components/BrandLogo';
+import {
+  ArrowLeft,
+  Check,
+  ChevronRight,
+  Gift,
+  Hand,
+  Scissors,
+  Sparkles,
+  type LucideIcon,
+} from 'lucide-react';
 
 type Step = 1 | 2 | 3 | 4;
 
@@ -31,23 +41,274 @@ type TimeSlot = {
   available: boolean;
 };
 
-type MajorGroupKey = 'manicure' | 'pedicure-care' | 'combinations' | 'hair';
+type MajorGroupKey = 'manicure' | 'pedicure-care' | 'manicure-pedicure' | 'combinations' | 'hair' | 'beauty';
 
 type LocalizedSubgroup = {
   key: string;
   label: string;
 };
 
-const MAJOR_GROUP_ORDER: MajorGroupKey[] = ['manicure', 'pedicure-care', 'combinations', 'hair'];
+const HAIR_SUBGROUP_ORDER = [
+  'haircuts',
+  'styling',
+  'color',
+  'bleach-highlights',
+  'treatments-signature',
+  'mens-services',
+  'kids-cuts',
+  'extensions',
+] as const;
+
+const BEAUTY_SUBGROUP_ORDER = [
+  'lamination',
+  'brow-services',
+  'lash-extensions-full-set',
+  'led-extensions',
+  'lash-refill-infill',
+  'lash-removal',
+  'semi-permanent-makeup',
+  'touch-up',
+  'professional-makeup',
+] as const;
+
+const MANICURE_PEDICURE_SUBGROUP_ORDER = [
+  'manicure',
+  'pedicure',
+] as const;
+
+const COMBINATIONS_SUBGROUP_ORDER = [
+  'with-cleaning',
+  'without-cleaning',
+] as const;
+
+const SUBGROUP_NOTES: Partial<Record<MajorGroupKey, Record<string, { es: string; en: string }>>> = {
+  hair: {
+    haircuts: {
+      en: 'When a haircut is added to any women service, haircut price is EUR 56 instead of EUR 78.',
+      es: 'Al añadir corte de pelo a cualquier servicio para mujer, el precio del corte es de 56 EUR en lugar de 78 EUR.',
+    },
+    color: {
+      en: 'Each color service includes blow dry.',
+      es: 'Cada servicio de color incluye lavado y peinado.',
+    },
+    'bleach-highlights': {
+      en: 'Consultation required. Online booking unavailable. Includes toning, K18 and blow dry.',
+      es: 'Consulta previa obligatoria. No disponible para reserva online. Incluye tonalización, K18, lavado y peinado.',
+    },
+    'treatments-signature': {
+      en: 'Includes blow dry.',
+      es: 'Incluye lavado y peinado.',
+    },
+    'mens-services': {
+      en: 'Hair wash and blow dry included.',
+      es: 'Incluyen lavado y peinado.',
+    },
+    extensions: {
+      en: 'If hair purchase is required, a prior consultation is mandatory before booking.',
+      es: 'Si se requiere compra de cabello, la consulta previa es obligatoria antes de reservar.',
+    },
+  },
+  beauty: {
+    lamination: {
+      en: 'Lash and brow tint are included in lamination services.',
+      es: 'La tintura de pestañas y cejas está incluida en los servicios de laminación.',
+    },
+    'brow-services': {
+      en: 'Brow services in this subgroup are provided without lamination.',
+      es: 'Los servicios de esta sección se realizan sin laminación.',
+    },
+    'semi-permanent-makeup': {
+      en: 'Initial procedures include a 6-week touch-up in the price.',
+      es: 'Los procedimientos iniciales incluyen un retoque a las 6 semanas en el precio.',
+    },
+    'touch-up': {
+      en: 'Touch-up has a fixed price regardless of the initial semi-permanent procedure.',
+      es: 'El retoque tiene precio fijo independientemente del procedimiento inicial.',
+    },
+  },
+  'manicure-pedicure': {
+    manicure: {
+      en: 'Gel, refill and extension services include manicure and removal of previous material.\nBasic design for 1-2 nails (stones, stickers, glitter) included.\nFrench included.\nWe do not offer hand-painted designs.',
+      es: 'Los servicios de gel, relleno y extensiones incluyen manicura y retirada del material previo.\nDiseno basico para 1-2 unas (piedras, pegatinas, brillos) incluido.\nFrench incluido.\nNo realizamos disenos pintados a mano.',
+    },
+    pedicure: {
+      en: 'Sole treatments use professional KART products and are recommended in winter or 2 weeks before/after sun or sea exposure.\nA salon consultation is required before these treatments to create a personalized protocol.\nClients with diabetes or neuropathy should not book these treatments; medical protocol is required.',
+      es: 'Los tratamientos de planta se realizan con productos profesionales KART y se recomiendan en invierno o 2 semanas antes/despues de exposicion al sol o al mar.\nAntes del tratamiento se realiza consulta en salon para crear un protocolo personalizado.\nLas personas con diabetes o neuropatia no deben reservar estas sesiones; se requiere protocolo medico.',
+    },
+  },
+  combinations: {
+    'with-cleaning': {
+      en: 'Combinations with classic cleaning of the sole of the foot.',
+      es: 'Combinaciones con limpieza clasica de la planta del pie.',
+    },
+    'without-cleaning': {
+      en: 'Combinations without cleaning of the sole of the foot.',
+      es: 'Combinaciones sin limpieza de la planta del pie.',
+    },
+  },
+};
+
+const getHairSubgroup = (service: Service, language: 'es' | 'en'): LocalizedSubgroup => {
+  const category = (service.category || '').toLowerCase();
+  const name = service.serviceName.toLowerCase();
+  const es = language === 'es';
+
+  const toLabel = (key: string): LocalizedSubgroup => {
+    if (key === 'haircuts') return { key, label: es ? 'Cortes' : 'Haircuts' };
+    if (key === 'styling') return { key, label: es ? 'Peinado' : 'Styling' };
+    if (key === 'color') return { key, label: es ? 'Color' : 'Color' };
+    if (key === 'bleach-highlights') return { key, label: es ? 'Decoloración y mechas' : 'Bleach & Highlights' };
+    if (key === 'treatments-signature') return { key, label: es ? 'Tratamientos & Tratamientos Signature' : 'Treatments & Signature Treatments' };
+    if (key === 'mens-services') return { key, label: es ? 'Servicios para hombre' : "Men's Services" };
+    if (key === 'kids-cuts') return { key, label: es ? 'Cortes infantiles' : 'Kids Cuts' };
+    return { key: 'extensions', label: es ? 'Extensiones' : 'Extensions' };
+  };
+
+  if (category === 'hair-men' || /(beard|barba|caballero|grey|canas|waxing|depilaci)/.test(name)) {
+    return toLabel('mens-services');
+  }
+  if (category === 'hair-kids' || /(girls|boys|niñ|hasta 9|9-14|9–14|y\\.o)/.test(name)) {
+    return toLabel('kids-cuts');
+  }
+  if (category === 'hair-extensions' || /(extension|capsulation|capsulaci|retirada)/.test(name)) {
+    return toLabel('extensions');
+  }
+  if (category === 'hair-bleach-highlights' || /(airtouch|highlight|mechas|decolor|contouring)/.test(name)) {
+    return toLabel('bleach-highlights');
+  }
+  if (category === 'hair-color' || /(roots|root|ra[ií]z|re-growth|highlift|tint|color|colour|toning|tonalizaci[oó]n|matiz)/.test(name)) {
+    return toLabel('color');
+  }
+  if (category === 'hair-treatments-signature' || /(tokio|nashi|brae|therapy|tratamiento|treatment|inkarami)/.test(name)) {
+    return toLabel('treatments-signature');
+  }
+  if (category === 'hair-haircuts-styling') {
+    if (/(haircut|corte|flequillo|fringe|trim)/.test(name)) {
+      return toLabel('haircuts');
+    }
+    return toLabel('styling');
+  }
+  if (/(haircut|corte|flequillo|fringe|trim)/.test(name)) {
+    return toLabel('haircuts');
+  }
+  if (/(blow dry|peinado|recogido|hair up)/.test(name)) {
+    return toLabel('styling');
+  }
+
+  return toLabel('styling');
+};
+
+const getBeautySubgroup = (service: Service, language: 'es' | 'en'): LocalizedSubgroup => {
+  const category = (service.category || '').toLowerCase();
+  const name = service.serviceName.toLowerCase();
+  const es = language === 'es';
+
+  const toLabel = (key: string): LocalizedSubgroup => {
+    if (key === 'lamination') return { key, label: es ? 'Laminación' : 'Lamination' };
+    if (key === 'brow-services') return { key, label: es ? 'Servicios de Cejas (sin laminación)' : 'Brow Services (without lamination)' };
+    if (key === 'lash-extensions-full-set') return { key, label: es ? 'Extensiones de Pestañas - Aplicación completa' : 'Lash Extensions - Full Set' };
+    if (key === 'led-extensions') return { key, label: es ? 'Extensiones LED' : 'LED Extensions' };
+    if (key === 'lash-refill-infill') return { key, label: es ? 'Corrección y Relleno de Extensiones' : 'Lash Extension Refill / Infill' };
+    if (key === 'lash-removal') return { key, label: es ? 'Retirada de Extensiones de Pestañas' : 'Lash Extension Removal' };
+    if (key === 'semi-permanent-makeup') return { key, label: es ? 'Maquillaje Semipermanente' : 'Semi-Permanent Makeup' };
+    if (key === 'touch-up') return { key, label: es ? 'Retoque' : 'Touch-up' };
+    return { key: 'professional-makeup', label: es ? 'Maquillaje Profesional' : 'Professional Makeup' };
+  };
+
+  if (category === 'beauty-lamination' || /(laminat|laminaci)/.test(name)) {
+    return toLabel('lamination');
+  }
+  if (category === 'beauty-brow-services' || /(brow|ceja|bigote|upper lip|nose waxing|nariz|ear waxing|oreja)/.test(name)) {
+    return toLabel('brow-services');
+  }
+  if (category === 'beauty-lash-extensions-full-set') {
+    return /(led)/.test(name) ? toLabel('led-extensions') : toLabel('lash-extensions-full-set');
+  }
+  if (category === 'beauty-lash-refill-infill' || /(refill|infill|relleno|correcci)/.test(name)) {
+    return toLabel('lash-refill-infill');
+  }
+  if (category === 'beauty-lash-removal' || /(lash removal|retirada de extensiones)/.test(name)) {
+    return toLabel('lash-removal');
+  }
+  if (category === 'beauty-semi-permanent-makeup') {
+    return /(touch[- ]?up|retoque)/.test(name) ? toLabel('touch-up') : toLabel('semi-permanent-makeup');
+  }
+  if (category === 'beauty-professional-makeup') {
+    return toLabel('professional-makeup');
+  }
+  if (/(touch[- ]?up|retoque)/.test(name)) {
+    return toLabel('touch-up');
+  }
+  if (/(powder|cejas efecto polvo|eyeliner|labios|lips|semi[- ]?permanent|semipermanente|lash density|contorno de ojos)/.test(name)) {
+    return toLabel('semi-permanent-makeup');
+  }
+  if (/(led)/.test(name)) {
+    return toLabel('led-extensions');
+  }
+  if (/(lash|pestañ|volumen|classic 1:1|wet look|mega volume|extensiones)/.test(name)) {
+    return toLabel('lash-extensions-full-set');
+  }
+
+  return toLabel('professional-makeup');
+};
+
+const getManicurePedicureSubgroup = (service: Service, language: 'es' | 'en'): LocalizedSubgroup => {
+  const category = (service.category || '').toLowerCase();
+  const name = service.serviceName.toLowerCase();
+  const es = language === 'es';
+
+  if (
+    category === 'manicure' ||
+    category === 'nail-art-care-manicure' ||
+    /(manicur|gel|relleno|refill|french|higienic manicure|retirada de gel|gel removal)/.test(name)
+  ) {
+    return { key: 'manicure', label: es ? 'Manicura' : 'Manicure' };
+  }
+
+  return { key: 'pedicure', label: es ? 'Pedicura' : 'Pedicure' };
+};
+
+const getCombinationsSubgroup = (service: Service, language: 'es' | 'en'): LocalizedSubgroup => {
+  const name = service.serviceName.toLowerCase();
+  const es = language === 'es';
+
+  if (name.includes('sin limpieza') || name.includes('without cleaning')) {
+    return {
+      key: 'without-cleaning',
+      label: es
+        ? 'Sin limpieza de la planta del pie'
+        : 'Without cleaning of the sole of the foot',
+    };
+  }
+
+  return {
+    key: 'with-cleaning',
+    label: es
+      ? 'Con limpieza clasica de la planta del pie'
+      : 'With classic cleaning of the sole of the foot',
+  };
+};
+
+const MAJOR_GROUP_ORDER: MajorGroupKey[] = ['manicure', 'pedicure-care', 'manicure-pedicure', 'combinations', 'hair', 'beauty'];
+const BOOKING_GROUP_ORDER: MajorGroupKey[] = ['beauty', 'manicure-pedicure', 'combinations', 'hair'];
+
+const STEP1_GROUP_CONFIG: Array<{ key: MajorGroupKey; name: string; icon: LucideIcon }> = [
+  { key: 'beauty', name: 'Beauty', icon: Sparkles },
+  { key: 'manicure-pedicure', name: 'Manicure & Pedicure', icon: Hand },
+  { key: 'combinations', name: 'Manicure & Pedicure Combinations', icon: Gift },
+  { key: 'hair', name: 'Hair', icon: Scissors },
+];
 
 const MAJOR_GROUP_META: Record<MajorGroupKey, { es: string; en: string }> = {
   manicure: { es: 'Manicura', en: 'Nails / Manicure' },
   'pedicure-care': { es: 'Pedicura y Cuidado', en: 'Pedicure & Care' },
+  'manicure-pedicure': { es: 'Manicura y Pedicura', en: 'Manicure & Pedicure' },
   combinations: {
-    es: 'Combinaciones de Manicura y Pedicura',
+    es: 'Manicura & Pedicura - Combinaciones',
     en: 'Manicure & Pedicure Combinations',
   },
   hair: { es: 'Peluqueria', en: 'Hair' },
+  beauty: { es: 'Belleza', en: 'Beauty' },
 };
 
 type GroupTone = {
@@ -91,6 +352,19 @@ const GROUP_TONE: Record<MajorGroupKey, GroupTone> = {
     serviceButton: 'bg-cyan-700 group-hover:bg-cyan-800',
     subgroupBand: 'bg-cyan-50 border-cyan-100',
   },
+  'manicure-pedicure': {
+    activeCard: 'border-amber-300 bg-amber-50/70',
+    activeTitle: 'text-amber-900',
+    activeMeta: 'text-amber-700',
+    activeBar: 'from-amber-400/80 via-amber-300/60 to-transparent',
+    badge: 'bg-amber-100',
+    badgeText: 'text-amber-700',
+    panel: 'bg-amber-50/30',
+    panelBorder: 'border-amber-200/70',
+    serviceHover: 'hover:border-amber-300 hover:shadow-amber-100/70',
+    serviceButton: 'bg-amber-700 group-hover:bg-amber-800',
+    subgroupBand: 'bg-amber-50 border-amber-100',
+  },
   combinations: {
     activeCard: 'border-stone-300 bg-stone-50/70',
     activeTitle: 'text-stone-900',
@@ -117,25 +391,42 @@ const GROUP_TONE: Record<MajorGroupKey, GroupTone> = {
     serviceButton: 'bg-emerald-700 group-hover:bg-emerald-800',
     subgroupBand: 'bg-emerald-50 border-emerald-100',
   },
+  beauty: {
+    activeCard: 'border-amber-300 bg-amber-50/70',
+    activeTitle: 'text-amber-900',
+    activeMeta: 'text-amber-700',
+    activeBar: 'from-amber-400/80 via-amber-300/60 to-transparent',
+    badge: 'bg-amber-100',
+    badgeText: 'text-amber-700',
+    panel: 'bg-amber-50/30',
+    panelBorder: 'border-amber-200/70',
+    serviceHover: 'hover:border-amber-300 hover:shadow-amber-100/70',
+    serviceButton: 'bg-amber-700 group-hover:bg-amber-800',
+    subgroupBand: 'bg-amber-50 border-amber-100',
+  },
 };
 
 const getMajorGroupForService = (service: Service): MajorGroupKey => {
   const category = service.category || 'other';
   const serviceName = service.serviceName.toLowerCase();
 
-  if (category === 'manicure' || category === 'nail-art-care-manicure') return 'manicure';
-  if (category === 'pedicure-care' || category === 'professional-foot-services' || category === 'foot-sole-treatments') return 'pedicure-care';
+  if (category === 'manicure' || category === 'nail-art-care-manicure') return 'manicure-pedicure';
+  if (category === 'pedicure-care' || category === 'professional-foot-services' || category === 'foot-sole-treatments') return 'manicure-pedicure';
   if (category === 'nail-art-care-combinations') return 'combinations';
   if (String(category).startsWith('hair-')) return 'hair';
+  if (String(category).startsWith('beauty-')) return 'beauty';
 
   if (serviceName.includes('pedicure') || serviceName.includes('planta') || serviceName.includes('sole') || serviceName.includes('foot')) {
-    return 'pedicure-care';
+    return 'manicure-pedicure';
   }
   if (serviceName.includes('combo') || serviceName.includes('combin')) {
     return 'combinations';
   }
   if (serviceName.includes('manicure') || serviceName.includes('gel') || serviceName.includes('nail')) {
-    return 'manicure';
+    return 'manicure-pedicure';
+  }
+  if (/(brow|lash|lamin|makeup|maquill|ceja|pesta|eyeliner|labio|lip)/.test(serviceName)) {
+    return 'beauty';
   }
   return 'hair';
 };
@@ -144,6 +435,20 @@ const getServiceSubgroup = (service: Service, language: 'es' | 'en'): LocalizedS
   const category = service.category || 'other';
   const name = service.serviceName.toLowerCase();
   const es = language === 'es';
+  const majorGroup = getMajorGroupForService(service);
+
+  if (majorGroup === 'hair') {
+    return getHairSubgroup(service, language);
+  }
+  if (majorGroup === 'beauty') {
+    return getBeautySubgroup(service, language);
+  }
+  if (majorGroup === 'manicure-pedicure') {
+    return getManicurePedicureSubgroup(service, language);
+  }
+  if (majorGroup === 'combinations') {
+    return getCombinationsSubgroup(service, language);
+  }
 
   if (category === 'manicure' || category === 'nail-art-care-manicure') {
     if (name.includes('relleno') || name.includes('refill')) return { key: 'gel-refill', label: es ? 'Relleno con gel' : 'Gel refill' };
@@ -162,20 +467,7 @@ const getServiceSubgroup = (service: Service, language: 'es' | 'en'): LocalizedS
   }
 
   if (category === 'nail-art-care-combinations') {
-    if (name.includes('sin limpieza') || name.includes('without cleaning')) {
-      return { key: 'without-cleaning', label: es ? 'Combinaciones sin limpieza de planta' : 'Combinations without sole cleaning' };
-    }
-    return { key: 'with-cleaning', label: es ? 'Combinaciones con limpieza de planta' : 'Combinations with sole cleaning' };
-  }
-
-  if (String(category).startsWith('hair-')) {
-    if (category === 'hair-haircuts-styling') return { key: 'haircuts-styling', label: es ? 'Corte y peinado' : 'Haircuts & Styling' };
-    if (category === 'hair-color') return { key: 'color', label: es ? 'Color' : 'Color' };
-    if (category === 'hair-bleach-highlights') return { key: 'bleach-highlights', label: es ? 'Decoloración y mechas' : 'Bleach & Highlights' };
-    if (category === 'hair-treatments-signature') return { key: 'treatments-signature', label: es ? 'Tratamientos & Signature' : 'Treatments & Signature' };
-    if (category === 'hair-men') return { key: 'mens-services', label: es ? 'Servicios para hombre' : "Men's Services" };
-    if (category === 'hair-kids') return { key: 'kids-cuts', label: es ? 'Cortes infantiles' : 'Kids Cuts' };
-    if (category === 'hair-extensions') return { key: 'extensions', label: es ? 'Extensiones' : 'Extensions' };
+    return getCombinationsSubgroup(service, language);
   }
 
   return { key: 'general', label: es ? 'Servicios' : 'Services' };
@@ -183,6 +475,36 @@ const getServiceSubgroup = (service: Service, language: 'es' | 'en'): LocalizedS
 
 const isOnlineBookingRestricted = (service: Service): boolean => {
   return service.category === 'hair-bleach-highlights';
+};
+
+const sortSubgroupsForGroup = (
+  groupKey: MajorGroupKey,
+  subgroups: Array<{ key: string; label: string; services: Service[] }>
+): Array<{ key: string; label: string; services: Service[] }> => {
+  if (
+    groupKey !== 'hair' &&
+    groupKey !== 'beauty' &&
+    groupKey !== 'manicure-pedicure' &&
+    groupKey !== 'combinations'
+  ) {
+    return subgroups.sort((a, b) => a.label.localeCompare(b.label));
+  }
+
+  const subgroupOrder =
+    groupKey === 'hair'
+      ? HAIR_SUBGROUP_ORDER
+      : groupKey === 'beauty'
+        ? BEAUTY_SUBGROUP_ORDER
+        : groupKey === 'manicure-pedicure'
+          ? MANICURE_PEDICURE_SUBGROUP_ORDER
+          : COMBINATIONS_SUBGROUP_ORDER;
+  const orderIndex = new Map<string, number>(subgroupOrder.map((key, index) => [key, index]));
+  return subgroups.sort((a, b) => {
+    const aIndex = orderIndex.has(a.key) ? orderIndex.get(a.key)! : Number.MAX_SAFE_INTEGER;
+    const bIndex = orderIndex.has(b.key) ? orderIndex.get(b.key)! : Number.MAX_SAFE_INTEGER;
+    if (aIndex !== bIndex) return aIndex - bIndex;
+    return a.label.localeCompare(b.label);
+  });
 };
 
 
@@ -234,10 +556,21 @@ export default function BookAllServicesPage() {
         stepDate: 'Fecha',
         stepPayment: 'Pago',
         servicesTitle: 'Nuestros servicios',
+        chooseServiceGroupTitle: 'Elige un grupo de servicios',
+        chooseGroupStep: '1. Elige un grupo',
+        chooseSubgroupStep: '2. Elige una categoria',
+        chooseServiceStep: '3. Elige un servicio',
+        stepProgressService: 'Elige servicio',
+        stepProgressDetails: 'Datos',
+        stepProgressDate: 'Fecha',
+        stepProgressPayment: 'Pago',
+        stepWord: 'Paso',
+        ofWord: 'de',
         noServicesNow: 'No hay servicios disponibles en este momento',
         search: 'Buscar servicio o grupo...',
         clearSearch: 'Limpiar busqueda',
         mainGroups: 'Grupos principales',
+        chooseGroupHint: '1. Elige un grupo para ver sus servicios.',
         groups: 'grupos',
         services: 'servicios',
         from: 'Desde',
@@ -245,6 +578,9 @@ export default function BookAllServicesPage() {
         noServicesForGroup: 'No encontramos servicios para este grupo.',
         noServicesForGroupHint: 'Prueba con otro nombre o cambia de grupo.',
         selected: 'Seleccionado',
+        currentGroup: 'Grupo actual',
+        currentSubgroup: 'Subgrupo actual',
+        currentService: 'Servicio actual',
         availableBadge: 'Disponible',
         hidden: 'Oculto',
         noSpecialist: 'Sin especialista',
@@ -314,6 +650,7 @@ export default function BookAllServicesPage() {
         next: 'Continuar',
         loadingServices: 'Cargando servicios...',
         paymentGatewayNotConfigured: 'La pasarela de pago no esta configurada. Contacta con soporte.',
+        selectGroupValidation: 'Selecciona un grupo',
         selectServiceValidation: 'Selecciona un servicio',
         nameValidation: 'Nombre',
         emailValidation: 'Email',
@@ -345,10 +682,21 @@ export default function BookAllServicesPage() {
       stepDate: 'Date',
       stepPayment: 'Payment',
       servicesTitle: 'Our services',
+      chooseServiceGroupTitle: 'Choose a service group',
+      chooseGroupStep: '1. Choose a group',
+      chooseSubgroupStep: '2. Choose a category',
+      chooseServiceStep: '3. Choose a service',
+      stepProgressService: 'Choose service',
+      stepProgressDetails: 'Details',
+      stepProgressDate: 'Date',
+      stepProgressPayment: 'Payment',
+      stepWord: 'Step',
+      ofWord: 'of',
       noServicesNow: 'No services are available right now',
       search: 'Search service or group...',
       clearSearch: 'Clear search',
       mainGroups: 'Main groups',
+      chooseGroupHint: '1. Choose a group to see services.',
       groups: 'groups',
       services: 'services',
       from: 'From',
@@ -356,6 +704,9 @@ export default function BookAllServicesPage() {
       noServicesForGroup: 'No services were found for this group.',
       noServicesForGroupHint: 'Try another term or switch to a different group.',
       selected: 'Selected',
+      currentGroup: 'Current group',
+      currentSubgroup: 'Current subgroup',
+      currentService: 'Current service',
       availableBadge: 'Available',
       hidden: 'Hidden',
       noSpecialist: 'No specialist',
@@ -425,6 +776,7 @@ export default function BookAllServicesPage() {
       next: 'Continue',
       loadingServices: 'Loading services...',
       paymentGatewayNotConfigured: 'Payment gateway is not configured. Contact support.',
+      selectGroupValidation: 'Select a group',
       selectServiceValidation: 'Select a service',
       nameValidation: 'Name',
       emailValidation: 'Email',
@@ -511,14 +863,14 @@ export default function BookAllServicesPage() {
       initial[group].subgroups.get(subgroup.key)!.services.push(service);
     }
 
-    return MAJOR_GROUP_ORDER.map((group) => {
+    return BOOKING_GROUP_ORDER.map((group) => {
       const entry = initial[group];
       const prices = entry.services.map((s) => s.price).filter((p) => typeof p === 'number');
       const durations = entry.services.map((s) => s.duration).filter((d) => typeof d === 'number');
-      const subgroups = Array.from(entry.subgroups.values()).map((subgroup) => ({
+      const subgroups = sortSubgroupsForGroup(entry.key, Array.from(entry.subgroups.values()).map((subgroup) => ({
         ...subgroup,
         services: sortServices(subgroup.services),
-      }));
+      })));
 
       return {
         key: entry.key,
@@ -534,14 +886,14 @@ export default function BookAllServicesPage() {
   }, [filteredServices, language, serviceSort]);
 
   const visibleCategories = groupedCatalog.map((group) => group.key);
-  const defaultCategory = visibleCategories[0] || null;
   const activeCategory = selectedCategory && visibleCategories.includes(selectedCategory as MajorGroupKey)
     ? selectedCategory
-    : defaultCategory;
-  const activeGroup = groupedCatalog.find((group) => group.key === activeCategory) || null;
+    : null;
+  const activeGroup = activeCategory
+    ? groupedCatalog.find((group) => group.key === activeCategory) || null
+    : null;
   const totalVisibleServices = filteredServices.length;
-  const activeGroupTone = activeGroup ? GROUP_TONE[activeGroup.key] : GROUP_TONE.manicure;
-  
+  const activeGroupTone = activeGroup ? GROUP_TONE[activeGroup.key] : GROUP_TONE.beauty;
   const [showLoginModal, setShowLoginModal] = useState<boolean>(false);
   const [authModalMode, setAuthModalMode] = useState<'login' | 'signup'>('login');
   const [pendingClientDataRefresh, setPendingClientDataRefresh] = useState<boolean>(false);
@@ -549,6 +901,7 @@ export default function BookAllServicesPage() {
   const [formData, setFormData] = useState<FormData>({
     name: '', email: '', phone: '', date: '', time: '', employeeId: '',
   });
+  const [selectedSubgroupKey, setSelectedSubgroupKey] = useState<string | null>(null);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [slotsError, setSlotsError] = useState<string | null>(null);
   const stripeRef = useRef<Stripe | null>(null);
@@ -556,6 +909,14 @@ export default function BookAllServicesPage() {
   const cardElementRef = useRef<StripeCardElement | null>(null);
   const cardMountId = 'book-all-card-element';
   const stripePublicKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '';
+  const activeSubgroup = activeGroup && selectedSubgroupKey
+    ? activeGroup.subgroups.find((subgroup) => subgroup.key === selectedSubgroupKey) || null
+    : null;
+  const mobileSubgroupChoices = activeGroup
+    ? activeSubgroup
+      ? [activeSubgroup]
+      : activeGroup.subgroups
+    : [];
 
   // Fetch all services
   useEffect(() => {
@@ -579,19 +940,34 @@ export default function BookAllServicesPage() {
   }, []);
 
   useEffect(() => {
-    if (!selectedCategory && defaultCategory) {
-      setSelectedCategory(defaultCategory as MajorGroupKey);
+    if (
+      selectedCategory &&
+      !visibleCategories.includes(selectedCategory as MajorGroupKey)
+    ) {
+      setSelectedCategory(null);
+    }
+  }, [selectedCategory, visibleCategories]);
+
+  useEffect(() => {
+    if (bookingStep !== 2 || !selectedService || !activeGroup) return;
+    if (getMajorGroupForService(selectedService) !== activeGroup.key) return;
+
+    const subgroup = getServiceSubgroup(selectedService, language);
+    if (activeGroup.subgroups.some((item) => item.key === subgroup.key)) {
+      setSelectedSubgroupKey(subgroup.key);
+    }
+  }, [bookingStep, selectedService, activeGroup, language]);
+
+  useEffect(() => {
+    if (!activeGroup) {
+      setSelectedSubgroupKey(null);
       return;
     }
 
-    if (
-      selectedCategory &&
-      !visibleCategories.includes(selectedCategory as MajorGroupKey) &&
-      defaultCategory
-    ) {
-      setSelectedCategory(defaultCategory as MajorGroupKey);
+    if (selectedSubgroupKey && !activeGroup.subgroups.some((subgroup) => subgroup.key === selectedSubgroupKey)) {
+      setSelectedSubgroupKey(null);
     }
-  }, [selectedCategory, defaultCategory, visibleCategories]);
+  }, [activeGroup, selectedSubgroupKey]);
 
   // Fetch employees for selected service
   useEffect(() => {
@@ -831,8 +1207,8 @@ export default function BookAllServicesPage() {
   };
 
   const goBackToServices = () => {
+    setBookingStep(2);
     setSelectedService(null);
-    setBookingStep(1);
     setFormData({ name: '', email: '', phone: '', date: '', time: '', employeeId: '' });
     resetPaymentState();
   };
@@ -840,21 +1216,146 @@ export default function BookAllServicesPage() {
   const next = () => setBookingStep((s) => clampStep(s + 1));
   const back = () => {
     if (bookingStep === 2) {
-      goBackToServices();
+      if (selectedService) {
+        goBackToServices();
+      } else {
+        setBookingStep(1);
+      }
     } else {
       setBookingStep((s) => clampStep(s - 1));
     }
   };
 
+  const renderSubgroupCard = (subgroup: { key: string; label: string; services: Service[] }) => {
+    const isSelected = selectedSubgroupKey === subgroup.key;
+
+    return (
+      <button
+        key={subgroup.key}
+        type="button"
+        onClick={() =>
+          setSelectedSubgroupKey((prev) => (prev === subgroup.key ? null : subgroup.key))
+        }
+        className={cn(
+          'relative w-full rounded-[20px] sm:rounded-[16px] border px-5 sm:px-4 pr-12 py-4 sm:py-3 text-left transition-all',
+          isSelected
+            ? 'border-stone-700 bg-white shadow-sm ring-1 ring-stone-700/15'
+            : 'border-stone-200/90 bg-stone-50/35 hover:border-stone-300 hover:bg-white'
+        )}
+      >
+        <span
+          className={cn(
+            'pointer-events-none absolute right-4 top-1/2 -translate-y-1/2',
+            isSelected ? 'text-stone-700' : 'text-stone-400'
+          )}
+        >
+          <svg className={cn('h-4 w-4 transition-transform', isSelected ? 'rotate-90' : '')} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </span>
+        <p className={cn('text-[17px] sm:text-sm font-semibold leading-tight', isSelected ? 'text-stone-900' : 'text-stone-700')}>
+          {subgroup.label}
+        </p>
+        <p className="mt-1.5 text-[15px] sm:text-xs text-stone-400">{subgroup.services.length} {copy.services}</p>
+      </button>
+    );
+  };
+
+  const renderServiceCard = (service: Service) => {
+    const hasEmployees = (service.employees?.length ?? 0) > 0;
+    const isActive = service.isActive;
+    const isRestrictedOnline = isOnlineBookingRestricted(service);
+    const canBook = isActive && hasEmployees && !isRestrictedOnline;
+    const specialistCount = service.employees?.length || 0;
+    const isSelectedService = selectedService?.id === service.id;
+
+    return (
+      <button
+        key={service.id}
+        onClick={() => canBook && selectService(service)}
+        disabled={!canBook}
+        className={cn(
+          'group rounded-[16px] sm:rounded-[18px] border p-3.5 sm:p-4 text-left transition-all',
+          isSelectedService ? 'ring-2 ring-stone-700 border-stone-700 shadow-sm' : '',
+          canBook
+            ? cn('border-stone-200 bg-white hover:-translate-y-0.5 hover:shadow-lg', activeGroupTone.serviceHover)
+            : 'cursor-not-allowed border-stone-200 bg-stone-50/70'
+        )}
+      >
+        <div className="mb-2">
+          {isSelectedService ? (
+            <span className="inline-flex rounded-full bg-stone-800 px-2.5 py-1 text-[10px] font-semibold text-white">
+              {copy.selected}
+            </span>
+          ) : canBook ? (
+            <span className="inline-flex rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-semibold text-emerald-700">{copy.availableBadge}</span>
+          ) : !isActive ? (
+            <span className="inline-flex rounded-full bg-stone-200 px-2.5 py-1 text-[10px] font-semibold text-stone-600">{copy.hidden}</span>
+          ) : isRestrictedOnline ? (
+            <span className="inline-flex rounded-full bg-rose-100 px-2.5 py-1 text-[10px] font-semibold text-rose-700">{copy.consultationRequired}</span>
+          ) : (
+            <span className="inline-flex rounded-full bg-stone-100 px-2.5 py-1 text-[10px] font-semibold text-stone-700">
+              {copy.noSpecialist}
+            </span>
+          )}
+        </div>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-base font-semibold text-stone-800 leading-snug line-clamp-2">
+              {service.serviceName}
+            </p>
+          </div>
+          <div className="text-right">
+            <p className="text-xl sm:text-2xl leading-none font-semibold text-stone-700">
+              {formatCurrency(service.price)}
+            </p>
+            <p className="text-xs text-stone-400 mt-1">{service.duration} min</p>
+          </div>
+        </div>
+
+        {hasEmployees ? (
+          <p className="mt-3 text-xs text-stone-500">
+            {specialistCount} {specialistCount === 1 ? copy.specialistSingular : copy.specialistPlural}
+          </p>
+        ) : null}
+
+        <div className="mt-4 pt-3 border-t border-stone-100">
+          {canBook ? (
+            <span className={cn('inline-flex w-full items-center justify-center gap-1 rounded-xl border border-transparent px-3 py-2 text-sm font-semibold text-white transition-all', activeGroupTone.serviceButton)}>
+              {copy.book}
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </span>
+          ) : !isActive ? (
+            <span className="text-stone-400 text-[11px] font-medium">
+              {copy.hidden}
+            </span>
+          ) : isRestrictedOnline ? (
+            <span className="text-rose-600 text-[11px] font-medium">
+              {copy.onlineBookingUnavailable}
+            </span>
+          ) : (
+            <span className="text-stone-500 text-[11px] font-medium">
+              {copy.unavailable}
+            </span>
+          )}
+        </div>
+      </button>
+    );
+  };
+
   const stepValid = useMemo<boolean>(() => {
-    if (bookingStep === 1) return !!selectedService;
+    if (bookingStep === 1) return !!selectedCategory;
+    if (bookingStep === 2 && !selectedService) return false;
     if (bookingStep === 2) return !!(formData.name && formData.email && formData.phone && formData.employeeId);
     if (bookingStep === 3) return !!(formData.date && formData.time);
     return true;
-  }, [bookingStep, selectedService, formData]);
+  }, [bookingStep, selectedCategory, selectedService, formData]);
 
   const stepMissingItems = useMemo<string[]>(() => {
-    if (bookingStep === 1 && !selectedService) return [copy.selectServiceValidation];
+    if (bookingStep === 1 && !selectedCategory) return [copy.selectGroupValidation];
+    if (bookingStep === 2 && !selectedService) return [copy.selectServiceValidation];
 
     if (bookingStep === 2) {
       const missing: string[] = [];
@@ -1015,6 +1516,43 @@ export default function BookAllServicesPage() {
     ? formatCurrency(depositAmount / 100)
     : formatCurrency(estimatedDepositValue);
   const remainingBalance = selectedPriceValue - (depositAmount ? depositAmount / 100 : estimatedDepositValue);
+  const isGroupSelectionStep = bookingStep === 1;
+  const isServiceSelectionStep = bookingStep === 2 && !selectedService;
+  const visualProgressStep = isGroupSelectionStep || isServiceSelectionStep ? 1 : bookingStep;
+  const progressStepLabelByStep = {
+    1: copy.stepProgressService,
+    2: copy.stepProgressDetails,
+    3: copy.stepProgressDate,
+    4: copy.stepProgressPayment,
+  } as const;
+  const progressStepLabel = progressStepLabelByStep[visualProgressStep];
+  const progressWidth = `${(visualProgressStep / 4) * 100}%`;
+
+  const groupByKey = new Map(groupedCatalog.map((group) => [group.key, group]));
+  const step1Groups = STEP1_GROUP_CONFIG.map((groupConfig) => ({
+    ...groupConfig,
+    count: groupByKey.get(groupConfig.key)?.count ?? 0,
+  }));
+  const selectedGroupCard = step1Groups.find((group) => group.key === selectedCategory) || null;
+
+  const handleContinueFromGroupSelection = () => {
+    if (!selectedCategory) return;
+    setSelectedSubgroupKey(null);
+    setSelectedService(null);
+    setBookingStep(2);
+  };
+
+  const handleStepHeaderBack = () => {
+    if (bookingStep === 1) {
+      router.back();
+      return;
+    }
+    if (bookingStep === 2 && !selectedService) {
+      setBookingStep(1);
+      return;
+    }
+    back();
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-neutral-50 via-white to-stone-50/30 overflow-x-hidden w-full">
@@ -1068,74 +1606,116 @@ export default function BookAllServicesPage() {
 
       <main className={cn(
         "pt-16 sm:pt-20 pb-8 sm:pb-12 px-3 sm:px-8 lg:pb-6 lg:flex lg:flex-col",
-        bookingStep === 1 && ""
+        bookingStep === 1 ? "pb-28 sm:pb-12" : ""
       )}>
         <div className="max-w-6xl mx-auto lg:flex lg:flex-col">
-          {/* Hero + Progress */}
-          <div className="mb-6 sm:mb-8 lg:mb-4 lg:flex lg:items-center lg:justify-between lg:gap-10">
-            <div className="text-center lg:text-left">
-              <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-semibold tracking-tight text-stone-800 leading-tight mb-2">
-                {copy.title}
-              </h1>
-              <p className="text-stone-500 font-medium text-sm sm:text-base max-w-2xl mx-auto lg:mx-0">
-                {copy.subtitle}
-              </p>
+          {/* Booking Header + Progress */}
+          <div className="mb-5 border-b border-stone-200/70 pb-4 sm:mb-6 sm:pb-5">
+            <div className="flex items-start gap-3 sm:gap-4">
+              <button
+                type="button"
+                onClick={handleStepHeaderBack}
+                aria-label={copy.back}
+                className="mt-1 inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border border-stone-200 text-stone-700 transition-colors hover:border-stone-300 hover:text-stone-900"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </button>
+              <div className="min-w-0">
+                <h1 className="text-4xl sm:text-4xl lg:text-5xl font-semibold tracking-tight text-stone-800 leading-tight">
+                  {copy.title}
+                </h1>
+                <p className="mt-1 text-stone-500 font-medium text-sm sm:text-base">
+                  {copy.subtitle}
+                </p>
+              </div>
             </div>
 
-            <div className="mt-6 lg:mt-0">
-              <div className="flex items-start justify-center lg:justify-end">
-                {[
-                  { step: 1, label: copy.stepService },
-                  { step: 2, label: copy.stepDetails },
-                  { step: 3, label: copy.stepDate },
-                  { step: 4, label: copy.stepPayment }
-                ].map(({ step, label }, index, items) => (
-                  <React.Fragment key={step}>
-                    <div className="flex flex-col items-center min-w-[44px] sm:min-w-[56px]">
-                      <div className={cn(
-                        "w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-semibold text-xs sm:text-sm transition-all border",
-                        bookingStep > step
-                          ? "bg-emerald-600 border-emerald-600 text-white"
-                          : bookingStep === step
-                            ? "bg-stone-800 border-stone-800 text-white shadow-md"
-                            : "bg-white border-stone-200 text-stone-400"
-                      )}>
-                        {bookingStep > step ? (
-                          <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                          </svg>
-                        ) : step}
-                      </div>
-                      <span className={cn(
-                        "hidden xs:block mt-2 text-[9px] sm:text-[10px] font-medium tracking-wide text-center",
-                        bookingStep === step ? "text-stone-600" : "text-stone-400"
-                      )}>
-                        {label}
-                      </span>
-                    </div>
-                    {index < items.length - 1 && (
-                      <div className={cn(
-                        "w-6 sm:w-12 md:w-16 h-0.5 sm:h-1 rounded-full transition-all mt-4 sm:mt-5 mx-2 sm:mx-3 md:mx-4",
-                        bookingStep > step ? "bg-emerald-400" : "bg-stone-100"
-                      )} />
-                    )}
-                  </React.Fragment>
-                ))}
+            <div className="mt-4 sm:mt-5 pl-12 sm:pl-14">
+              <div className="h-1.5 rounded-full bg-stone-200/60 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-[#9a7f6b] transition-all"
+                  style={{ width: progressWidth }}
+                />
               </div>
+              <p className="mt-2 text-sm font-medium text-stone-500">
+                {copy.stepWord} {visualProgressStep} {copy.ofWord} 4 · {progressStepLabel}
+              </p>
             </div>
           </div>
 
+          {bookingStep === 1 && (
+            <section className="mb-4 sm:mb-6">
+              {services.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-stone-200 bg-white/70 px-4 py-8 text-center">
+                  <p className="text-sm font-medium text-stone-500">{copy.noServicesNow}</p>
+                </div>
+              ) : (
+                <>
+                  <h2 className="text-3xl sm:text-2xl font-semibold text-stone-800">{copy.chooseServiceGroupTitle}</h2>
+                  <div className="mt-4 grid grid-cols-2 gap-3 sm:gap-4">
+                    {step1Groups.map((group) => {
+                      const isSelected = selectedCategory === group.key;
+                      const Icon = group.icon;
+                      return (
+                        <button
+                          key={group.key}
+                          type="button"
+                          onClick={() => {
+                            setSelectedCategory(group.key);
+                            setSelectedSubgroupKey(null);
+                          }}
+                          className={cn(
+                            'relative min-h-[156px] rounded-2xl border bg-white px-3 py-4 text-center transition-all flex flex-col items-center justify-center',
+                            isSelected
+                              ? 'border-emerald-500 ring-2 ring-emerald-200/70'
+                              : 'border-stone-200 hover:border-stone-300'
+                          )}
+                        >
+                          {isSelected && (
+                            <span className="absolute right-2 top-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-emerald-600 text-white">
+                              <Check className="h-4 w-4" />
+                            </span>
+                          )}
+                          <Icon className={cn('mx-auto mb-2 h-7 w-7', isSelected ? 'text-emerald-700' : 'text-stone-600')} />
+                          <p className="text-[20px] sm:text-base font-semibold leading-tight text-stone-800">
+                            {group.name}
+                          </p>
+                          {group.count > 0 && (
+                            <p className="mt-1 text-sm sm:text-xs text-stone-400">
+                              {group.count} {copy.services}
+                            </p>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className="mt-4 hidden sm:flex items-center justify-between rounded-2xl border border-stone-200 bg-white px-4 py-3">
+                    <p className="text-sm font-semibold text-stone-700">
+                      {selectedGroupCard?.name || copy.chooseServiceGroupTitle}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleContinueFromGroupSelection}
+                      disabled={!selectedCategory}
+                      className="inline-flex items-center gap-1 rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white transition-colors disabled:bg-stone-300 disabled:text-stone-500"
+                    >
+                      {copy.next}
+                      <ChevronRight className="h-4 w-4" />
+                    </button>
+                  </div>
+                </>
+              )}
+            </section>
+          )}
+
           {/* Main Content Card */}
+          {bookingStep !== 1 && (
           <div className="bg-white rounded-[24px] sm:rounded-[40px] shadow-xl sm:shadow-2xl overflow-hidden border border-neutral-100">
             <div className="p-4 sm:p-6 lg:p-6">
               
-              {/* Step 1: Select Service */}
-              {bookingStep === 1 && (
+              {/* Step 2: Select Category and Service */}
+              {bookingStep === 2 && !selectedService && (
                 <div className="space-y-6 lg:space-y-4">
-                  <div className="text-center mb-4">
-                    <h2 className="text-xl sm:text-2xl font-semibold text-stone-800">{copy.servicesTitle}</h2>
-                  </div>
-
                   {services.length === 0 ? (
                     <div className="text-center py-12 sm:py-16">
                       <div className="w-16 h-16 sm:w-20 sm:h-20 bg-stone-50 rounded-[20px] sm:rounded-[24px] flex items-center justify-center mx-auto mb-4 sm:mb-6">
@@ -1145,125 +1725,14 @@ export default function BookAllServicesPage() {
                       </div>
                       <p className="text-stone-500 font-medium text-sm sm:text-base">{copy.noServicesNow}</p>
                     </div>
-                  ) : (
-                    <div className="relative">
-                      <div className="absolute -top-10 right-6 h-28 w-28 rounded-full bg-stone-100/60 blur-2xl" />
-                      <div className="absolute bottom-8 left-4 h-24 w-24 rounded-full bg-amber-100/70 blur-2xl" />
-                      <div className={cn(
-                        "relative rounded-[28px] border p-4 sm:p-6",
-                        activeGroupTone.panelBorder,
-                        activeGroupTone.panel
-                      )}>
-                        <div className="grid gap-6 lg:grid-cols-[minmax(250px,290px)_1fr]">
-                          <div className="space-y-3 lg:sticky lg:top-6 lg:self-start">
-                            <div className="relative">
-                              <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35m1.85-5.15a7 7 0 11-14 0 7 7 0 0114 0z" />
-                              </svg>
-                              <input
-                                type="text"
-                                value={serviceSearch}
-                                onChange={(event) => setServiceSearch(event.target.value)}
-                                placeholder={copy.search}
-                                className="w-full rounded-2xl border border-stone-200 bg-white py-3 pl-10 pr-10 text-sm font-medium text-stone-700 placeholder:text-stone-400 focus:border-stone-300 focus:outline-none"
-                              />
-                              {serviceSearch && (
-                                <button
-                                  type="button"
-                                  onClick={() => setServiceSearch('')}
-                                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-stone-400 hover:bg-stone-100 hover:text-stone-600"
-                                  aria-label={copy.clearSearch}
-                                >
-                                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                  </svg>
-                                </button>
-                              )}
-                            </div>
-
-                            <div className="sm:hidden">
-                              <select
-                                value={activeCategory || ''}
-                                onChange={(event) => setSelectedCategory(event.target.value as MajorGroupKey)}
-                                className="w-full rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm font-medium text-stone-700 focus:border-stone-300 focus:outline-none"
-                              >
-                                {groupedCatalog.map((group, index) => (
-                                  <option key={group.key} value={group.key}>
-                                    {index + 1}. {group.label}
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
-                            <div className="hidden sm:block rounded-2xl border border-stone-200 bg-white px-4 py-3">
-                              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-stone-500">
-                                {copy.mainGroups}
-                              </p>
-                              <p className="mt-1 text-xs text-stone-400">
-                                {visibleCategories.length} {copy.groups} · {totalVisibleServices} {copy.services}
-                              </p>
-                            </div>
-
-                            <div className="hidden sm:flex max-h-[560px] gap-3 overflow-y-auto pb-2 lg:flex-col lg:pb-0 lg:pr-2">
-                              {groupedCatalog.map((group, index) => {
-                                const isActive = group.key === activeCategory;
-                                const groupTone = GROUP_TONE[group.key];
-                                const priceLabel = group.count === 0
-                                  ? copy.unavailable
-                                  : `${copy.from} ${formatCurrency(group.minPrice)}`;
-                                const durationLabel = `${group.minDuration}-${group.maxDuration} min`;
-
-                                return (
-                                  <button
-                                    key={group.key}
-                                    onClick={() => setSelectedCategory(group.key)}
-                                    className={cn(
-                                      "min-w-[220px] rounded-[18px] border px-4 py-3.5 text-left transition-all relative",
-                                      isActive
-                                        ? cn(groupTone.activeCard, "shadow-sm ring-2 ring-white/60")
-                                        : "border-stone-200 bg-white hover:border-stone-300 hover:bg-stone-50/50"
-                                    )}
-                                  >
-                                    {isActive && (
-                                      <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full bg-stone-900 px-2 py-0.5 text-[10px] font-semibold text-white">
-                                        <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
-                                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                        </svg>
-                                        {copy.selected}
-                                      </span>
-                                    )}
-                                    <div className="flex items-start justify-between gap-2">
-                                      <span className={cn("text-sm font-semibold", isActive ? groupTone.activeTitle : "text-stone-700")}>
-                                        {index + 1}. {group.label}
-                                      </span>
-                                      <span className={cn("text-xs", isActive ? groupTone.activeMeta : "text-stone-400")}>{group.count}</span>
-                                    </div>
-                                    <div className={cn("mt-2 flex items-center justify-between text-xs", isActive ? groupTone.activeMeta : "text-stone-500")}>
-                                      <span>{priceLabel}</span>
-                                      {durationLabel && <span>{durationLabel}</span>}
-                                    </div>
-                                    <div
-                                      className={cn(
-                                        "mt-3 h-1 rounded-full bg-gradient-to-r",
-                                        isActive
-                                          ? groupTone.activeBar
-                                          : "from-stone-200 to-transparent"
-                                      )}
-                                    />
-                                  </button>
-                                );
-                              })}
-                            </div>
-                            {groupedCatalog.length > 4 && (
-                              <div className="hidden lg:flex items-center justify-center text-[11px] text-stone-400">
-                                {copy.scrollForMoreGroups}
-                              </div>
-                            )}
-                          </div>
+                  ) : activeGroup ? (
                           <div className={cn(
-                            "rounded-[24px] border bg-white/95 p-4 sm:p-6 shadow-sm backdrop-blur-sm",
-                            activeGroupTone.panelBorder
+                            activeGroup.key === 'hair' || activeGroup.key === 'beauty' || activeGroup.key === 'manicure-pedicure'
+                              ? 'p-0'
+                              : 'rounded-[20px] bg-white/95 p-4 sm:p-6',
+                            activeGroup.key === 'hair' || activeGroup.key === 'beauty' || activeGroup.key === 'manicure-pedicure' ? '' : activeGroupTone.panel
                           )}>
-                            {!activeGroup || activeGroup.count === 0 ? (
+                            {activeGroup.count === 0 ? (
                               <div className="rounded-2xl border border-dashed border-stone-200 bg-stone-50/60 p-8 text-center">
                                 <p className="text-sm font-medium text-stone-600">
                                   {copy.noServicesForGroup}
@@ -1273,116 +1742,67 @@ export default function BookAllServicesPage() {
                                 </p>
                               </div>
                             ) : (
-                            <div className="space-y-6">
-                              {activeGroup.subgroups.map((subgroup) => (
-                                <div key={subgroup.key} className="space-y-3">
-                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 lg:gap-4 lg:pr-2">
-                              {subgroup.services.map((service) => {
-                                const hasEmployees = (service.employees?.length ?? 0) > 0;
-                                const isActive = service.isActive;
-                                const isRestrictedOnline = isOnlineBookingRestricted(service);
-                                const canBook = isActive && hasEmployees && !isRestrictedOnline;
-                                const specialistCount = service.employees?.length || 0;
+                            <div className="space-y-4">
+                              <div className="flex items-center justify-between gap-3">
+                                <p className="text-sm font-semibold text-stone-700">{copy.chooseSubgroupStep}</p>
+                              </div>
 
-                                return (
-                                  <button
-                                    key={service.id}
-                                    onClick={() => canBook && selectService(service)}
-                                    disabled={!canBook}
-                                    className={cn(
-                                      "group rounded-[18px] border p-4 text-left transition-all",
-                                      canBook
-                                        ? cn("border-stone-200 bg-white hover:-translate-y-0.5 hover:shadow-lg", activeGroupTone.serviceHover)
-                                        : "cursor-not-allowed border-stone-200 bg-stone-50/70"
-                                    )}
-                                  >
-                                  <div className="mb-2">
-                                    {canBook ? (
-                                      <span className="inline-flex rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-semibold text-emerald-700">{copy.availableBadge}</span>
-                                    ) : !isActive ? (
-                                      <span className="inline-flex rounded-full bg-stone-200 px-2.5 py-1 text-[10px] font-semibold text-stone-600">{copy.hidden}</span>
-                                    ) : isRestrictedOnline ? (
-                                      <span className="inline-flex rounded-full bg-rose-100 px-2.5 py-1 text-[10px] font-semibold text-rose-700">{copy.consultationRequired}</span>
-                                    ) : (
-                                      <span className="inline-flex rounded-full bg-stone-100 px-2.5 py-1 text-[10px] font-semibold text-stone-700">
-                                        {copy.noSpecialist}
-                                      </span>
-                                    )}
-                                  </div>
-                                  <div className="flex items-start justify-between gap-3">
-                                    <div className="min-w-0">
-                                      <p className="text-base font-semibold text-stone-800 leading-snug line-clamp-2">
-                                        {service.serviceName}
-                                      </p>
-                                    </div>
-                                    <div className="text-right">
-                                      <p className="text-2xl leading-none font-semibold text-stone-700">
-                                        {formatCurrency(service.price)}
-                                      </p>
-                                      <p className="text-xs text-stone-400 mt-1">{service.duration} min</p>
-                                    </div>
-                                  </div>
+                              <div className="sm:hidden space-y-3">
+                                {mobileSubgroupChoices.map((subgroup) => renderSubgroupCard(subgroup))}
+                              </div>
 
-                                  {hasEmployees ? (
-                                    <p className="mt-3 text-xs text-stone-500">
-                                      {specialistCount} {specialistCount === 1 ? copy.specialistSingular : copy.specialistPlural}
-                                    </p>
-                                  ) : null}
+                              <div
+                                className={cn(
+                                  'hidden sm:grid grid-cols-1 sm:grid-cols-2 gap-3',
+                                  activeGroup.subgroups.length <= 2 ? 'xl:grid-cols-2' : 'xl:grid-cols-3'
+                                )}
+                              >
+                                {activeGroup.subgroups.map((subgroup) => renderSubgroupCard(subgroup))}
+                              </div>
 
-                                  <div className="mt-4 pt-3 border-t border-stone-100">
-                                    {canBook ? (
-                                      <span className={cn("inline-flex w-full items-center justify-center gap-1 rounded-xl border border-transparent px-3 py-2 text-sm font-semibold text-white transition-all", activeGroupTone.serviceButton)}>
-                                        {copy.book}
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                              {activeSubgroup && (
+                                <div className="pt-1">
+                                  <div className="mb-3 flex items-center justify-between gap-3">
+                                    <div className="flex items-center gap-2">
+                                      <button
+                                        type="button"
+                                        onClick={() => setSelectedSubgroupKey(null)}
+                                        aria-label={copy.change}
+                                        className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-stone-200 text-stone-600 transition-colors hover:border-stone-300 hover:text-stone-900 sm:hidden"
+                                      >
+                                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                                         </svg>
-                                      </span>
-                                    ) : !isActive ? (
-                                      <span className="text-stone-400 text-[11px] font-medium">
-                                        {copy.hidden}
-                                      </span>
-                                    ) : isRestrictedOnline ? (
-                                      <span className="text-rose-600 text-[11px] font-medium">
-                                        {copy.onlineBookingUnavailable}
-                                      </span>
-                                    ) : (
-                                      <span className="text-stone-500 text-[11px] font-medium">
-                                        {copy.unavailable}
-                                      </span>
-                                    )}
+                                      </button>
+                                      <p className="text-sm font-semibold text-stone-800">
+                                        {copy.chooseServiceStep}: {activeSubgroup.label}
+                                      </p>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => setSelectedSubgroupKey(null)}
+                                      className="hidden sm:inline-flex text-xs font-semibold text-stone-600 underline underline-offset-2 hover:text-stone-900"
+                                    >
+                                      {copy.change}
+                                    </button>
                                   </div>
-                                  </button>
-                                );
-                              })}
+
+                                  {SUBGROUP_NOTES[activeGroup.key]?.[activeSubgroup.key]?.[language] && (
+                                    <p className="mt-2 mb-3 whitespace-pre-line rounded-xl bg-stone-50 px-3 py-2 text-xs text-stone-600">
+                                      {SUBGROUP_NOTES[activeGroup.key]?.[activeSubgroup.key]?.[language]}
+                                    </p>
+                                  )}
+
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 lg:gap-4">
+                                    {activeSubgroup.services.map((service) => renderServiceCard(service))}
                                   </div>
                                 </div>
-                              ))}
+                              )}
                             </div>
                             )}
                           </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
+                  ) : null}
 
-                  {/* Logged-in user welcome */}
-                  {user && (
-                    <div className="bg-stone-50 rounded-[24px] p-6 border border-stone-100">
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-stone-100 rounded-xl flex items-center justify-center">
-                          <svg className="w-6 h-6 text-stone-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                          </svg>
-                        </div>
-                        <div>
-                          <p className="font-black text-stone-800 uppercase tracking-tight">
-                            {copy.hello}, {user.firstName || user.email?.split('@')[0]}!
-                          </p>
-                          <p className="text-sm text-stone-600">{copy.autoSaveBooking}</p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
                 </div>
               )}
 
@@ -1828,7 +2248,7 @@ export default function BookAllServicesPage() {
               )}
 
               {/* Navigation Buttons */}
-              {!bookingSuccess && bookingStep > 1 && (
+              {!bookingSuccess && bookingStep > 1 && !(bookingStep === 2 && !selectedService) && (
                 <div className="max-w-2xl mx-auto mt-8 sm:mt-12 space-y-3">
                   {!stepValid && stepMissingItems.length > 0 && (
                     <div className="w-full rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
@@ -1861,8 +2281,30 @@ export default function BookAllServicesPage() {
               )}
             </div>
           </div>
+          )}
         </div>
       </main>
+
+      {bookingStep === 1 && (
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-stone-200 bg-[#f7f3ee]/95 backdrop-blur sm:hidden">
+          <div className="mx-auto max-w-6xl px-3 py-3">
+            <div className="flex items-center justify-between gap-3 rounded-2xl border border-stone-200 bg-white px-3 py-2.5">
+              <p className="min-w-0 truncate text-sm font-semibold text-stone-700">
+                {selectedGroupCard?.name || copy.chooseServiceGroupTitle}
+              </p>
+              <button
+                type="button"
+                onClick={handleContinueFromGroupSelection}
+                disabled={!selectedCategory}
+                className="inline-flex items-center gap-1 rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white transition-colors disabled:bg-stone-300 disabled:text-stone-500"
+              >
+                {copy.next}
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Login Modal */}
       <ClientAuthModal

@@ -13,7 +13,7 @@ export function NavBar() {
       : { story: 'Story', services: 'Services', gallery: 'Gallery', location: 'Location', book: 'Book' };
 
   return (
-    <header className="sticky top-0 z-40 border-b border-[#E9DED2]/70 bg-[#F6F1EA]/90 backdrop-blur">
+    <header className="sticky top-0 z-40 border-b border-[#DDD3C8]/70 bg-[#F1F2F0]/90 backdrop-blur">
       <nav className="mx-auto flex h-20 w-full max-w-6xl items-center justify-between px-4 sm:px-6 lg:px-8">
         <a href="/" className="inline-flex items-center">
           <BrandLogo
@@ -23,23 +23,23 @@ export function NavBar() {
           />
         </a>
 
-        <div className="hidden items-center gap-7 text-sm font-medium text-[#2A2622] md:flex">
-          <a href="/#story" className="transition-colors hover:text-[#B08A57]">
+        <div className="hidden items-center gap-7 text-sm font-medium text-[#4A3D34] md:flex">
+          <a href="/#story" className="transition-colors hover:text-[#8A6F58]">
             {copy.story}
           </a>
-          <a href="/#services" className="transition-colors hover:text-[#B08A57]">
+          <a href="/#services" className="transition-colors hover:text-[#8A6F58]">
             {copy.services}
           </a>
-          <a href="/#gallery" className="transition-colors hover:text-[#B08A57]">
+          <a href="/#gallery" className="transition-colors hover:text-[#8A6F58]">
             {copy.gallery}
           </a>
-          <a href="/#location" className="transition-colors hover:text-[#B08A57]">
+          <a href="/#location" className="transition-colors hover:text-[#8A6F58]">
             {copy.location}
           </a>
           <LanguageSwitcher />
           <a
             href={bookingLink()}
-            className="rounded-full bg-[#B08A57] px-5 py-2.5 text-white transition-colors hover:bg-[#9D794C]"
+            className="rounded-full bg-[#8A6F58] px-5 py-2.5 text-white transition-colors hover:bg-[#775F4C]"
           >
             {copy.book}
           </a>
@@ -49,7 +49,7 @@ export function NavBar() {
           <LanguageSwitcher />
           <a
             href={bookingLink()}
-            className="rounded-full bg-[#B08A57] px-4 py-2 text-sm font-semibold text-white"
+            className="rounded-full bg-[#8A6F58] px-4 py-2 text-sm font-semibold text-white"
           >
             {copy.book}
           </a>

@@ -23,7 +23,7 @@ export const metadata: Metadata = {
     type: 'website',
     images: [
       {
-        url: '/images/hero/heroImage.webp',
+        url: '/images/hero/New-hero.jpg.avif',
         width: 1200,
         height: 630,
         alt: 'Amor Amar Ibiza salon interior',
@@ -35,7 +35,7 @@ export const metadata: Metadata = {
     title: 'Amor Amar | Ibiza Beauty Salon',
     description:
       'Beauty, the Ibiza way. Manicure, pedicure, hair styling, and makeup with premium care in Ibiza Town.',
-    images: ['/images/hero/heroImage.webp'],
+    images: ['/images/hero/New-hero.jpg.avif'],
   },
 };
 
@@ -48,7 +48,7 @@ export default function HomePage() {
     '@context': 'https://schema.org',
     '@type': 'BeautySalon',
     name: 'Amor Amar',
-    image: `${SITE_URL}/images/hero/heroImage.webp`,
+    image: `${SITE_URL}/images/hero/New-hero.jpg.avif`,
     url: SITE_URL,
     telephone: PHONE,
     address: {
@@ -88,7 +88,7 @@ export default function HomePage() {
   };
 
   return (
-    <main className="bg-[#F6F1EA] text-[#2A2622]">
+    <main className="bg-[#F1F2F0] text-[#4A3D34]">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
