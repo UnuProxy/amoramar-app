@@ -13,6 +13,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { getClient, getClientByEmail } from '@/shared/lib/firestore';
 import { BrandLogo } from '@/shared/components/BrandLogo';
+import { getLocalizedServiceDescription } from '@/shared/lib/serviceLocalization';
 
 type Step = 1 | 2 | 3;
 
@@ -596,7 +597,7 @@ export default function DirectBookingPage() {
                   {service.serviceName}
                 </h1>
                 <p className="text-white/70 font-light text-sm sm:text-lg max-w-2xl leading-relaxed">
-                  {service.description}
+                  {getLocalizedServiceDescription(service, 'es')}
                 </p>
               </div>
             </div>

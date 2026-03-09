@@ -8,6 +8,8 @@ import { formatCurrency, cn } from '@/shared/lib/utils';
 import { formatServiceCategory } from '@/shared/lib/serviceCategories';
 import type { Service, Employee, EmployeeService } from '@/shared/lib/types';
 import { DEFAULT_SERVICES } from '@/shared/lib/defaultServices';
+import { useLanguage } from '@/shared/context/LanguageContext';
+import { getLocalizedServiceDescription, getServiceDescriptionSearchText, normalizeServiceDescriptions } from '@/shared/lib/serviceLocalization';
 
 type MajorGroupKey = 'manicure' | 'pedicure-care' | 'combinations' | 'hair';
 
@@ -82,6 +84,7 @@ const getServiceSubgroup = (service: Service): { key: string; label: string } =>
 };
 
 export default function ServicesPage() {
+  const { language } = useLanguage();
   const [services, setServices] = useState<Service[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [employeeServices, setEmployeeServices] = useState<EmployeeService[]>([]);
@@ -114,7 +117,7 @@ export default function ServicesPage() {
       const subgroupLabel = getServiceSubgroup(service).label.toLowerCase();
       return (
         service.serviceName.toLowerCase().includes(term) ||
-        (service.description || '').toLowerCase().includes(term) ||
+        getServiceDescriptionSearchText(service).includes(term) ||
         categoryLabel.includes(term) ||
         majorGroupLabel.includes(term) ||
         subgroupLabel.includes(term)
@@ -333,8 +336,11 @@ export default function ServicesPage() {
         const existing = existingByKey.get(key);
 
         if (existing) {
+          const seedDescriptions = normalizeServiceDescriptions({ description: seed.description });
           const needsUpdate =
             existing.description !== seed.description ||
+            (existing.descriptionEn ?? existing.description) !== seedDescriptions.descriptionEn ||
+            (existing.descriptionEs ?? existing.description) !== seedDescriptions.descriptionEs ||
             existing.duration !== seed.duration ||
             existing.price !== seed.price ||
             existing.category !== seed.category ||
@@ -344,7 +350,7 @@ export default function ServicesPage() {
 
           if (needsUpdate) {
             await updateService(existing.id, {
-              description: seed.description,
+              ...seedDescriptions,
               duration: seed.duration,
               price: seed.price,
               category: seed.category,
@@ -360,7 +366,7 @@ export default function ServicesPage() {
         await createService({
           salonId,
           serviceName: seed.serviceName,
-          description: seed.description,
+          ...normalizeServiceDescriptions({ description: seed.description }),
           duration: seed.duration,
           price: seed.price,
           category: seed.category,
@@ -721,8 +727,10 @@ export default function ServicesPage() {
                               <td className="px-10 py-6">
                                 <div className="space-y-1">
                                   <p className="text-base font-semibold text-slate-800 leading-snug">{service.serviceName}</p>
-                                  {service.description && (
-                                    <p className="text-xs text-slate-400 truncate max-w-xs">{service.description}</p>
+                                  {getLocalizedServiceDescription(service, language) && (
+                                    <p className="text-xs text-slate-400 truncate max-w-xs">
+                                      {getLocalizedServiceDescription(service, language)}
+                                    </p>
                                   )}
                                 </div>
                               </td>

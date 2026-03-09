@@ -8,6 +8,7 @@ import type { Booking, Service, Employee, BookingFormData, Client } from '@/shar
 import { formatDate, formatTime, formatCurrency, cn, canCancelWithNotice, hoursUntilBooking } from '@/shared/lib/utils';
 import Link from 'next/link';
 import { loadStripe, type Stripe, type StripeCardElement, type StripeElements } from '@stripe/stripe-js';
+import { getLocalizedServiceDescription } from '@/shared/lib/serviceLocalization';
 
 export default function ClientBookingsPage() {
   const { user } = useAuth();
@@ -655,7 +656,9 @@ export default function ClientBookingsPage() {
                         )}
                       >
                         <h4 className="text-2xl font-black text-neutral-900 uppercase tracking-tighter mb-2">{service.serviceName}</h4>
-                        <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-6 line-clamp-2">{service.description}</p>
+                        <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-6 line-clamp-2">
+                          {getLocalizedServiceDescription(service, 'es')}
+                        </p>
                         <div className="flex items-center justify-between">
                           <span className="text-xl font-black text-rose-600 tabular-nums">{formatCurrency(service.price)}</span>
                           <span className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">{service.duration} MIN</span>

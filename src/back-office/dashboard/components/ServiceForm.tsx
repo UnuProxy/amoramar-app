@@ -8,6 +8,7 @@ import { Input } from '@/shared/components/Input';
 import { createService, updateService, getEmployees, getEmployeeServices, createEmployeeService, deleteEmployeeService, deleteService, getServices } from '@/shared/lib/firestore';
 import type { Service, ServiceFormData, Employee } from '@/shared/lib/types';
 import { SERVICE_CATEGORIES, formatServiceCategory, getOrderedServiceCategories } from '@/shared/lib/serviceCategories';
+import { normalizeServiceDescriptions } from '@/shared/lib/serviceLocalization';
 
 interface ServiceFormProps {
   service?: Service;
@@ -67,7 +68,8 @@ export const ServiceForm: React.FC<ServiceFormProps> = ({ service }) => {
     defaultValues: service
       ? {
           serviceName: service.serviceName,
-          description: service.description,
+          descriptionEn: service.descriptionEn ?? service.description ?? '',
+          descriptionEs: service.descriptionEs ?? service.description ?? '',
           duration: service.duration,
           price: service.price,
           category: service.category,
@@ -93,12 +95,17 @@ export const ServiceForm: React.FC<ServiceFormProps> = ({ service }) => {
 
     try {
       const salonId = 'default-salon-id';
+      const descriptions = normalizeServiceDescriptions({
+        description: data.description,
+        descriptionEn: data.descriptionEn,
+        descriptionEs: data.descriptionEs,
+      });
 
       if (service) {
         // Update service
         await updateService(service.id, {
           serviceName: data.serviceName,
-          description: data.description,
+          ...descriptions,
           duration: data.duration,
           price: data.price,
           category: data.category,
@@ -132,7 +139,7 @@ export const ServiceForm: React.FC<ServiceFormProps> = ({ service }) => {
         const serviceId = await createService({
           salonId,
           serviceName: data.serviceName,
-          description: data.description,
+          ...descriptions,
           duration: data.duration,
           price: data.price,
           category: data.category,
@@ -207,18 +214,34 @@ export const ServiceForm: React.FC<ServiceFormProps> = ({ service }) => {
         error={errors.serviceName?.message}
       />
 
-      <div>
-        <label className="block text-xs font-light tracking-wide text-slate-600 uppercase mb-2">
-          Descripción
-        </label>
-        <textarea
-          {...register('description', { required: 'La descripción es obligatoria' })}
-          rows={4}
-          className="w-full px-4 py-3 border border-slate-300 rounded-sm focus:outline-none focus:ring-1 focus:ring-sky-500 bg-white text-slate-900 font-light"
-        />
-        {errors.description && (
-          <p className="mt-2 text-xs text-red-600 font-light">{errors.description.message}</p>
-        )}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div>
+          <label className="block text-xs font-light tracking-wide text-slate-600 uppercase mb-2">
+            Descripción en inglés
+          </label>
+          <textarea
+            {...register('descriptionEn', { required: 'La descripción en inglés es obligatoria' })}
+            rows={4}
+            className="w-full px-4 py-3 border border-slate-300 rounded-sm focus:outline-none focus:ring-1 focus:ring-sky-500 bg-white text-slate-900 font-light"
+          />
+          {errors.descriptionEn && (
+            <p className="mt-2 text-xs text-red-600 font-light">{errors.descriptionEn.message}</p>
+          )}
+        </div>
+
+        <div>
+          <label className="block text-xs font-light tracking-wide text-slate-600 uppercase mb-2">
+            Descripción en español
+          </label>
+          <textarea
+            {...register('descriptionEs', { required: 'La descripción en español es obligatoria' })}
+            rows={4}
+            className="w-full px-4 py-3 border border-slate-300 rounded-sm focus:outline-none focus:ring-1 focus:ring-sky-500 bg-white text-slate-900 font-light"
+          />
+          {errors.descriptionEs && (
+            <p className="mt-2 text-xs text-red-600 font-light">{errors.descriptionEs.message}</p>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

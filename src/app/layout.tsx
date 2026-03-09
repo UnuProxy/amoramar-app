@@ -4,6 +4,7 @@ import './globals.css';
 import { AuthProvider } from '@/shared/context/AuthContext';
 import { LanguageProvider } from '@/shared/context/LanguageContext';
 import { LanguageToggle } from '@/shared/components/LanguageToggle';
+import { SITE_URL } from '@/lib/constants';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -18,6 +19,7 @@ const playfair = Playfair_Display({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: 'Amor Amar',
   description: 'Beauty salon and booking platform',
   applicationName: 'Amor Amar',

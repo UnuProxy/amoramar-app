@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { Sidebar } from '@/back-office/dashboard/components/Sidebar';
 import { ProtectedRoute } from '@/shared/components/ProtectedRoute';
+import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/shared/lib/utils';
 
@@ -54,6 +55,9 @@ export default function DashboardLayout({
             )}
           >
             <div className="transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]">
+              <div className="mb-4 flex justify-start sm:justify-end lg:mb-6">
+                <LanguageSwitcher className="border-slate-200 bg-white" />
+              </div>
               {children}
             </div>
           </main>

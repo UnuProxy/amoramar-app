@@ -146,6 +146,8 @@ export interface Service {
   serviceName: string;
   name?: string;
   description: string;
+  descriptionEn?: string;
+  descriptionEs?: string;
   duration: number; // minutes
   price: number;
   category: ServiceCategory;
@@ -338,7 +340,9 @@ export interface EmployeeFormData {
 
 export interface ServiceFormData {
   serviceName: string;
-  description: string;
+  description?: string;
+  descriptionEn: string;
+  descriptionEs: string;
   duration: number;
   price: number;
   category: ServiceCategory;

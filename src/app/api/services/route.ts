@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServices, createService, getEmployeeServices, getEmployees } from '@/shared/lib/firestore';
 import type { ApiResponse, Service, ServiceFormData, Employee } from '@/shared/lib/types';
+import { normalizeServiceDescriptions } from '@/shared/lib/serviceLocalization';
 
 export async function GET(request: NextRequest) {
   try {
@@ -60,6 +61,11 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const data: ServiceFormData = await request.json();
+    const descriptions = normalizeServiceDescriptions({
+      description: data.description,
+      descriptionEn: data.descriptionEn,
+      descriptionEs: data.descriptionEs,
+    });
 
     // In production, get salonId from authenticated user context
     const salonId = 'default-salon-id';
@@ -67,7 +73,7 @@ export async function POST(request: NextRequest) {
     const serviceId = await createService({
       salonId,
       serviceName: data.serviceName,
-      description: data.description,
+      ...descriptions,
       duration: data.duration,
       price: data.price,
       category: data.category,
@@ -88,6 +94,5 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-
 
 

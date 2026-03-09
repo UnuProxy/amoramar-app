@@ -12,13 +12,14 @@ export const LanguageToggle = () => {
   const pathname = usePathname();
   const isWebsiteRoute = isWebsitePath(pathname);
   const isBookingFlowRoute = pathname?.startsWith('/book');
+  const usesHeaderLanguageSwitcher = pathname === '/book';
 
   useEffect(() => {
     setIsMounted(true);
   }, []);
 
   // Keep floating switcher only for booking flow pages that do not use the new header switcher.
-  if (!isMounted || !pathname || !isWebsiteRoute || !isBookingFlowRoute) {
+  if (!isMounted || !pathname || !isWebsiteRoute || !isBookingFlowRoute || usesHeaderLanguageSwitcher) {
     return null;
   }
 

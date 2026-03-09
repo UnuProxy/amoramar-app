@@ -14,10 +14,11 @@ import { getClient, getClientByEmail } from '@/shared/lib/firestore';
 import { AvailabilityCalendar } from '@/shared/components/AvailabilityCalendar';
 import { useLanguage } from '@/shared/context/LanguageContext';
 import { BrandLogo } from '@/shared/components/BrandLogo';
+import { LanguageSwitcher } from '@/components/LanguageSwitcher';
+import { getServiceDescriptionSearchText } from '@/shared/lib/serviceLocalization';
 import {
   ArrowLeft,
   Check,
-  ChevronRight,
   Gift,
   Hand,
   Scissors,
@@ -831,7 +832,7 @@ export default function BookAllServicesPage() {
 
       return (
         service.serviceName.toLowerCase().includes(normalizedServiceSearch) ||
-        (service.description || '').toLowerCase().includes(normalizedServiceSearch) ||
+        getServiceDescriptionSearchText(service).includes(normalizedServiceSearch) ||
         subgroup.label.toLowerCase().includes(normalizedServiceSearch) ||
         groupLabel.includes(normalizedServiceSearch)
       );
@@ -1533,10 +1534,8 @@ export default function BookAllServicesPage() {
     ...groupConfig,
     count: groupByKey.get(groupConfig.key)?.count ?? 0,
   }));
-  const selectedGroupCard = step1Groups.find((group) => group.key === selectedCategory) || null;
-
-  const handleContinueFromGroupSelection = () => {
-    if (!selectedCategory) return;
+  const handleSelectGroup = (groupKey: MajorGroupKey) => {
+    setSelectedCategory(groupKey);
     setSelectedSubgroupKey(null);
     setSelectedService(null);
     setBookingStep(2);
@@ -1564,7 +1563,8 @@ export default function BookAllServicesPage() {
               <BrandLogo className="h-11 w-36 sm:h-12 sm:w-40" priority />
             </Link>
             
-            <div className="flex items-center gap-2 sm:gap-3">
+            <div className="flex items-center gap-1.5 sm:gap-3">
+              <LanguageSwitcher className="border-stone-200 bg-white/90 shadow-none" />
               {user ? (
                 <>
                   <span className="hidden md:block text-xs font-bold text-neutral-400 uppercase tracking-widest">
@@ -1604,10 +1604,7 @@ export default function BookAllServicesPage() {
         </div>
       </header>
 
-      <main className={cn(
-        "pt-16 sm:pt-20 pb-8 sm:pb-12 px-3 sm:px-8 lg:pb-6 lg:flex lg:flex-col",
-        bookingStep === 1 ? "pb-28 sm:pb-12" : ""
-      )}>
+      <main className="pt-16 sm:pt-20 pb-8 sm:pb-12 px-3 sm:px-8 lg:pb-6 lg:flex lg:flex-col">
         <div className="max-w-6xl mx-auto lg:flex lg:flex-col">
           {/* Booking Header + Progress */}
           <div className="mb-5 border-b border-stone-200/70 pb-4 sm:mb-6 sm:pb-5">
@@ -1660,10 +1657,7 @@ export default function BookAllServicesPage() {
                         <button
                           key={group.key}
                           type="button"
-                          onClick={() => {
-                            setSelectedCategory(group.key);
-                            setSelectedSubgroupKey(null);
-                          }}
+                          onClick={() => handleSelectGroup(group.key)}
                           className={cn(
                             'relative min-h-[156px] rounded-2xl border bg-white px-3 py-4 text-center transition-all flex flex-col items-center justify-center',
                             isSelected
@@ -1688,20 +1682,6 @@ export default function BookAllServicesPage() {
                         </button>
                       );
                     })}
-                  </div>
-                  <div className="mt-4 hidden sm:flex items-center justify-between rounded-2xl border border-stone-200 bg-white px-4 py-3">
-                    <p className="text-sm font-semibold text-stone-700">
-                      {selectedGroupCard?.name || copy.chooseServiceGroupTitle}
-                    </p>
-                    <button
-                      type="button"
-                      onClick={handleContinueFromGroupSelection}
-                      disabled={!selectedCategory}
-                      className="inline-flex items-center gap-1 rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white transition-colors disabled:bg-stone-300 disabled:text-stone-500"
-                    >
-                      {copy.next}
-                      <ChevronRight className="h-4 w-4" />
-                    </button>
                   </div>
                 </>
               )}
@@ -2284,27 +2264,6 @@ export default function BookAllServicesPage() {
           )}
         </div>
       </main>
-
-      {bookingStep === 1 && (
-        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-stone-200 bg-[#f7f3ee]/95 backdrop-blur sm:hidden">
-          <div className="mx-auto max-w-6xl px-3 py-3">
-            <div className="flex items-center justify-between gap-3 rounded-2xl border border-stone-200 bg-white px-3 py-2.5">
-              <p className="min-w-0 truncate text-sm font-semibold text-stone-700">
-                {selectedGroupCard?.name || copy.chooseServiceGroupTitle}
-              </p>
-              <button
-                type="button"
-                onClick={handleContinueFromGroupSelection}
-                disabled={!selectedCategory}
-                className="inline-flex items-center gap-1 rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white transition-colors disabled:bg-stone-300 disabled:text-stone-500"
-              >
-                {copy.next}
-                <ChevronRight className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Login Modal */}
       <ClientAuthModal

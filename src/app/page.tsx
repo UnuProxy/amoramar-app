@@ -7,7 +7,6 @@ import { ServiceCards } from '@/components/ServiceCards';
 import { MomentsGallery } from '@/components/MomentsGallery';
 import { Testimonials } from '@/components/Testimonials';
 import { Footer } from '@/components/Footer';
-import { StickyBookBar } from '@/components/StickyBookBar';
 import { ADDRESS, BOOKING_URL, GOOGLE_RATING, HOURS, PHONE, SITE_URL } from '@/lib/constants';
 import { services } from '@/lib/services';
 
@@ -103,7 +102,6 @@ export default function HomePage() {
       <MomentsGallery id="gallery" />
       <Testimonials />
       <Footer id="location" />
-      <StickyBookBar />
     </main>
   );
 }

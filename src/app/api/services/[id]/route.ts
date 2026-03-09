@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getService, updateService, deleteService } from '@/shared/lib/firestore';
 import type { ApiResponse, Service } from '@/shared/lib/types';
+import { normalizeServiceDescriptions } from '@/shared/lib/serviceLocalization';
 
 export async function GET(
   request: NextRequest,
@@ -42,8 +43,21 @@ export async function PUT(
   try {
     const { id } = await context.params;
     const updates: Partial<Service> = await request.json();
+    const normalizedUpdates =
+      updates.description !== undefined ||
+      updates.descriptionEn !== undefined ||
+      updates.descriptionEs !== undefined
+        ? {
+            ...updates,
+            ...normalizeServiceDescriptions({
+              description: updates.description,
+              descriptionEn: updates.descriptionEn,
+              descriptionEs: updates.descriptionEs,
+            }),
+          }
+        : updates;
 
-    await updateService(id, updates);
+    await updateService(id, normalizedUpdates);
 
     return NextResponse.json<ApiResponse<{ id: string }>>({
       success: true,
@@ -82,7 +96,6 @@ export async function DELETE(
     );
   }
 }
-
 
 
 

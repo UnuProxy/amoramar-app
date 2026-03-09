@@ -10,17 +10,15 @@ export function Hero() {
     language === 'es'
       ? {
           title: 'Belleza, al estilo Ibiza.',
-          subtitle: 'Manicura • Pedicura • Pelo • Maquillaje',
           view: 'Ver Servicios',
         }
       : {
           title: 'Beauty, the Ibiza way.',
-          subtitle: 'Manicure • Pedicure • Hair • Makeup',
           view: 'View Services',
         };
 
   return (
-    <section className="relative min-h-[82vh] overflow-hidden lg:min-h-screen">
+    <section className="relative min-h-[calc(100svh-5rem)] overflow-hidden lg:min-h-screen">
       <Image
         src="/images/hero/New-hero.jpg.avif"
         alt="Amor Amar beauty salon interior in Ibiza"
@@ -32,7 +30,7 @@ export function Hero() {
 
       <div className="absolute inset-0 bg-gradient-to-b from-[#4A3D34]/45 via-[#4A3D34]/32 to-[#4A3D34]/20" />
 
-      <div className="relative mx-auto flex min-h-[82vh] max-w-6xl flex-col items-center justify-center px-4 py-24 text-center sm:px-6 lg:min-h-screen lg:px-8">
+      <div className="relative mx-auto flex min-h-[calc(100svh-5rem)] max-w-6xl flex-col items-center justify-center px-4 py-24 text-center sm:px-6 lg:min-h-screen lg:px-8">
         <motion.p
           initial={{ opacity: 0, y: 18 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -52,16 +50,6 @@ export function Hero() {
         >
           {copy.title}
         </motion.h1>
-
-        <motion.p
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, amount: 0.5 }}
-          transition={{ duration: 0.7, delay: 0.08 }}
-          className="mt-5 text-lg text-[#F1F2F0]/95 sm:text-2xl"
-        >
-          {copy.subtitle}
-        </motion.p>
 
         <motion.div
           initial={{ opacity: 0, y: 20 }}

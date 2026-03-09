@@ -1,9 +1,7 @@
 'use client';
 
 import React, { createContext, useCallback, useContext, useMemo, useState, useEffect } from 'react';
-import { usePathname } from 'next/navigation';
 import { LANGUAGE_STORAGE_KEY, getBrowserLanguage, normalizeStoredLanguage, translations, type Language } from '@/shared/lib/i18n';
-import { isBackofficePath } from '@/shared/lib/routes';
 
 type LanguageContextValue = {
   language: Language;
@@ -15,27 +13,23 @@ type LanguageContextValue = {
 const LanguageContext = createContext<LanguageContextValue | null>(null);
 
 export const LanguageProvider = ({ children }: { children: React.ReactNode }) => {
-  const pathname = usePathname();
-  const isBackofficeRoute = isBackofficePath(pathname);
   // Keep initial render deterministic between server and client to avoid hydration mismatches.
   const [language, setLanguageState] = useState<Language>('en');
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    if (isBackofficeRoute) return;
     const stored = normalizeStoredLanguage(window.localStorage.getItem(LANGUAGE_STORAGE_KEY));
     setLanguageState(stored ?? getBrowserLanguage());
-  }, [isBackofficeRoute]);
+  }, []);
 
   useEffect(() => {
-    const activeLanguage = isBackofficeRoute ? 'en' : language;
     if (typeof document !== 'undefined') {
-      document.documentElement.lang = activeLanguage;
+      document.documentElement.lang = language;
     }
-    if (typeof window !== 'undefined' && !isBackofficeRoute) {
+    if (typeof window !== 'undefined') {
       window.localStorage.setItem(LANGUAGE_STORAGE_KEY, language);
     }
-  }, [language, isBackofficeRoute]);
+  }, [language]);
 
   const setLanguage = useCallback((nextLanguage: Language) => {
     setLanguageState(nextLanguage);
@@ -47,21 +41,19 @@ export const LanguageProvider = ({ children }: { children: React.ReactNode }) =>
 
   const t = useCallback(
     (key: string) => {
-      const activeLanguage = isBackofficeRoute ? 'en' : language;
-      return translations[activeLanguage][key] ?? key;
+      return translations[language][key] ?? key;
     },
-    [language, isBackofficeRoute]
+    [language]
   );
 
   const value = useMemo(() => {
-    const activeLanguage = isBackofficeRoute ? 'en' : language;
     return {
-      language: activeLanguage,
+      language,
       setLanguage,
       toggleLanguage,
       t,
     };
-  }, [language, isBackofficeRoute, setLanguage, toggleLanguage, t]);
+  }, [language, setLanguage, toggleLanguage, t]);
 
   return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>;
 };
