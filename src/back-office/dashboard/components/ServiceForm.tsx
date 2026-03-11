@@ -5,9 +5,19 @@ import { useForm } from 'react-hook-form';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/shared/components/Button';
 import { Input } from '@/shared/components/Input';
+import { useLanguage } from '@/shared/context/LanguageContext';
 import { createService, updateService, getEmployees, getEmployeeServices, createEmployeeService, deleteEmployeeService, deleteService, getServices } from '@/shared/lib/firestore';
 import type { Service, ServiceFormData, Employee } from '@/shared/lib/types';
-import { SERVICE_CATEGORIES, formatServiceCategory, getOrderedServiceCategories } from '@/shared/lib/serviceCategories';
+import {
+  SERVICE_CATEGORIES,
+  SERVICE_MAIN_GROUP_ORDER,
+  formatServiceCategory,
+  getOrderedServiceCategories,
+  getServiceCategoriesForMainGroup,
+  getServiceMainGroupForCategory,
+  getServiceMainGroupLabel,
+  type ServiceMainGroupKey,
+} from '@/shared/lib/serviceCategories';
 import { normalizeServiceDescriptions } from '@/shared/lib/serviceLocalization';
 
 interface ServiceFormProps {
@@ -17,12 +27,16 @@ interface ServiceFormProps {
 
 export const ServiceForm: React.FC<ServiceFormProps> = ({ service }) => {
   const router = useRouter();
+  const { language } = useLanguage();
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
   const [categoryOptions, setCategoryOptions] = useState<string[]>(SERVICE_CATEGORIES);
+  const [selectedMainGroup, setSelectedMainGroup] = useState<ServiceMainGroupKey | null>(
+    service ? getServiceMainGroupForCategory(service.category, service.serviceName) : null
+  );
 
   useEffect(() => {
     const fetchEmployees = async () => {
@@ -63,6 +77,8 @@ export const ServiceForm: React.FC<ServiceFormProps> = ({ service }) => {
   const {
     register,
     handleSubmit,
+    setValue,
+    watch,
     formState: { errors },
   } = useForm<ServiceFormData>({
     defaultValues: service
@@ -77,10 +93,48 @@ export const ServiceForm: React.FC<ServiceFormProps> = ({ service }) => {
           consultationDuration: service.consultationDuration || 20,
         }
       : {
+          serviceName: '',
+          descriptionEn: '',
+          descriptionEs: '',
+          duration: 60,
+          price: 0,
+          category: '' as ServiceFormData['category'],
           offersConsultation: false,
           consultationDuration: 20,
+          employeeIds: [],
         },
   });
+
+  const selectedCategory = watch('category');
+
+  useEffect(() => {
+    if (service) {
+      setSelectedMainGroup(getServiceMainGroupForCategory(service.category, service.serviceName));
+    }
+  }, [service]);
+
+  useEffect(() => {
+    if (!selectedCategory) return;
+    setSelectedMainGroup(getServiceMainGroupForCategory(selectedCategory));
+  }, [selectedCategory]);
+
+  const visibleCategoryOptions = selectedMainGroup
+    ? getServiceCategoriesForMainGroup(categoryOptions, selectedMainGroup)
+    : [];
+
+  const handleMainGroupSelect = (group: ServiceMainGroupKey) => {
+    setSelectedMainGroup(group);
+
+    const options = getServiceCategoriesForMainGroup(categoryOptions, group);
+    if (!options.length) return;
+
+    if (!options.includes(selectedCategory || '')) {
+      setValue('category', options[0] as ServiceFormData['category'], {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+    }
+  };
 
   const onSubmit = async (data: ServiceFormData) => {
     setError(null);
@@ -220,7 +274,7 @@ export const ServiceForm: React.FC<ServiceFormProps> = ({ service }) => {
             Descripción en inglés
           </label>
           <textarea
-            {...register('descriptionEn', { required: 'La descripción en inglés es obligatoria' })}
+            {...register('descriptionEn')}
             rows={4}
             className="w-full px-4 py-3 border border-slate-300 rounded-sm focus:outline-none focus:ring-1 focus:ring-sky-500 bg-white text-slate-900 font-light"
           />
@@ -234,7 +288,7 @@ export const ServiceForm: React.FC<ServiceFormProps> = ({ service }) => {
             Descripción en español
           </label>
           <textarea
-            {...register('descriptionEs', { required: 'La descripción en español es obligatoria' })}
+            {...register('descriptionEs')}
             rows={4}
             className="w-full px-4 py-3 border border-slate-300 rounded-sm focus:outline-none focus:ring-1 focus:ring-sky-500 bg-white text-slate-900 font-light"
           />
@@ -268,23 +322,58 @@ export const ServiceForm: React.FC<ServiceFormProps> = ({ service }) => {
         />
       </div>
 
+      <div className="space-y-4">
+        <div>
+          <label className="block text-xs font-light tracking-wide text-slate-600 uppercase mb-2">
+            Grupo principal
+          </label>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            {SERVICE_MAIN_GROUP_ORDER.map((group) => {
+              const isSelected = selectedMainGroup === group;
+              return (
+                <button
+                  key={group}
+                  type="button"
+                  onClick={() => handleMainGroupSelect(group)}
+                  className={[
+                    'rounded-sm border px-4 py-4 text-left transition-all',
+                    isSelected
+                      ? 'border-sky-500 bg-sky-50 text-slate-900'
+                      : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300',
+                  ].join(' ')}
+                >
+                  <span className="block text-sm font-medium">
+                    {getServiceMainGroupLabel(group, language === 'es' ? 'es' : 'en')}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         <div>
           <label className="block text-xs font-light tracking-wide text-slate-600 uppercase mb-2">
             Categoría
           </label>
           <select
             {...register('category', { required: 'La categoría es obligatoria' })}
-            className="w-full px-4 py-3 border border-slate-300 rounded-sm focus:outline-none focus:ring-1 focus:ring-sky-500 bg-white text-slate-900 font-light"
+            disabled={!selectedMainGroup}
+            className="w-full px-4 py-3 border border-slate-300 rounded-sm focus:outline-none focus:ring-1 focus:ring-sky-500 bg-white text-slate-900 font-light disabled:bg-slate-100 disabled:text-slate-400"
           >
-          {categoryOptions.map((cat) => (
-            <option key={cat} value={cat}>
-              {formatServiceCategory(cat)}
-            </option>
-          ))}
-        </select>
-        {errors.category && (
-          <p className="mt-1 text-sm text-red-600">{errors.category.message}</p>
-        )}
+            {!selectedMainGroup ? (
+              <option value="">Selecciona primero un grupo principal</option>
+            ) : (
+              visibleCategoryOptions.map((cat) => (
+                <option key={cat} value={cat}>
+                  {formatServiceCategory(cat)}
+                </option>
+              ))
+            )}
+          </select>
+          {errors.category && (
+            <p className="mt-1 text-sm text-red-600">{errors.category.message}</p>
+          )}
+        </div>
       </div>
 
       {/* Free Consultation Options */}

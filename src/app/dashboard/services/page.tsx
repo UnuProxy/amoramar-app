@@ -5,42 +5,22 @@ import { getServices, getEmployees, getEmployeeServices, updateService, createSe
 import { Loading } from '@/shared/components/Loading';
 import Link from 'next/link';
 import { formatCurrency, cn } from '@/shared/lib/utils';
-import { formatServiceCategory } from '@/shared/lib/serviceCategories';
+import {
+  formatServiceCategory,
+  getServiceMainGroupForCategory,
+  getServiceMainGroupLabel,
+  SERVICE_MAIN_GROUP_ORDER,
+  type ServiceMainGroupKey,
+} from '@/shared/lib/serviceCategories';
 import type { Service, Employee, EmployeeService } from '@/shared/lib/types';
 import { DEFAULT_SERVICES } from '@/shared/lib/defaultServices';
 import { useLanguage } from '@/shared/context/LanguageContext';
 import { getLocalizedServiceDescription, getServiceDescriptionSearchText, normalizeServiceDescriptions } from '@/shared/lib/serviceLocalization';
 
-type MajorGroupKey = 'manicure' | 'pedicure-care' | 'combinations' | 'hair';
-
 type ServiceSubgroup = {
   key: string;
   label: string;
   services: Service[];
-};
-
-const MAJOR_GROUP_ORDER: MajorGroupKey[] = ['manicure', 'pedicure-care', 'combinations', 'hair'];
-
-const MAJOR_GROUP_LABELS: Record<MajorGroupKey, string> = {
-  manicure: '1. Manicura / Nails',
-  'pedicure-care': '2. Pedicura & Care',
-  combinations: '3. Manicura & Pedicura — Combinaciones / Combinations',
-  hair: '4. Hair',
-};
-
-const getMajorGroupForService = (service: Service): MajorGroupKey => {
-  const category = service.category || 'other';
-  const serviceName = service.serviceName.toLowerCase();
-
-  if (category === 'manicure' || category === 'nail-art-care-manicure') return 'manicure';
-  if (category === 'pedicure-care' || category === 'professional-foot-services' || category === 'foot-sole-treatments') return 'pedicure-care';
-  if (category === 'nail-art-care-combinations') return 'combinations';
-  if (String(category).startsWith('hair-')) return 'hair';
-
-  if (serviceName.includes('pedicure') || serviceName.includes('planta') || serviceName.includes('sole') || serviceName.includes('foot')) return 'pedicure-care';
-  if (serviceName.includes('combo') || serviceName.includes('combin')) return 'combinations';
-  if (serviceName.includes('manicure') || serviceName.includes('gel') || serviceName.includes('nail')) return 'manicure';
-  return 'hair';
 };
 
 const getServiceSubgroup = (service: Service): { key: string; label: string } => {
@@ -68,6 +48,42 @@ const getServiceSubgroup = (service: Service): { key: string; label: string } =>
       return { key: 'without-cleaning', label: 'Combinations without sole cleaning' };
     }
     return { key: 'with-cleaning', label: 'Combinations with sole cleaning' };
+  }
+
+  if (
+    category === 'beauty-brow-services' ||
+    category === 'brow-services'
+  ) {
+    return { key: 'brows', label: 'Brows' };
+  }
+
+  if (
+    category === 'beauty-lash-extensions-full-set' ||
+    category === 'beauty-lash-refill-infill' ||
+    category === 'beauty-lash-removal' ||
+    category === 'lash-extensions' ||
+    category === 'lash-extension-refill' ||
+    category === 'lash-extension-removal'
+  ) {
+    return { key: 'lashes', label: 'Lashes' };
+  }
+
+  if (
+    category === 'beauty-semi-permanent-makeup' ||
+    category === 'semi-permanent-makeup'
+  ) {
+    return { key: 'semi-permanent-makeup', label: 'Semi-Permanent Makeup' };
+  }
+
+  if (
+    category === 'beauty-professional-makeup' ||
+    category === 'professional-makeup'
+  ) {
+    return { key: 'professional-makeup', label: 'Professional Makeup' };
+  }
+
+  if (category === 'beauty-lamination' || category === 'lamination') {
+    return { key: 'lamination', label: 'Lamination' };
   }
 
   if (String(category).startsWith('hair-')) {
@@ -105,6 +121,109 @@ export default function ServicesPage() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'hidden'>('all');
   const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>({});
 
+  const copy =
+    language === 'es'
+      ? {
+          title: 'Servicios',
+          subtitle: 'Catalogo de servicios y tratamientos',
+          refreshList: 'Actualizar lista',
+          importing: 'Importando...',
+          importList: 'Importar lista',
+          linkCopied: 'Enlace copiado',
+          shareBookings: 'Compartir reservas',
+          bookingLinkTitle: 'Enlace de reservas para clientes',
+          bookingLinkSubtitle: 'Comparte este enlace en tu web, Instagram o WhatsApp. Los clientes veran todos los servicios y podran reservar directamente.',
+          copied: 'Copiado',
+          copyLink: 'Copiar enlace',
+          searchServices: 'Buscar servicios',
+          searchPlaceholder: 'Buscar por nombre, descripcion o grupo',
+          status: 'Estado',
+          allServices: 'Todos los servicios',
+          onlyActive: 'Solo activos',
+          onlyHidden: 'Solo ocultos',
+          total: 'total',
+          active: 'activos',
+          hidden: 'ocultos',
+          groupedByCategory: 'Agrupado por categoria',
+          groups: 'grupos',
+          servicesWord: 'servicios',
+          expanded: 'expandidos',
+          expandAll: 'Expandir todo',
+          collapseAll: 'Colapsar todo',
+          service: 'Servicio',
+          assignedTo: 'Asignado a',
+          time: 'Tiempo',
+          price: 'Precio',
+          actions: 'Acciones',
+          emptyCatalog: 'Catalogo vacio',
+          noServicesMatch: 'Ningun servicio coincide con los filtros',
+          noServicesMatchHint: 'Prueba limpiando la busqueda o el filtro de estado.',
+          subgroups: 'subgrupos',
+          therapists: 'especialistas',
+          collapsed: 'Colapsado',
+          expandedState: 'Expandido',
+          noServicesInGroup: 'No hay servicios en este grupo.',
+          subgroup: 'Subgrupo',
+          needsTherapist: 'Necesita especialista',
+          link: 'Enlace',
+          saving: 'Guardando',
+          save: 'Guardar',
+          cancel: 'Cancelar',
+          quick: 'Rapido',
+          edit: 'Editar',
+          addService: 'Anadir Servicio',
+        }
+      : {
+          title: 'Services',
+          subtitle: 'Services & Treatments Catalog',
+          refreshList: 'Refresh list',
+          importing: 'Importing...',
+          importList: 'Import List',
+          linkCopied: 'Link Copied!',
+          shareBookings: 'Share Bookings',
+          bookingLinkTitle: 'Booking Link for Clients',
+          bookingLinkSubtitle: 'Share this link on your website, Instagram or WhatsApp. Clients will see all services and can book directly.',
+          copied: 'Copied!',
+          copyLink: 'Copy Link',
+          searchServices: 'Search Services',
+          searchPlaceholder: 'Search by name, description, or group',
+          status: 'Status',
+          allServices: 'All services',
+          onlyActive: 'Only active',
+          onlyHidden: 'Only hidden',
+          total: 'total',
+          active: 'active',
+          hidden: 'hidden',
+          groupedByCategory: 'Grouped by category',
+          groups: 'groups',
+          servicesWord: 'services',
+          expanded: 'expanded',
+          expandAll: 'Expand all',
+          collapseAll: 'Collapse all',
+          service: 'Service',
+          assignedTo: 'Assigned to',
+          time: 'Time',
+          price: 'Price',
+          actions: 'Actions',
+          emptyCatalog: 'Empty Catalog',
+          noServicesMatch: 'No services match your filters',
+          noServicesMatchHint: 'Try clearing the search or status filter.',
+          subgroups: 'subgroups',
+          therapists: 'therapists',
+          collapsed: 'Collapsed',
+          expandedState: 'Expanded',
+          noServicesInGroup: 'No services in this group.',
+          subgroup: 'Subgroup',
+          needsTherapist: 'Needs therapist',
+          link: 'Link',
+          saving: 'Saving',
+          save: 'Save',
+          cancel: 'Cancel',
+          quick: 'Quick',
+          edit: 'Edit',
+          addService: 'Add Service',
+        };
+
   const filteredServices = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
     return services.filter((service) => {
@@ -113,7 +232,10 @@ export default function ServicesPage() {
       if (!term) return true;
 
       const categoryLabel = formatServiceCategory(service.category || 'other').toLowerCase();
-      const majorGroupLabel = MAJOR_GROUP_LABELS[getMajorGroupForService(service)].toLowerCase();
+      const majorGroupLabel = getServiceMainGroupLabel(
+        getServiceMainGroupForCategory(service.category, service.serviceName),
+        language === 'es' ? 'es' : 'en'
+      ).toLowerCase();
       const subgroupLabel = getServiceSubgroup(service).label.toLowerCase();
       return (
         service.serviceName.toLowerCase().includes(term) ||
@@ -126,9 +248,9 @@ export default function ServicesPage() {
   }, [services, searchTerm, statusFilter]);
 
   const servicesByMajorGroup = useMemo(() => {
-    return MAJOR_GROUP_ORDER.map((groupKey) => {
+    return SERVICE_MAIN_GROUP_ORDER.map((groupKey) => {
       const groupServices = filteredServices
-        .filter((service) => getMajorGroupForService(service) === groupKey)
+        .filter((service) => getServiceMainGroupForCategory(service.category, service.serviceName) === groupKey)
         .sort((a, b) => a.serviceName.localeCompare(b.serviceName));
 
       const subgroupMap = groupServices.reduce<Record<string, ServiceSubgroup>>((acc, service) => {
@@ -145,7 +267,7 @@ export default function ServicesPage() {
 
       return {
         key: groupKey,
-        label: MAJOR_GROUP_LABELS[groupKey],
+        label: getServiceMainGroupLabel(groupKey, language === 'es' ? 'es' : 'en'),
         services: groupServices,
         subgroups,
       };
@@ -433,17 +555,17 @@ export default function ServicesPage() {
       <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-8">
         <div>
           <h1 className="text-3xl font-semibold text-slate-800 tracking-tight">
-            Services
+            {copy.title}
           </h1>
           <p className="text-slate-500 text-sm font-medium mt-2">
-            Services & Treatments Catalog
+            {copy.subtitle}
           </p>
         </div>
         <div className="flex flex-col sm:flex-row gap-3">
           <button
             onClick={fetchServices}
             className="px-4 py-2.5 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all flex items-center justify-center"
-            title="Refresh list"
+            title={copy.refreshList}
           >
             <svg className={cn("w-5 h-5", loading && "animate-spin")} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -459,7 +581,7 @@ export default function ServicesPage() {
             )}
             disabled={isImporting}
           >
-            {isImporting ? 'Importing...' : 'Import List'}
+            {isImporting ? copy.importing : copy.importList}
           </button>
           <button
             onClick={copyGeneralBookingLink}
@@ -475,14 +597,14 @@ export default function ServicesPage() {
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
-                Link Copied!
+                {copy.linkCopied}
               </>
             ) : (
               <>
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
                 </svg>
-                Share Bookings
+                {copy.shareBookings}
               </>
             )}
           </button>
@@ -493,7 +615,7 @@ export default function ServicesPage() {
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
-              Add Service
+              {copy.addService}
             </button>
           </Link>
         </div>
@@ -509,8 +631,8 @@ export default function ServicesPage() {
               </svg>
             </div>
             <div>
-              <p className="font-semibold text-slate-800 mb-1">Booking Link for Clients</p>
-              <p className="text-sm text-slate-600">Share this link on your website, Instagram or WhatsApp. Clients will see all services and can book directly.</p>
+              <p className="font-semibold text-slate-800 mb-1">{copy.bookingLinkTitle}</p>
+              <p className="text-sm text-slate-600">{copy.bookingLinkSubtitle}</p>
             </div>
           </div>
           <button
@@ -522,7 +644,7 @@ export default function ServicesPage() {
                 : "bg-white text-emerald-700 border-emerald-200 hover:bg-emerald-50"
             )}
           >
-            {copiedGeneral ? 'Copied!' : 'Copy Link'}
+            {copiedGeneral ? copy.copied : copy.copyLink}
           </button>
         </div>
       </div>
@@ -537,39 +659,39 @@ export default function ServicesPage() {
         <div className="flex flex-col lg:flex-row lg:items-center gap-4">
           <div className="flex-1">
             <label className="block text-xs font-medium text-slate-500 tracking-wide mb-2">
-              Search Services
+              {copy.searchServices}
             </label>
             <input
               type="text"
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
-              placeholder="Search by name, description, or group"
+              placeholder={copy.searchPlaceholder}
               className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 focus:border-emerald-300 focus:outline-none"
             />
           </div>
           <div className="w-full lg:w-56">
             <label className="block text-xs font-medium text-slate-500 tracking-wide mb-2">
-              Status
+              {copy.status}
             </label>
             <select
               value={statusFilter}
               onChange={(event) => setStatusFilter(event.target.value as 'all' | 'active' | 'hidden')}
               className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-700 focus:border-emerald-300 focus:outline-none"
             >
-              <option value="all">All services</option>
-              <option value="active">Only active</option>
-              <option value="hidden">Only hidden</option>
+              <option value="all">{copy.allServices}</option>
+              <option value="active">{copy.onlyActive}</option>
+              <option value="hidden">{copy.onlyHidden}</option>
             </select>
           </div>
           <div className="flex flex-wrap items-center gap-3 text-xs font-medium text-slate-500 tracking-wide">
             <span className="px-3 py-2 rounded-full bg-slate-50 border border-slate-200 text-slate-600">
-              {filteredServices.length} total
+              {filteredServices.length} {copy.total}
             </span>
             <span className="px-3 py-2 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">
-              {filteredServices.filter((s) => s.isActive).length} active
+              {filteredServices.filter((s) => s.isActive).length} {copy.active}
             </span>
             <span className="px-3 py-2 rounded-full bg-slate-100 text-slate-500 border border-slate-200">
-              {filteredServices.filter((s) => !s.isActive).length} hidden
+              {filteredServices.filter((s) => !s.isActive).length} {copy.hidden}
             </span>
           </div>
         </div>
@@ -579,9 +701,9 @@ export default function ServicesPage() {
       <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
         <div className="px-6 py-4 border-b border-slate-200 bg-slate-50/60 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="flex items-center gap-3">
-            <p className="text-sm font-semibold text-slate-700">Grouped by category</p>
+            <p className="text-sm font-semibold text-slate-700">{copy.groupedByCategory}</p>
             <span className="text-xs text-slate-500">
-              {orderedCategories.length} groups · {expandedCategoryCount} expanded
+              {orderedCategories.length} {copy.groups} · {expandedCategoryCount} {copy.expanded}
             </span>
           </div>
           <div className="flex items-center gap-2">
@@ -595,7 +717,7 @@ export default function ServicesPage() {
                   : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
               )}
             >
-              Expand all
+              {copy.expandAll}
             </button>
             <button
               onClick={() => setAllCategoriesCollapsed(true)}
@@ -607,7 +729,7 @@ export default function ServicesPage() {
                   : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
               )}
             >
-              Collapse all
+              {copy.collapseAll}
             </button>
           </div>
         </div>
@@ -615,12 +737,12 @@ export default function ServicesPage() {
           <table className="w-full">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200">
-                <th className="px-6 py-4 text-left text-[11px] font-medium text-slate-500 tracking-wide">Service</th>
-                <th className="px-6 py-4 text-left text-[11px] font-medium text-slate-500 tracking-wide">Assigned to</th>
-                <th className="px-6 py-4 text-center text-[11px] font-medium text-slate-500 tracking-wide">Time</th>
-                <th className="px-6 py-4 text-center text-[11px] font-medium text-slate-500 tracking-wide">Price</th>
-                <th className="px-6 py-4 text-center text-[11px] font-medium text-slate-500 tracking-wide">Status</th>
-                <th className="px-6 py-4 text-right text-[11px] font-medium text-slate-500 tracking-wide">Actions</th>
+                <th className="px-6 py-4 text-left text-[11px] font-medium text-slate-500 tracking-wide">{copy.service}</th>
+                <th className="px-6 py-4 text-left text-[11px] font-medium text-slate-500 tracking-wide">{copy.assignedTo}</th>
+                <th className="px-6 py-4 text-center text-[11px] font-medium text-slate-500 tracking-wide">{copy.time}</th>
+                <th className="px-6 py-4 text-center text-[11px] font-medium text-slate-500 tracking-wide">{copy.price}</th>
+                <th className="px-6 py-4 text-center text-[11px] font-medium text-slate-500 tracking-wide">{copy.status}</th>
+                <th className="px-6 py-4 text-right text-[11px] font-medium text-slate-500 tracking-wide">{copy.actions}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -632,7 +754,7 @@ export default function ServicesPage() {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                       </svg>
                     </div>
-                    <p className="text-lg font-semibold text-slate-700">Empty Catalog</p>
+                    <p className="text-lg font-semibold text-slate-700">{copy.emptyCatalog}</p>
                   </td>
                 </tr>
               ) : filteredServices.length === 0 ? (
@@ -643,8 +765,8 @@ export default function ServicesPage() {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                       </svg>
                     </div>
-                    <p className="text-lg font-semibold text-slate-700">No services match your filters</p>
-                    <p className="text-sm text-slate-400 mt-2">Try clearing the search or status filter.</p>
+                    <p className="text-lg font-semibold text-slate-700">{copy.noServicesMatch}</p>
+                    <p className="text-sm text-slate-400 mt-2">{copy.noServicesMatchHint}</p>
                   </td>
                 </tr>
               ) : (
@@ -685,7 +807,7 @@ export default function ServicesPage() {
                                   {group.label}
                                 </span>
                                 <span className="text-xs text-slate-500">
-                                  {group.services.length} services · {group.subgroups.length} subgroups · {therapistCount} therapists · {activeCount} active · {hiddenCount} hidden
+                                  {group.services.length} {copy.servicesWord} · {group.subgroups.length} {copy.subgroups} · {therapistCount} {copy.therapists} · {activeCount} {copy.active} · {hiddenCount} {copy.hidden}
                                 </span>
                               </div>
                             </div>
@@ -697,7 +819,7 @@ export default function ServicesPage() {
                                   : "border-emerald-200 text-emerald-700 bg-emerald-50"
                               )}
                             >
-                              {isCollapsed ? 'Collapsed' : 'Expanded'}
+                              {isCollapsed ? copy.collapsed : copy.expandedState}
                             </span>
                           </button>
                         </td>
@@ -705,7 +827,7 @@ export default function ServicesPage() {
                       {!isCollapsed && group.services.length === 0 && (
                         <tr>
                           <td colSpan={6} className="px-8 py-6 text-sm text-slate-400">
-                            No services in this group.
+                            {copy.noServicesInGroup}
                           </td>
                         </tr>
                       )}
@@ -715,7 +837,7 @@ export default function ServicesPage() {
                             <tr className="bg-slate-50/60 border-y border-slate-100">
                               <td colSpan={6} className="px-8 py-3">
                                 <span className="text-xs font-semibold tracking-wide text-slate-600">
-                                  Subgroup: {subgroup.label} ({subgroup.services.length})
+                                  {copy.subgroup}: {subgroup.label} ({subgroup.services.length})
                                 </span>
                               </td>
                             </tr>
@@ -748,7 +870,7 @@ export default function ServicesPage() {
                                   </div>
                                 ) : (
                                   <span className="inline-flex items-center rounded-full bg-rose-50 px-3 py-1 text-xs font-medium text-rose-700">
-                                    Needs therapist
+                                    {copy.needsTherapist}
                                   </span>
                                 )}
                               </td>
@@ -824,7 +946,7 @@ export default function ServicesPage() {
                                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
                                           </svg>
-                                          Link
+                                          {copy.link}
                                         </>
                                       )}
                                     </button>
@@ -835,13 +957,13 @@ export default function ServicesPage() {
                                           className="px-4 py-2 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-medium hover:bg-emerald-200 transition-all"
                                           disabled={savingId === service.id}
                                         >
-                                          {savingId === service.id ? 'Saving' : 'Save'}
+                                          {savingId === service.id ? copy.saving : copy.save}
                                         </button>
                                         <button
                                           onClick={cancelQuickEdit}
                                           className="px-4 py-2 rounded-full border border-slate-200 text-xs font-medium text-slate-500 hover:bg-slate-50 transition-all"
                                         >
-                                          Cancel
+                                          {copy.cancel}
                                         </button>
                                       </>
                                     ) : (
@@ -850,13 +972,13 @@ export default function ServicesPage() {
                                           onClick={() => startQuickEdit(service)}
                                           className="px-4 py-2 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-medium hover:bg-emerald-100 transition-all"
                                         >
-                                          Quick
+                                          {copy.quick}
                                         </button>
                                         <Link href={`/dashboard/services/${service.id}`}>
                                           <button
                                             className="px-4 py-2 rounded-full border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-all"
                                           >
-                                            Edit
+                                            {copy.edit}
                                           </button>
                                         </Link>
                                       </>

@@ -341,8 +341,8 @@ export interface EmployeeFormData {
 export interface ServiceFormData {
   serviceName: string;
   description?: string;
-  descriptionEn: string;
-  descriptionEs: string;
+  descriptionEn?: string;
+  descriptionEs?: string;
   duration: number;
   price: number;
   category: ServiceCategory;

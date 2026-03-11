@@ -519,6 +519,7 @@ const BookingCard: React.FC<BookingCardProps> = ({
   compact = false,
 }) => {
   const { t } = useLanguage();
+  const now = new Date();
   const getStatusConfig = (status: Booking['status']) => {
     switch (status) {
       case 'confirmed':
@@ -561,6 +562,16 @@ const BookingCard: React.FC<BookingCardProps> = ({
     return t('client');
   };
 
+  const isFullyPaid =
+    booking.finalPaymentReceived === true ||
+    (booking.paymentStatus === 'paid' && (booking.requiresDeposit !== true || booking.status === 'completed'));
+  const bookingStart = new Date(`${booking.bookingDate}T${booking.bookingTime}:00`);
+  const isPastBooking = !Number.isNaN(bookingStart.getTime()) && bookingStart.getTime() < now.getTime();
+  const hasPendingPaymentWarning =
+    booking.status !== 'cancelled' &&
+    booking.paymentStatus !== 'refunded' &&
+    !isFullyPaid &&
+    isPastBooking;
   const status = getStatusConfig(booking.status);
   const payment = getPaymentStatus();
 
@@ -568,7 +579,12 @@ const BookingCard: React.FC<BookingCardProps> = ({
     return (
       <Link
         href={`/dashboard/bookings/${booking.id}`}
-        className="group flex items-center gap-3 p-3 lg:p-4 bg-white rounded-xl border border-slate-200 hover:border-slate-400 hover:shadow-md transition-all active:bg-slate-50"
+        className={cn(
+          "group flex items-center gap-3 p-3 lg:p-4 bg-white rounded-xl border hover:shadow-md transition-all active:bg-slate-50",
+          hasPendingPaymentWarning
+            ? "border-rose-300 bg-rose-50/40 hover:border-rose-400"
+            : "border-slate-200 hover:border-slate-400"
+        )}
       >
         <div className="flex-shrink-0 w-14 lg:w-16 text-center">
           <div className="text-base lg:text-lg font-bold text-slate-900">{formatTime(booking.bookingTime)}</div>
@@ -588,11 +604,21 @@ const BookingCard: React.FC<BookingCardProps> = ({
   }
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden hover:shadow-lg transition-shadow">
+    <div
+      className={cn(
+        "bg-white rounded-2xl border overflow-hidden hover:shadow-lg transition-shadow",
+        hasPendingPaymentWarning ? "border-rose-300 shadow-rose-100/40" : "border-slate-200"
+      )}
+    >
       {/* Time Header */}
-      <div className="bg-slate-900 px-4 lg:px-5 py-3 flex items-center justify-between">
+      <div
+        className={cn(
+          "px-4 lg:px-5 py-3 flex items-center justify-between",
+          hasPendingPaymentWarning ? "bg-rose-700" : "bg-slate-900"
+        )}
+      >
         <div className="flex items-center gap-2">
-          <Clock className="w-4 h-4 text-slate-400" />
+          <Clock className={cn("w-4 h-4", hasPendingPaymentWarning ? "text-rose-100" : "text-slate-400")} />
           <span className="text-base lg:text-lg font-bold text-white">{formatTime(booking.bookingTime)}</span>
         </div>
         <span className={cn('px-2 lg:px-3 py-1 rounded-full text-[9px] lg:text-[10px] font-bold uppercase tracking-wide', status.bg, status.text)}>
@@ -630,8 +656,10 @@ const BookingCard: React.FC<BookingCardProps> = ({
         {/* Payment & Meta */}
         <div className="flex items-center justify-between pt-3 border-t border-slate-100">
           <div className="flex items-center gap-2">
-            <CreditCard className="w-4 h-4 text-slate-400" />
-            <span className={cn('text-xs lg:text-sm font-medium', payment.color)}>{payment.label}</span>
+            <CreditCard className={cn('w-4 h-4', hasPendingPaymentWarning ? 'text-rose-500' : 'text-slate-400')} />
+            <span className={cn('text-xs lg:text-sm font-medium', hasPendingPaymentWarning ? 'text-rose-600' : payment.color)}>
+              {payment.label}
+            </span>
           </div>
           <div className="text-[9px] lg:text-[10px] text-slate-400 uppercase tracking-wide truncate ml-2">
             {t('by')}: {getCreatedByLabel()}

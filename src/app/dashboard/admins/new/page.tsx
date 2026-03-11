@@ -8,6 +8,7 @@ import { Input } from '@/shared/components/Input';
 import { createUser } from '@/shared/lib/firestore';
 import { createUserWithEmailAndPassword, signOut } from 'firebase/auth';
 import { getSecondaryAuth } from '@/shared/lib/firebase';
+import { useLanguage } from '@/shared/context/LanguageContext';
 
 type AdminFormData = {
   firstName: string;
@@ -18,9 +19,33 @@ type AdminFormData = {
 
 export default function NewAdminPage() {
   const router = useRouter();
+  const { language } = useLanguage();
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [generatedPassword, setGeneratedPassword] = useState<string | null>(null);
+
+  const copy =
+    language === 'es'
+      ? {
+          title: 'Anadir Nuevo Admin',
+          subtitle: 'Crear una nueva cuenta de administrador',
+          adminCreated: 'Admin creado',
+          sharePassword: 'Comparte esta contrasena temporal. Se le pedira cambiarla al iniciar sesion por primera vez.',
+          copy: 'Copiar',
+          goToDashboard: 'Ir al panel',
+          createAdmin: 'Crear Admin',
+          cancel: 'Cancelar',
+        }
+      : {
+          title: 'Add New Admin',
+          subtitle: 'Create a new administrator account',
+          adminCreated: 'Admin Created',
+          sharePassword: 'Share this temporary password. They will be asked to change it on first login.',
+          copy: 'Copy',
+          goToDashboard: 'Go to Dashboard',
+          createAdmin: 'Create Admin',
+          cancel: 'Cancel',
+        };
 
   const {
     register,
@@ -84,8 +109,8 @@ export default function NewAdminPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl sm:text-3xl font-light tracking-wide text-slate-900">Añadir Nuevo Admin</h1>
-        <p className="text-slate-600 text-sm mt-2 font-light">Crear una nueva cuenta de administrador</p>
+        <h1 className="text-2xl sm:text-3xl font-light tracking-wide text-slate-900">{copy.title}</h1>
+        <p className="text-slate-600 text-sm mt-2 font-light">{copy.subtitle}</p>
       </div>
 
       <div className="bg-slate-800/30 border border-slate-700 rounded-sm backdrop-blur-sm p-4 sm:p-6">
@@ -98,8 +123,8 @@ export default function NewAdminPage() {
 
           {generatedPassword && (
             <div className="p-3 sm:p-4 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-900">
-              <p className="text-xs sm:text-sm font-semibold mb-2">Admin Created</p>
-              <p className="text-xs sm:text-sm">Share this temporary password. They will be asked to change it on first login.</p>
+              <p className="text-xs sm:text-sm font-semibold mb-2">{copy.adminCreated}</p>
+              <p className="text-xs sm:text-sm">{copy.sharePassword}</p>
               <div className="mt-3 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
                 <code className="px-3 py-2 rounded-md bg-white border border-emerald-200 text-emerald-800 font-semibold text-xs sm:text-sm break-all">
                   {generatedPassword}
@@ -112,7 +137,7 @@ export default function NewAdminPage() {
                     onClick={() => navigator.clipboard?.writeText(generatedPassword)}
                     className="flex-1 sm:flex-none"
                   >
-                    Copy
+                    {copy.copy}
                   </Button>
                   <Button
                     type="button"
@@ -120,7 +145,7 @@ export default function NewAdminPage() {
                     onClick={() => router.push('/dashboard')}
                     className="flex-1 sm:flex-none"
                   >
-                    Go to Dashboard
+                    {copy.goToDashboard}
                   </Button>
                 </div>
               </div>
@@ -163,7 +188,7 @@ export default function NewAdminPage() {
 
           <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-2">
             <Button type="submit" isLoading={isLoading} className="w-full sm:w-auto">
-              Create Admin
+              {copy.createAdmin}
             </Button>
             <Button
               type="button"
@@ -171,7 +196,7 @@ export default function NewAdminPage() {
               onClick={() => router.push('/dashboard')}
               className="w-full sm:w-auto"
             >
-              Cancel
+              {copy.cancel}
             </Button>
           </div>
         </form>

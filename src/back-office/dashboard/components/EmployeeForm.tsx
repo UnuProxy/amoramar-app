@@ -5,12 +5,19 @@ import { useForm } from 'react-hook-form';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/shared/components/Button';
 import { Input } from '@/shared/components/Input';
-import { createEmployee, updateEmployee, createUser, getEmployeeServices, getServices, createEmployeeService, deleteEmployeeService } from '@/shared/lib/firestore';
+import { createEmployee, updateEmployee, createUser, getEmployeeServices, getServices, createEmployeeService, deleteEmployeeService, deleteEmployee } from '@/shared/lib/firestore';
 import { uploadEmployeeProfileImage, deleteEmployeeProfileImage } from '@/shared/lib/storage';
 import { createUserWithEmailAndPassword, signOut } from 'firebase/auth';
 import { getSecondaryAuth } from '@/shared/lib/firebase';
 import type { Employee, EmployeeFormData, EmploymentType, Service } from '@/shared/lib/types';
-import { formatServiceCategory, getOrderedServiceCategories } from '@/shared/lib/serviceCategories';
+import { useLanguage } from '@/shared/context/LanguageContext';
+import {
+  formatServiceCategory,
+  getOrderedServiceCategories,
+  getServiceMainGroupForCategory,
+  getServiceMainGroupLabel,
+  SERVICE_MAIN_GROUP_ORDER,
+} from '@/shared/lib/serviceCategories';
 
 interface EmployeeFormProps {
   employee?: Employee;
@@ -18,6 +25,7 @@ interface EmployeeFormProps {
 
 export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
   const router = useRouter();
+  const { language } = useLanguage();
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -28,6 +36,45 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
   const [services, setServices] = useState<Service[]>([]);
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
   const [servicesLoading, setServicesLoading] = useState(false);
+
+  const copy =
+    language === 'es'
+      ? {
+          accountCreated: 'Cuenta creada',
+          tempPasswordHelp: 'Entrega esta contrasena temporal al empleado. Se le pedira cambiarla al iniciar sesion por primera vez.',
+          copy: 'Copiar',
+          goToEmployees: 'Ir a empleados',
+          changePhoto: 'Cambiar foto',
+          uploadPhoto: 'Subir foto',
+          imageHint: 'JPG, PNG o GIF. Maximo 5MB.',
+          uploadingImage: 'Subiendo imagen...',
+          assignedServices: 'Servicios asignados',
+          loadingServices: 'Cargando servicios...',
+          noServices: 'No hay servicios disponibles todavia.',
+          selected: 'seleccionados',
+          updateEmployee: 'Actualizar empleado',
+          createEmployee: 'Crear empleado',
+          cancel: 'Cancelar',
+          deleteEmployee: 'Eliminar empleado',
+        }
+      : {
+          accountCreated: 'Account Created',
+          tempPasswordHelp: 'Give this temporary password to the employee. They will be asked to change it on first login.',
+          copy: 'Copy',
+          goToEmployees: 'Go to Employees',
+          changePhoto: 'Change Photo',
+          uploadPhoto: 'Upload Photo',
+          imageHint: 'JPG, PNG or GIF. Maximum 5MB.',
+          uploadingImage: 'Uploading image...',
+          assignedServices: 'Assigned Services',
+          loadingServices: 'Loading services...',
+          noServices: 'No services available yet.',
+          selected: 'selected',
+          updateEmployee: 'Update Employee',
+          createEmployee: 'Create Employee',
+          cancel: 'Cancel',
+          deleteEmployee: 'Delete Employee',
+        };
 
   const {
     register,
@@ -107,6 +154,31 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
   const visibleCategories = useMemo(() => {
     return getOrderedServiceCategories(services);
   }, [services]);
+
+  const groupedServiceSections = useMemo(() => {
+    return SERVICE_MAIN_GROUP_ORDER.map((mainGroup) => {
+      const categories = visibleCategories
+        .filter((category) => getServiceMainGroupForCategory(category) === mainGroup)
+        .map((category) => ({
+          category,
+          services: servicesByCategory[category] || [],
+        }))
+        .filter((entry) => entry.services.length > 0);
+
+      const selectedCount = categories.reduce(
+        (count, entry) =>
+          count + entry.services.filter((service) => selectedServiceIds.includes(service.id)).length,
+        0
+      );
+
+      return {
+        key: mainGroup,
+        label: getServiceMainGroupLabel(mainGroup, language === 'es' ? 'es' : 'en'),
+        categories,
+        selectedCount,
+      };
+    }).filter((group) => group.categories.length > 0);
+  }, [visibleCategories, servicesByCategory, selectedServiceIds, language]);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -313,22 +385,9 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
         }
       }
 
-      console.log('Sending DELETE request to API...');
-      const response = await fetch(`/api/employees/${employee.id}`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      console.log('DELETE response status:', response.status);
-      
-      const result = await response.json();
-      console.log('DELETE response body:', result);
-
-      if (!result.success) {
-        throw new Error(result.error || 'Failed to delete employee');
-      }
+      // Delete through the authenticated client session so Firestore rules
+      // evaluate the actual signed-in owner/admin instead of an anonymous API request.
+      await deleteEmployee(employee.id);
 
       // Success - redirect to employees list
       console.log('Employee deleted successfully, redirecting...');
@@ -339,7 +398,7 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
       
       // Check if it's a permission error
       if (err.message?.includes('PERMISSION_DENIED') || err.message?.includes('permission')) {
-        setError('Permission denied. Please make sure you are logged in as the salon owner to delete employees.');
+        setError('Permission denied. Please make sure you are logged in with an admin account to delete employees.');
       } else {
         setError(err.message || 'Error deleting employee. Please try again.');
       }
@@ -358,8 +417,8 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
 
       {generatedPassword && (
         <div className="p-3 sm:p-4 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-900">
-          <p className="text-xs sm:text-sm font-semibold mb-2">Account Created</p>
-          <p className="text-xs sm:text-sm">Give this temporary password to the employee. They will be asked to change it on first login.</p>
+          <p className="text-xs sm:text-sm font-semibold mb-2">{copy.accountCreated}</p>
+          <p className="text-xs sm:text-sm">{copy.tempPasswordHelp}</p>
           <div className="mt-3 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
             <code className="px-3 py-2 rounded-md bg-white border border-emerald-200 text-emerald-800 font-semibold text-xs sm:text-sm break-all">
               {generatedPassword}
@@ -372,7 +431,7 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
                 onClick={() => navigator.clipboard?.writeText(generatedPassword)}
                 className="flex-1 sm:flex-none"
               >
-                Copy
+                {copy.copy}
               </Button>
               <Button 
                 type="button" 
@@ -380,7 +439,7 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
                 onClick={() => router.push('/dashboard/employees')}
                 className="flex-1 sm:flex-none"
               >
-                Go to Employees
+                {copy.goToEmployees}
               </Button>
             </div>
           </div>
@@ -554,10 +613,10 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
               htmlFor="profileImage"
               className="block sm:inline-block w-full sm:w-auto text-center px-4 py-2 bg-sky-600 text-white rounded-lg hover:bg-sky-700 transition cursor-pointer text-sm font-medium"
             >
-              {profileImagePreview ? 'Change Photo' : 'Upload Photo'}
+              {profileImagePreview ? copy.changePhoto : copy.uploadPhoto}
             </label>
             <p className="text-xs text-slate-600 mt-2 text-center sm:text-left">
-              JPG, PNG or GIF. Maximum 5MB.
+              {copy.imageHint}
             </p>
             {uploadingImage && (
               <p className="text-xs text-sky-600 mt-2 flex items-center gap-2">
@@ -565,7 +624,7 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                 </svg>
-                Uploading image...
+                {copy.uploadingImage}
               </p>
             )}
           </div>
@@ -574,35 +633,49 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
 
       <div>
         <label className="block text-xs font-light tracking-wide text-slate-600 uppercase mb-2">
-          Assigned Services
+          {copy.assignedServices}
         </label>
         {servicesLoading ? (
-          <p className="text-xs text-slate-500">Loading services...</p>
+          <p className="text-xs text-slate-500">{copy.loadingServices}</p>
         ) : services.length === 0 ? (
-          <p className="text-xs text-slate-500">No services available yet.</p>
+          <p className="text-xs text-slate-500">{copy.noServices}</p>
         ) : (
           <div className="space-y-4">
-            {visibleCategories.map((category) => (
-              <div key={category} className="border border-slate-200 rounded-sm p-4 bg-white">
-                <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500">
-                  {formatServiceCategory(category)}
-                </p>
-                <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {(servicesByCategory[category] || []).map((service) => (
-                    <label key={service.id} className="flex items-start gap-3">
-                      <input
-                        type="checkbox"
-                        checked={selectedServiceIds.includes(service.id)}
-                        onChange={() => toggleService(service.id)}
-                        className="mt-0.5 rounded border-slate-300 text-sky-500 focus:ring-sky-500"
-                      />
-                      <span className="text-sm text-slate-900 font-light">
-                        {service.serviceName}
-                        <span className="block text-[10px] text-slate-400 uppercase tracking-wider">
-                          {service.duration} min
-                        </span>
-                      </span>
-                    </label>
+            {groupedServiceSections.map((group) => (
+              <div key={group.key} className="border border-slate-200 rounded-lg bg-slate-50/40 overflow-hidden">
+                <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-slate-200 bg-white">
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-700">
+                    {group.label}
+                  </p>
+                  <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
+                    {group.selectedCount} {copy.selected}
+                  </span>
+                </div>
+                <div className="p-4 space-y-4">
+                  {group.categories.map(({ category, services: categoryServices }) => (
+                    <div key={category} className="border border-slate-200 rounded-sm p-4 bg-white">
+                      <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500">
+                        {formatServiceCategory(category)}
+                      </p>
+                      <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {categoryServices.map((service) => (
+                          <label key={service.id} className="flex items-start gap-3">
+                            <input
+                              type="checkbox"
+                              checked={selectedServiceIds.includes(service.id)}
+                              onChange={() => toggleService(service.id)}
+                              className="mt-0.5 rounded border-slate-300 text-sky-500 focus:ring-sky-500"
+                            />
+                            <span className="text-sm text-slate-900 font-light">
+                              {service.serviceName}
+                              <span className="block text-[10px] text-slate-400 uppercase tracking-wider">
+                                {service.duration} min
+                              </span>
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
                   ))}
                 </div>
               </div>
@@ -613,7 +686,7 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
 
       <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-4">
         <Button type="submit" isLoading={isLoading} className="w-full sm:w-auto">
-          {employee ? 'Update Employee' : 'Create Employee'}
+          {employee ? copy.updateEmployee : copy.createEmployee}
         </Button>
         <Button
           type="button"
@@ -621,7 +694,7 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
           onClick={() => router.push('/dashboard/employees')}
           className="w-full sm:w-auto"
         >
-          Cancel
+          {copy.cancel}
         </Button>
         {employee && (
           <Button
@@ -631,7 +704,7 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
             isLoading={isDeleting}
             className="w-full sm:w-auto sm:ml-auto"
           >
-            Delete Employee
+            {copy.deleteEmployee}
           </Button>
         )}
       </div>

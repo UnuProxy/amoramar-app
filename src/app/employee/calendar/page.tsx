@@ -1245,11 +1245,11 @@ export default function EmployeeCalendarPage() {
           <p className="text-[9px] font-black text-neutral-500 uppercase tracking-[0.2em] mb-2">Bookings</p>
           <p className="text-4xl font-black text-neutral-900 tabular-nums">{weekStats.confirmedBookings}</p>
         </div>
-        <div className="bg-white border border-neutral-100 border-t-4 border-success-500 rounded-[32px] p-8 shadow-[0_1px_3px_rgba(0,0,0,0.1)] group hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)] transition-all">
+        <div className="bg-white border border-neutral-100 border-t-4 border-t-success-500 rounded-[32px] p-8 shadow-[0_1px_3px_rgba(0,0,0,0.1)] group hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)] transition-all">
           <p className="text-[9px] font-black text-success-600 uppercase tracking-[0.2em] mb-2">Libres</p>
           <p className="text-4xl font-black text-success-600 tabular-nums">{weekStats.availableCount}</p>
         </div>
-        <div className="bg-white border border-neutral-100 border-t-4 border-primary-900 rounded-[32px] p-8 shadow-[0_1px_3px_rgba(0,0,0,0.1)] group hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)] transition-all">
+        <div className="bg-white border border-neutral-100 border-t-4 border-t-primary-900 rounded-[32px] p-8 shadow-[0_1px_3px_rgba(0,0,0,0.1)] group hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)] transition-all">
           <p className="text-[9px] font-black text-neutral-500 uppercase tracking-[0.2em] mb-2">Bloqueos</p>
           <p className="text-4xl font-black text-primary-900 tabular-nums">{weekStats.blockedCount}</p>
         </div>

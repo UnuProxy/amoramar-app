@@ -6,24 +6,26 @@ import { getBookings, getServices, getExpenses, getEmployees } from '@/shared/li
 import { calculateBookingTotals } from '@/shared/lib/booking-utils';
 import type { Booking, Service, Expense, Employee, ExpenseCategory, ExpenseFrequency } from '@/shared/lib/types';
 import { formatCurrency, cn } from '@/shared/lib/utils';
+import { useLanguage } from '@/shared/context/LanguageContext';
 
 type DateRange = 'month' | 'quarter' | 'year' | 'all';
 
-const EXPENSE_CATEGORIES: { value: ExpenseCategory; label: string; icon: string }[] = [
-  { value: 'rent', label: 'Rent', icon: '🏠' },
-  { value: 'utilities', label: 'Utilities', icon: '⚡' },
-  { value: 'products', label: 'Products', icon: '💄' },
-  { value: 'supplies', label: 'Supplies', icon: '📦' },
-  { value: 'staff', label: 'Staff', icon: '👥' },
-  { value: 'marketing', label: 'Marketing', icon: '📢' },
-  { value: 'equipment', label: 'Equipment', icon: '🔧' },
-  { value: 'insurance', label: 'Insurance', icon: '🛡️' },
-  { value: 'taxes', label: 'Taxes', icon: '📋' },
-  { value: 'maintenance', label: 'Maintenance', icon: '🔨' },
-  { value: 'other', label: 'Other', icon: '📌' },
+const EXPENSE_CATEGORIES: { value: ExpenseCategory; label: { en: string; es: string }; icon: string }[] = [
+  { value: 'rent', label: { en: 'Rent', es: 'Alquiler' }, icon: '🏠' },
+  { value: 'utilities', label: { en: 'Utilities', es: 'Suministros' }, icon: '⚡' },
+  { value: 'products', label: { en: 'Products', es: 'Productos' }, icon: '💄' },
+  { value: 'supplies', label: { en: 'Supplies', es: 'Materiales' }, icon: '📦' },
+  { value: 'staff', label: { en: 'Staff', es: 'Personal' }, icon: '👥' },
+  { value: 'marketing', label: { en: 'Marketing', es: 'Marketing' }, icon: '📢' },
+  { value: 'equipment', label: { en: 'Equipment', es: 'Equipamiento' }, icon: '🔧' },
+  { value: 'insurance', label: { en: 'Insurance', es: 'Seguro' }, icon: '🛡️' },
+  { value: 'taxes', label: { en: 'Taxes', es: 'Impuestos' }, icon: '📋' },
+  { value: 'maintenance', label: { en: 'Maintenance', es: 'Mantenimiento' }, icon: '🔨' },
+  { value: 'other', label: { en: 'Other', es: 'Otros' }, icon: '📌' },
 ];
 
 export default function FinancialDashboard() {
+  const { language } = useLanguage();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -60,6 +62,135 @@ export default function FinancialDashboard() {
     vendor: '',
     notes: '',
   });
+
+  const copy =
+    language === 'es'
+      ? {
+          title: 'Finanzas',
+          subtitle: 'Analisis de rentabilidad y gastos',
+          thisMonth: 'ESTE MES',
+          last3Months: 'ULTIMOS 3 MESES',
+          oneYear: '1 ANO',
+          allTime: 'TODO EL TIEMPO',
+          addExpense: 'Anadir gasto',
+          grossIncome: 'Ingreso bruto',
+          bookings: 'RESERVAS',
+          totalExpenses: 'Gastos totales',
+          transactions: 'TRANSACCIONES',
+          netProfit: 'Beneficio neto',
+          finalResult: 'RESULTADO FINAL',
+          margin: 'Margen %',
+          profitability: 'RENTABILIDAD',
+          revenueByService: 'Ingresos por servicio',
+          noDataAvailable: 'Sin datos disponibles',
+          ofTotal: 'DEL TOTAL',
+          revenueByTherapist: 'Ingresos por especialista',
+          month: 'Mes',
+          noDataFor: 'Sin datos para',
+          selectedMonth: 'mes seleccionado',
+          monthlyTotal: 'Total mensual',
+          booking: 'reserva',
+          bookingsLower: 'reservas',
+          depositsCollected: 'DEPOSITOS COBRADOS',
+          totalGenerated: 'TOTAL GENERADO',
+          expenseBreakdown: 'Desglose de gastos',
+          invoices: 'FACTURAS',
+          noExpenses: 'Sin gastos',
+          recentTransactions: 'Transacciones recientes',
+          dateVendor: 'Fecha / Proveedor',
+          description: 'Descripcion',
+          category: 'Categoria',
+          amount: 'Importe',
+          action: 'Accion',
+          date: 'Fecha',
+          paymentDetails: 'Detalles de pagos',
+          totalRevenueDeposit: 'Ingresos totales (deposito 50%)',
+          totalRevenueFull: 'Ingresos totales (100%)',
+          totalServices: 'Servicios totales',
+          noBookingsMonth: 'No hay reservas para este mes.',
+          serviceFallback: 'Servicio',
+          paid: 'Pagado',
+          close: 'Cerrar',
+          newExpense: 'Nuevo gasto',
+          salonOperations: 'Operacion del salon',
+          concept: 'Concepto',
+          amountEuro: 'Importe (EUR)',
+          vendorOptional: 'Proveedor (opcional)',
+          fillRequiredFields: 'Completa los campos obligatorios.',
+          errorAddingExpense: 'Error al anadir el gasto.',
+          confirmDeleteExpense: 'Estas seguro de que quieres eliminar este gasto?',
+          placeholderConcept: 'ALQUILER, PRODUCTOS...',
+          cancel: 'Cancelar',
+          registerExpense: 'Registrar gasto',
+        }
+      : {
+          title: 'Financials',
+          subtitle: 'Profitability & Expense Analysis',
+          thisMonth: 'THIS MONTH',
+          last3Months: 'LAST 3 MONTHS',
+          oneYear: '1 YEAR',
+          allTime: 'ALL TIME',
+          addExpense: 'Add Expense',
+          grossIncome: 'Gross Income',
+          bookings: 'BOOKINGS',
+          totalExpenses: 'Total Expenses',
+          transactions: 'TRANSACTIONS',
+          netProfit: 'Net Profit',
+          finalResult: 'FINAL RESULT',
+          margin: 'Margin %',
+          profitability: 'PROFITABILITY',
+          revenueByService: 'Revenue by Service',
+          noDataAvailable: 'No data available',
+          ofTotal: '% OF TOTAL',
+          revenueByTherapist: 'Revenue by Therapist',
+          month: 'Month',
+          noDataFor: 'No data for',
+          selectedMonth: 'selected month',
+          monthlyTotal: 'Monthly Total',
+          booking: 'booking',
+          bookingsLower: 'bookings',
+          depositsCollected: 'DEPOSITS COLLECTED',
+          totalGenerated: 'TOTAL GENERATED',
+          expenseBreakdown: 'Expense Breakdown',
+          invoices: 'INVOICES',
+          noExpenses: 'No expenses',
+          recentTransactions: 'Recent Transactions',
+          dateVendor: 'Date / Vendor',
+          description: 'Description',
+          category: 'Category',
+          amount: 'Amount',
+          action: 'Action',
+          date: 'Date',
+          paymentDetails: 'Payment details',
+          totalRevenueDeposit: 'Total Revenue (50% Deposit)',
+          totalRevenueFull: 'Total Revenue (100%)',
+          totalServices: 'Total Services',
+          noBookingsMonth: 'No bookings for this month.',
+          serviceFallback: 'Service',
+          paid: 'Paid',
+          close: 'Close',
+          newExpense: 'New Expense',
+          salonOperations: 'Salon Operations',
+          concept: 'Concept',
+          amountEuro: 'Amount (€)',
+          vendorOptional: 'Vendor (Optional)',
+          fillRequiredFields: 'Please fill in required fields.',
+          errorAddingExpense: 'Error adding expense.',
+          confirmDeleteExpense: 'Are you sure you want to delete this expense?',
+          placeholderConcept: 'RENT, PRODUCTS...',
+          cancel: 'Cancel',
+          registerExpense: 'Register Expense',
+        };
+
+  const expenseCategories = useMemo(
+    () =>
+      EXPENSE_CATEGORIES.map((category) => ({
+        value: category.value,
+        icon: category.icon,
+        label: category.label[language],
+      })),
+    [language]
+  );
 
   useEffect(() => {
     loadData();
@@ -218,7 +349,7 @@ export default function FinancialDashboard() {
     const profitMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
 
     // Group expenses by category
-    const expensesByCategory = EXPENSE_CATEGORIES.map((cat) => {
+    const expensesByCategory = expenseCategories.map((cat) => {
       const categoryExpenses = filteredExpenses.filter((e) => e.category === cat.value);
       const total = categoryExpenses.reduce((sum, e) => sum + e.amount, 0);
       return {
@@ -301,11 +432,11 @@ export default function FinancialDashboard() {
       payoutByEmployee,
       payoutTotalRevenue,
     };
-  }, [filteredBookings, filteredExpenses, services, employees, payoutBookings]);
+  }, [filteredBookings, filteredExpenses, services, employees, payoutBookings, expenseCategories]);
 
   const handleAddExpense = async () => {
     if (!newExpense.name || !newExpense.amount) {
-      alert('Please fill in required fields');
+      alert(copy.fillRequiredFields);
       return;
     }
 
@@ -336,12 +467,12 @@ export default function FinancialDashboard() {
       }
     } catch (error) {
       console.error('Error adding expense:', error);
-      alert('Error adding expense');
+      alert(copy.errorAddingExpense);
     }
   };
 
   const handleDeleteExpense = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this expense?')) return;
+    if (!confirm(copy.confirmDeleteExpense)) return;
 
     try {
       const response = await fetch(`/api/expenses/${id}`, {
@@ -372,6 +503,8 @@ export default function FinancialDashboard() {
     });
   };
 
+  const displayLocale = language === 'es' ? 'es-ES' : 'en-US';
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -386,12 +519,12 @@ export default function FinancialDashboard() {
       <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-8">
         <div>
           <h1 className="text-5xl font-black text-slate-800 tracking-tighter uppercase leading-none bg-gradient-to-r from-slate-900 to-sky-600 bg-clip-text text-transparent">
-            Financials
+            {copy.title}
           </h1>
           <div className="flex items-center gap-3 mt-4">
             <div className="w-1.5 h-1.5 rounded-full bg-sky-500 shadow-lg shadow-sky-500/50" />
             <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.4em]">
-              Profitability & Expense Analysis
+              {copy.subtitle}
             </p>
           </div>
         </div>
@@ -402,10 +535,10 @@ export default function FinancialDashboard() {
             onChange={(e) => setDateRange(e.target.value as DateRange)}
             className="px-6 py-4 bg-white border border-slate-100 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] focus:border-sky-500 outline-none cursor-pointer shadow-sm hover:shadow-md transition-all"
           >
-            <option value="month">THIS MONTH</option>
-            <option value="quarter">LAST 3 MONTHS</option>
-            <option value="year">1 YEAR</option>
-            <option value="all">ALL TIME</option>
+            <option value="month">{copy.thisMonth}</option>
+            <option value="quarter">{copy.last3Months}</option>
+            <option value="year">{copy.oneYear}</option>
+            <option value="all">{copy.allTime}</option>
           </select>
 
           <button
@@ -415,7 +548,7 @@ export default function FinancialDashboard() {
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" />
             </svg>
-            Add Expense
+            {copy.addExpense}
           </button>
         </div>
       </div>
@@ -426,9 +559,9 @@ export default function FinancialDashboard() {
         <div className="bg-white border-2 border-sky-100/50 rounded-[40px] p-8 shadow-sm hover:shadow-xl transition-all group overflow-hidden relative min-h-[220px] flex items-center justify-center">
           <div className="absolute top-0 right-0 w-32 h-32 bg-sky-50 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-700 opacity-50" />
           <div className="relative text-center w-full px-4">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-4">Gross Income</p>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-4">{copy.grossIncome}</p>
             <p className="text-4xl font-black text-slate-800 tracking-tight leading-none whitespace-nowrap">{formatCurrency(financials.totalRevenue)}</p>
-            <p className="text-[10px] font-black text-sky-500 uppercase tracking-widest mt-4">{filteredBookings.length} BOOKINGS</p>
+            <p className="text-[10px] font-black text-sky-500 uppercase tracking-widest mt-4">{filteredBookings.length} {copy.bookings}</p>
           </div>
         </div>
 
@@ -436,9 +569,9 @@ export default function FinancialDashboard() {
         <div className="bg-white border-2 border-sky-100/50 rounded-[40px] p-8 shadow-sm hover:shadow-xl transition-all group overflow-hidden relative min-h-[220px] flex items-center justify-center">
           <div className="absolute top-0 right-0 w-32 h-32 bg-sky-50 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-700 opacity-50" />
           <div className="relative text-center w-full px-4">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-4">Total Expenses</p>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-4">{copy.totalExpenses}</p>
             <p className="text-4xl font-black text-slate-800 tracking-tight leading-none whitespace-nowrap">{formatCurrency(financials.totalExpenses)}</p>
-            <p className="text-[10px] font-black text-sky-500 uppercase tracking-widest mt-4">{filteredExpenses.length} TRANSACTIONS</p>
+            <p className="text-[10px] font-black text-sky-500 uppercase tracking-widest mt-4">{filteredExpenses.length} {copy.transactions}</p>
           </div>
         </div>
 
@@ -449,9 +582,9 @@ export default function FinancialDashboard() {
         )}>
           <div className="absolute top-0 right-0 w-32 h-32 bg-white/40 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-700" />
           <div className="relative text-center w-full px-4">
-            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-4">Net Profit</p>
+            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-4">{copy.netProfit}</p>
             <p className="text-4xl font-black text-slate-900 tracking-tight leading-none whitespace-nowrap">{formatCurrency(financials.netProfit)}</p>
-            <p className="text-[10px] font-black text-sky-600 uppercase tracking-widest mt-4">FINAL RESULT</p>
+            <p className="text-[10px] font-black text-sky-600 uppercase tracking-widest mt-4">{copy.finalResult}</p>
           </div>
         </div>
 
@@ -459,9 +592,9 @@ export default function FinancialDashboard() {
         <div className="bg-white border-2 border-sky-100/50 rounded-[40px] p-8 shadow-sm hover:shadow-xl transition-all group overflow-hidden relative min-h-[220px] flex items-center justify-center">
           <div className="absolute top-0 right-0 w-32 h-32 bg-sky-50 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-700 opacity-50" />
           <div className="relative text-center w-full px-4">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-4">Margin %</p>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-4">{copy.margin}</p>
             <p className="text-4xl font-black text-slate-800 tracking-tight leading-none whitespace-nowrap">{financials.profitMargin.toFixed(1)}%</p>
-            <p className="text-[10px] font-black text-sky-500 uppercase tracking-widest mt-4">PROFITABILITY</p>
+            <p className="text-[10px] font-black text-sky-500 uppercase tracking-widest mt-4">{copy.profitability}</p>
           </div>
         </div>
       </div>
@@ -471,12 +604,12 @@ export default function FinancialDashboard() {
         {/* Revenue by Service */}
         <div className="bg-white border-2 border-sky-100/50 rounded-[48px] overflow-hidden shadow-sm">
           <div className="px-10 py-8 border-b-2 border-sky-100/50 bg-sky-50/30">
-            <h2 className="text-sm font-black text-slate-800 tracking-[0.3em] uppercase text-center">Revenue by Service</h2>
+            <h2 className="text-sm font-black text-slate-800 tracking-[0.3em] uppercase text-center">{copy.revenueByService}</h2>
           </div>
           
           <div className="p-10">
             {financials.revenueByService.length === 0 ? (
-              <div className="text-center py-12 text-slate-200 font-bold uppercase tracking-widest text-[10px]">No data available</div>
+              <div className="text-center py-12 text-slate-200 font-bold uppercase tracking-widest text-[10px]">{copy.noDataAvailable}</div>
             ) : (
               <div className="space-y-8">
                 {financials.revenueByService.map((item, index) => (
@@ -488,12 +621,12 @@ export default function FinancialDashboard() {
                         </div>
                         <div>
                           <p className="text-lg font-black text-slate-800 uppercase tracking-tighter leading-none">{item.service.serviceName}</p>
-                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">{item.bookingsCount} BOOKINGS</p>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">{item.bookingsCount} {copy.bookings}</p>
                         </div>
                       </div>
                       <div className="text-right">
                         <p className="text-xl font-black text-sky-600 tabular-nums leading-none">{formatCurrency(item.revenue)}</p>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">{item.percentage.toFixed(0)}% OF TOTAL</p>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">{item.percentage.toFixed(0)}{copy.ofTotal}</p>
                       </div>
                     </div>
                     <div className="w-full bg-sky-50 rounded-full h-1 overflow-hidden">
@@ -513,10 +646,10 @@ export default function FinancialDashboard() {
         <div className="bg-white border-2 border-sky-100/50 rounded-[48px] overflow-hidden shadow-sm">
           <div className="px-10 py-8 border-b-2 border-sky-100/50 bg-sky-50/30 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <h2 className="text-sm font-black text-slate-800 tracking-[0.3em] uppercase text-center lg:text-left">
-              Revenue by Therapist
+              {copy.revenueByTherapist}
             </h2>
             <div className="flex items-center gap-3">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Month</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{copy.month}</label>
               <input
                 type="month"
                 value={payoutMonth}
@@ -529,13 +662,13 @@ export default function FinancialDashboard() {
           <div className="p-10">
             {financials.payoutByEmployee.length === 0 ? (
               <div className="text-center py-12 text-slate-200 font-bold uppercase tracking-widest text-[10px]">
-                No data for {payoutMonth || 'selected month'}
+                {copy.noDataFor} {payoutMonth || copy.selectedMonth}
               </div>
             ) : (
               <div className="space-y-8">
                 <div className="flex items-center justify-between bg-sky-50/50 border border-sky-100 rounded-2xl p-4">
                   <div className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">
-                    Monthly Total
+                    {copy.monthlyTotal}
                   </div>
                   <div className="text-lg font-black text-slate-900">
                     {formatCurrency(financials.payoutTotalRevenue)}
@@ -569,7 +702,7 @@ export default function FinancialDashboard() {
                             )}
                           </div>
                           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
-                            {item.bookingsCount} {item.bookingsCount === 1 ? 'booking' : 'bookings'}
+                            {item.bookingsCount} {item.bookingsCount === 1 ? copy.booking : copy.bookingsLower}
                           </p>
                         </div>
                       </div>
@@ -577,8 +710,8 @@ export default function FinancialDashboard() {
                         <p className="text-xl font-black text-slate-900 tabular-nums leading-none">
                           {formatCurrency(item.revenue)}
                         </p>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1 uppercase">
-                          {item.employee.employmentType === 'self-employed' ? 'DEPOSITS COLLECTED' : 'TOTAL GENERATED'}
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+                          {item.employee.employmentType === 'self-employed' ? copy.depositsCollected : copy.totalGenerated}
                         </p>
                       </div>
                     </div>
@@ -599,12 +732,12 @@ export default function FinancialDashboard() {
       {/* Expenses by Category */}
       <div className="bg-white border border-slate-100 rounded-[48px] overflow-hidden shadow-sm">
         <div className="px-10 py-8 border-b border-slate-100 bg-slate-50/30">
-          <h2 className="text-sm font-black text-slate-800 tracking-[0.3em] uppercase text-center">Expense Breakdown</h2>
+          <h2 className="text-sm font-black text-slate-800 tracking-[0.3em] uppercase text-center">{copy.expenseBreakdown}</h2>
         </div>
         
         <div className="p-10">
           {financials.expensesByCategory.length === 0 ? (
-            <div className="text-center py-12 text-slate-300 font-bold uppercase tracking-widest text-xs">Sin gastos</div>
+            <div className="text-center py-12 text-slate-300 font-bold uppercase tracking-widest text-xs">{copy.noExpenses}</div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-8">
               {financials.expensesByCategory.map((cat) => (
@@ -614,7 +747,7 @@ export default function FinancialDashboard() {
                       <span className="text-2xl grayscale group-hover:grayscale-0 transition-all">{cat.icon}</span>
                       <div>
                         <p className="text-lg font-black text-slate-800 uppercase tracking-tighter leading-none">{cat.label}</p>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">{cat.count} FACTURAS</p>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">{cat.count} {copy.invoices}</p>
                       </div>
                     </div>
                     <div className="text-right">
@@ -638,27 +771,27 @@ export default function FinancialDashboard() {
       {/* Recent Expenses Table */}
       <div className="bg-white border border-slate-100 rounded-[48px] overflow-hidden shadow-sm">
         <div className="px-10 py-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/30">
-          <h2 className="text-sm font-black text-slate-800 tracking-[0.3em] uppercase">Transacciones Recientes</h2>
+          <h2 className="text-sm font-black text-slate-800 tracking-[0.3em] uppercase">{copy.recentTransactions}</h2>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="bg-slate-50/50">
-                <th className="px-10 py-6 text-left text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Date / Vendor</th>
-                <th className="px-10 py-6 text-left text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Description</th>
-                <th className="px-10 py-6 text-left text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Category</th>
-                <th className="px-10 py-6 text-right text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Amount</th>
-                <th className="px-10 py-6 text-right text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Acción</th>
+                <th className="px-10 py-6 text-left text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">{copy.dateVendor}</th>
+                <th className="px-10 py-6 text-left text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">{copy.description}</th>
+                <th className="px-10 py-6 text-left text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">{copy.category}</th>
+                <th className="px-10 py-6 text-right text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">{copy.amount}</th>
+                <th className="px-10 py-6 text-right text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">{copy.action}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {filteredExpenses.slice(0, 10).map((expense) => {
-                const category = EXPENSE_CATEGORIES.find((c) => c.value === expense.category);
+                const category = expenseCategories.find((c) => c.value === expense.category);
                 return (
                   <tr key={expense.id} className="hover:bg-slate-50 transition-all group">
                     <td className="px-10 py-8">
                       <div className="text-lg font-black text-slate-800 uppercase tracking-tighter leading-none mb-1">
-                        {new Date(expense.date + 'T00:00:00').toLocaleDateString('en-US', { day: 'numeric', month: 'short' })}
+                        {new Date(expense.date + 'T00:00:00').toLocaleDateString(displayLocale, { day: 'numeric', month: 'short' })}
                       </div>
                       <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{expense.vendor || '—'}</div>
                     </td>
@@ -698,7 +831,7 @@ export default function FinancialDashboard() {
             <div className="px-6 sm:px-10 py-6 sm:py-8 flex items-start sm:items-center justify-between gap-4 border-b border-slate-100">
               <div className="space-y-2">
                 <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">
-                  Payment details • {new Date(payoutStartDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                  {copy.paymentDetails} • {new Date(payoutStartDate + 'T00:00:00').toLocaleDateString(displayLocale, { month: 'long', year: 'numeric' })}
                 </p>
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 rounded-2xl bg-slate-900 text-white flex items-center justify-center font-black text-lg overflow-hidden">
@@ -713,7 +846,7 @@ export default function FinancialDashboard() {
                       {payoutDetail.employee.firstName} {payoutDetail.employee.lastName}
                     </h3>
                     <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400 mt-1">
-                      {payoutDetail.bookings.length} {payoutDetail.bookings.length === 1 ? 'booking' : 'bookings'}
+                      {payoutDetail.bookings.length} {payoutDetail.bookings.length === 1 ? copy.booking : copy.bookingsLower}
                     </p>
                   </div>
                 </div>
@@ -732,21 +865,21 @@ export default function FinancialDashboard() {
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.25em] text-slate-500">
                   {payoutDetail.employee.employmentType === 'self-employed' 
-                    ? 'Total Revenue (50% Deposit)' 
-                    : 'Total Revenue (100%)'}
+                    ? copy.totalRevenueDeposit
+                    : copy.totalRevenueFull}
                 </p>
                 <p className="text-3xl font-black text-rose-600">{formatCurrency(payoutDetail.totalRevenue)}</p>
               </div>
               <div className="text-right">
-                <p className="text-xs font-black uppercase tracking-[0.25em] text-slate-500">Total Services</p>
-                <p className="text-xl font-black text-slate-900">{payoutDetail.bookings.length} BOOKINGS</p>
+                <p className="text-xs font-black uppercase tracking-[0.25em] text-slate-500">{copy.totalServices}</p>
+                <p className="text-xl font-black text-slate-900">{payoutDetail.bookings.length} {copy.bookings}</p>
               </div>
             </div>
 
             <div className="flex-1 min-h-0 overflow-y-auto px-6 sm:px-10 py-6 space-y-4">
               {payoutDetail.bookings.length === 0 ? (
                 <div className="text-center py-12 text-slate-300 font-bold uppercase tracking-widest text-xs">
-                  No bookings for this month.
+                  {copy.noBookingsMonth}
                 </div>
               ) : (
                 payoutDetail.bookings.map((booking) => {
@@ -758,10 +891,10 @@ export default function FinancialDashboard() {
                     >
                       <div className="space-y-1">
                         <p className="text-sm font-black text-slate-900 uppercase tracking-tight">
-                          {service?.serviceName || 'Service'}
+                          {service?.serviceName || copy.serviceFallback}
                         </p>
                         <p className="text-xs font-bold text-slate-500 uppercase tracking-[0.2em]">
-                          {new Date(booking.bookingDate + 'T00:00:00').toLocaleDateString('en-US', {
+                          {new Date(booking.bookingDate + 'T00:00:00').toLocaleDateString(displayLocale, {
                             day: '2-digit',
                             month: 'short',
                             year: 'numeric',
@@ -774,7 +907,7 @@ export default function FinancialDashboard() {
                           {formatCurrency(getBookingAmount(booking))}
                         </p>
                         <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600">
-                          {booking.status === 'completed' ? 'Paid' : booking.status}
+                          {booking.status === 'completed' ? copy.paid : booking.status}
                         </p>
                       </div>
                     </div>
@@ -788,7 +921,7 @@ export default function FinancialDashboard() {
                 onClick={() => setPayoutDetail(null)}
                 className="px-8 py-3 text-sm font-black uppercase tracking-[0.2em] text-slate-500 hover:text-slate-900 transition-colors"
               >
-                Close
+                {copy.close}
               </button>
             </div>
           </div>
@@ -801,8 +934,8 @@ export default function FinancialDashboard() {
           <div className="w-full max-w-2xl bg-white rounded-[32px] sm:rounded-[40px] shadow-2xl overflow-hidden border-2 border-white/20 max-h-[90vh] flex flex-col">
             <div className="px-6 sm:px-12 py-6 sm:py-10 flex items-center justify-between border-b border-slate-100">
               <div>
-                <h2 className="text-3xl font-black text-slate-800 tracking-tighter uppercase">New Expense</h2>
-                <p className="text-slate-500 font-bold uppercase tracking-widest text-xs mt-1">Salon Operations</p>
+                <h2 className="text-3xl font-black text-slate-800 tracking-tighter uppercase">{copy.newExpense}</h2>
+                <p className="text-slate-500 font-bold uppercase tracking-widest text-xs mt-1">{copy.salonOperations}</p>
               </div>
               <button
                 onClick={() => setShowAddExpense(false)}
@@ -817,23 +950,23 @@ export default function FinancialDashboard() {
             <div className="p-6 sm:p-12 space-y-8 flex-1 min-h-0 overflow-y-auto">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-2">
-                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">Concepto</label>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">{copy.concept}</label>
                   <input
                     type="text"
                     value={newExpense.name}
                     onChange={(e) => setNewExpense({ ...newExpense, name: e.target.value })}
                     className="w-full px-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-2xl text-slate-800 font-bold focus:border-rose-500 transition-all outline-none"
-                    placeholder="ALQUILER, PRODUCTOS..."
+                    placeholder={copy.placeholderConcept}
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">Category</label>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">{copy.category}</label>
                   <select
                     value={newExpense.category}
                     onChange={(e) => setNewExpense({ ...newExpense, category: e.target.value as ExpenseCategory })}
                     className="w-full px-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-2xl text-slate-800 font-black focus:border-rose-500 transition-all outline-none appearance-none"
                   >
-                    {EXPENSE_CATEGORIES.map((cat) => (
+                    {expenseCategories.map((cat) => (
                       <option key={cat.value} value={cat.value}>{cat.icon} {cat.label.toUpperCase()}</option>
                     ))}
                   </select>
@@ -842,7 +975,7 @@ export default function FinancialDashboard() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-2">
-                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">Amount (€)</label>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">{copy.amountEuro}</label>
                   <input
                     type="number"
                     value={newExpense.amount}
@@ -852,7 +985,7 @@ export default function FinancialDashboard() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">Fecha</label>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">{copy.date}</label>
                   <input
                     type="date"
                     value={newExpense.date}
@@ -863,7 +996,7 @@ export default function FinancialDashboard() {
               </div>
 
               <div className="space-y-2">
-                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">Vendor (Optional)</label>
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">{copy.vendorOptional}</label>
                 <input
                   type="text"
                   value={newExpense.vendor}
@@ -879,13 +1012,13 @@ export default function FinancialDashboard() {
                 onClick={() => setShowAddExpense(false)}
                 className="px-8 py-4 text-sm font-bold text-slate-400 uppercase tracking-widest hover:text-slate-800 transition-colors"
               >
-                Cancelar
+                {copy.cancel}
               </button>
               <button
                 onClick={handleAddExpense}
                 className="px-12 py-4 text-sm font-black text-white bg-slate-800 rounded-2xl hover:bg-rose-600 hover:scale-[1.02] active:scale-[0.98] transition-all shadow-xl shadow-rose-200 uppercase tracking-[0.2em]"
               >
-                REGISTRAR GASTO
+                {copy.registerExpense}
               </button>
             </div>
           </div>

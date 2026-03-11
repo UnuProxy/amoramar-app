@@ -17,6 +17,10 @@ import { BrandLogo } from '@/shared/components/BrandLogo';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { getServiceDescriptionSearchText } from '@/shared/lib/serviceLocalization';
 import {
+  getServiceMainGroupForCategory,
+  type ServiceMainGroupKey,
+} from '@/shared/lib/serviceCategories';
+import {
   ArrowLeft,
   Check,
   Gift,
@@ -42,7 +46,7 @@ type TimeSlot = {
   available: boolean;
 };
 
-type MajorGroupKey = 'manicure' | 'pedicure-care' | 'manicure-pedicure' | 'combinations' | 'hair' | 'beauty';
+type MajorGroupKey = ServiceMainGroupKey;
 
 type LocalizedSubgroup = {
   key: string;
@@ -72,12 +76,9 @@ const BEAUTY_SUBGROUP_ORDER = [
   'professional-makeup',
 ] as const;
 
-const MANICURE_PEDICURE_SUBGROUP_ORDER = [
+const NAILS_SUBGROUP_ORDER = [
   'manicure',
   'pedicure',
-] as const;
-
-const COMBINATIONS_SUBGROUP_ORDER = [
   'with-cleaning',
   'without-cleaning',
 ] as const;
@@ -109,7 +110,7 @@ const SUBGROUP_NOTES: Partial<Record<MajorGroupKey, Record<string, { es: string;
       es: 'Si se requiere compra de cabello, la consulta previa es obligatoria antes de reservar.',
     },
   },
-  beauty: {
+  'beauty-face': {
     lamination: {
       en: 'Lash and brow tint are included in lamination services.',
       es: 'La tintura de pestañas y cejas está incluida en los servicios de laminación.',
@@ -127,7 +128,7 @@ const SUBGROUP_NOTES: Partial<Record<MajorGroupKey, Record<string, { es: string;
       es: 'El retoque tiene precio fijo independientemente del procedimiento inicial.',
     },
   },
-  'manicure-pedicure': {
+  nails: {
     manicure: {
       en: 'Gel, refill and extension services include manicure and removal of previous material.\nBasic design for 1-2 nails (stones, stickers, glitter) included.\nFrench included.\nWe do not offer hand-painted designs.',
       es: 'Los servicios de gel, relleno y extensiones incluyen manicura y retirada del material previo.\nDiseno basico para 1-2 unas (piedras, pegatinas, brillos) incluido.\nFrench incluido.\nNo realizamos disenos pintados a mano.',
@@ -136,8 +137,6 @@ const SUBGROUP_NOTES: Partial<Record<MajorGroupKey, Record<string, { es: string;
       en: 'Sole treatments use professional KART products and are recommended in winter or 2 weeks before/after sun or sea exposure.\nA salon consultation is required before these treatments to create a personalized protocol.\nClients with diabetes or neuropathy should not book these treatments; medical protocol is required.',
       es: 'Los tratamientos de planta se realizan con productos profesionales KART y se recomiendan en invierno o 2 semanas antes/despues de exposicion al sol o al mar.\nAntes del tratamiento se realiza consulta en salon para crear un protocolo personalizado.\nLas personas con diabetes o neuropatia no deben reservar estas sesiones; se requiere protocolo medico.',
     },
-  },
-  combinations: {
     'with-cleaning': {
       en: 'Combinations with classic cleaning of the sole of the foot.',
       es: 'Combinaciones con limpieza clasica de la planta del pie.',
@@ -290,26 +289,27 @@ const getCombinationsSubgroup = (service: Service, language: 'es' | 'en'): Local
   };
 };
 
-const MAJOR_GROUP_ORDER: MajorGroupKey[] = ['manicure', 'pedicure-care', 'manicure-pedicure', 'combinations', 'hair', 'beauty'];
-const BOOKING_GROUP_ORDER: MajorGroupKey[] = ['beauty', 'manicure-pedicure', 'combinations', 'hair'];
+const MAJOR_GROUP_ORDER: MajorGroupKey[] = ['beauty-face', 'nails', 'hair', 'estetica'];
+const BOOKING_GROUP_ORDER: MajorGroupKey[] = ['beauty-face', 'nails', 'hair', 'estetica'];
 
 const STEP1_GROUP_CONFIG: Array<{ key: MajorGroupKey; name: string; icon: LucideIcon }> = [
-  { key: 'beauty', name: 'Beauty', icon: Sparkles },
-  { key: 'manicure-pedicure', name: 'Manicure & Pedicure', icon: Hand },
-  { key: 'combinations', name: 'Manicure & Pedicure Combinations', icon: Gift },
+  { key: 'beauty-face', name: 'Brows, Lashes, Permanent Makeup & Makeup', icon: Sparkles },
+  { key: 'nails', name: 'Manicure, Pedicure & Combinations', icon: Hand },
   { key: 'hair', name: 'Hair', icon: Scissors },
+  { key: 'estetica', name: 'Estetica', icon: Gift },
 ];
 
 const MAJOR_GROUP_META: Record<MajorGroupKey, { es: string; en: string }> = {
-  manicure: { es: 'Manicura', en: 'Nails / Manicure' },
-  'pedicure-care': { es: 'Pedicura y Cuidado', en: 'Pedicure & Care' },
-  'manicure-pedicure': { es: 'Manicura y Pedicura', en: 'Manicure & Pedicure' },
-  combinations: {
-    es: 'Manicura & Pedicura - Combinaciones',
-    en: 'Manicure & Pedicure Combinations',
+  'beauty-face': {
+    es: 'Cejas, Pestanas, Maquillaje Permanente y Maquillaje',
+    en: 'Brows, Lashes, Permanent Makeup & Makeup',
+  },
+  nails: {
+    es: 'Manicura, Pedicura y Combinaciones',
+    en: 'Manicure, Pedicure & Combinations',
   },
   hair: { es: 'Peluqueria', en: 'Hair' },
-  beauty: { es: 'Belleza', en: 'Beauty' },
+  estetica: { es: 'Estetica', en: 'Estetica' },
 };
 
 type GroupTone = {
@@ -327,33 +327,7 @@ type GroupTone = {
 };
 
 const GROUP_TONE: Record<MajorGroupKey, GroupTone> = {
-  manicure: {
-    activeCard: 'border-rose-300 bg-rose-50/70',
-    activeTitle: 'text-rose-900',
-    activeMeta: 'text-rose-700',
-    activeBar: 'from-rose-400/80 via-rose-300/60 to-transparent',
-    badge: 'bg-rose-100',
-    badgeText: 'text-rose-700',
-    panel: 'bg-rose-50/30',
-    panelBorder: 'border-rose-200/70',
-    serviceHover: 'hover:border-rose-300 hover:shadow-rose-100/70',
-    serviceButton: 'bg-rose-700 group-hover:bg-rose-800',
-    subgroupBand: 'bg-rose-50 border-rose-100',
-  },
-  'pedicure-care': {
-    activeCard: 'border-cyan-300 bg-cyan-50/70',
-    activeTitle: 'text-cyan-900',
-    activeMeta: 'text-cyan-700',
-    activeBar: 'from-cyan-400/80 via-cyan-300/60 to-transparent',
-    badge: 'bg-cyan-100',
-    badgeText: 'text-cyan-700',
-    panel: 'bg-cyan-50/30',
-    panelBorder: 'border-cyan-200/70',
-    serviceHover: 'hover:border-cyan-300 hover:shadow-cyan-100/70',
-    serviceButton: 'bg-cyan-700 group-hover:bg-cyan-800',
-    subgroupBand: 'bg-cyan-50 border-cyan-100',
-  },
-  'manicure-pedicure': {
+  nails: {
     activeCard: 'border-amber-300 bg-amber-50/70',
     activeTitle: 'text-amber-900',
     activeMeta: 'text-amber-700',
@@ -365,19 +339,6 @@ const GROUP_TONE: Record<MajorGroupKey, GroupTone> = {
     serviceHover: 'hover:border-amber-300 hover:shadow-amber-100/70',
     serviceButton: 'bg-amber-700 group-hover:bg-amber-800',
     subgroupBand: 'bg-amber-50 border-amber-100',
-  },
-  combinations: {
-    activeCard: 'border-stone-300 bg-stone-50/70',
-    activeTitle: 'text-stone-900',
-    activeMeta: 'text-stone-700',
-    activeBar: 'from-stone-400/80 via-stone-300/60 to-transparent',
-    badge: 'bg-stone-100',
-    badgeText: 'text-stone-700',
-    panel: 'bg-stone-50/30',
-    panelBorder: 'border-stone-200/70',
-    serviceHover: 'hover:border-stone-300 hover:shadow-stone-100/70',
-    serviceButton: 'bg-stone-800 group-hover:bg-stone-900',
-    subgroupBand: 'bg-stone-50 border-stone-100',
   },
   hair: {
     activeCard: 'border-emerald-300 bg-emerald-50/70',
@@ -392,7 +353,7 @@ const GROUP_TONE: Record<MajorGroupKey, GroupTone> = {
     serviceButton: 'bg-emerald-700 group-hover:bg-emerald-800',
     subgroupBand: 'bg-emerald-50 border-emerald-100',
   },
-  beauty: {
+  'beauty-face': {
     activeCard: 'border-amber-300 bg-amber-50/70',
     activeTitle: 'text-amber-900',
     activeMeta: 'text-amber-700',
@@ -405,31 +366,23 @@ const GROUP_TONE: Record<MajorGroupKey, GroupTone> = {
     serviceButton: 'bg-amber-700 group-hover:bg-amber-800',
     subgroupBand: 'bg-amber-50 border-amber-100',
   },
+  estetica: {
+    activeCard: 'border-violet-300 bg-violet-50/70',
+    activeTitle: 'text-violet-900',
+    activeMeta: 'text-violet-700',
+    activeBar: 'from-violet-400/80 via-violet-300/60 to-transparent',
+    badge: 'bg-violet-100',
+    badgeText: 'text-violet-700',
+    panel: 'bg-violet-50/30',
+    panelBorder: 'border-violet-200/70',
+    serviceHover: 'hover:border-violet-300 hover:shadow-violet-100/70',
+    serviceButton: 'bg-violet-700 group-hover:bg-violet-800',
+    subgroupBand: 'bg-violet-50 border-violet-100',
+  },
 };
 
 const getMajorGroupForService = (service: Service): MajorGroupKey => {
-  const category = service.category || 'other';
-  const serviceName = service.serviceName.toLowerCase();
-
-  if (category === 'manicure' || category === 'nail-art-care-manicure') return 'manicure-pedicure';
-  if (category === 'pedicure-care' || category === 'professional-foot-services' || category === 'foot-sole-treatments') return 'manicure-pedicure';
-  if (category === 'nail-art-care-combinations') return 'combinations';
-  if (String(category).startsWith('hair-')) return 'hair';
-  if (String(category).startsWith('beauty-')) return 'beauty';
-
-  if (serviceName.includes('pedicure') || serviceName.includes('planta') || serviceName.includes('sole') || serviceName.includes('foot')) {
-    return 'manicure-pedicure';
-  }
-  if (serviceName.includes('combo') || serviceName.includes('combin')) {
-    return 'combinations';
-  }
-  if (serviceName.includes('manicure') || serviceName.includes('gel') || serviceName.includes('nail')) {
-    return 'manicure-pedicure';
-  }
-  if (/(brow|lash|lamin|makeup|maquill|ceja|pesta|eyeliner|labio|lip)/.test(serviceName)) {
-    return 'beauty';
-  }
-  return 'hair';
+  return getServiceMainGroupForCategory(service.category, service.serviceName);
 };
 
 const getServiceSubgroup = (service: Service, language: 'es' | 'en'): LocalizedSubgroup => {
@@ -441,14 +394,20 @@ const getServiceSubgroup = (service: Service, language: 'es' | 'en'): LocalizedS
   if (majorGroup === 'hair') {
     return getHairSubgroup(service, language);
   }
-  if (majorGroup === 'beauty') {
+  if (majorGroup === 'beauty-face') {
     return getBeautySubgroup(service, language);
   }
-  if (majorGroup === 'manicure-pedicure') {
+  if (majorGroup === 'nails') {
+    if (category === 'nail-art-care-combinations') {
+      return getCombinationsSubgroup(service, language);
+    }
     return getManicurePedicureSubgroup(service, language);
   }
-  if (majorGroup === 'combinations') {
-    return getCombinationsSubgroup(service, language);
+  if (majorGroup === 'estetica') {
+    return {
+      key: 'lamination',
+      label: language === 'es' ? 'Estetica' : 'Estetica',
+    };
   }
 
   if (category === 'manicure' || category === 'nail-art-care-manicure') {
@@ -482,23 +441,16 @@ const sortSubgroupsForGroup = (
   groupKey: MajorGroupKey,
   subgroups: Array<{ key: string; label: string; services: Service[] }>
 ): Array<{ key: string; label: string; services: Service[] }> => {
-  if (
-    groupKey !== 'hair' &&
-    groupKey !== 'beauty' &&
-    groupKey !== 'manicure-pedicure' &&
-    groupKey !== 'combinations'
-  ) {
+  if (groupKey !== 'hair' && groupKey !== 'beauty-face' && groupKey !== 'nails') {
     return subgroups.sort((a, b) => a.label.localeCompare(b.label));
   }
 
   const subgroupOrder =
     groupKey === 'hair'
       ? HAIR_SUBGROUP_ORDER
-      : groupKey === 'beauty'
+      : groupKey === 'beauty-face'
         ? BEAUTY_SUBGROUP_ORDER
-        : groupKey === 'manicure-pedicure'
-          ? MANICURE_PEDICURE_SUBGROUP_ORDER
-          : COMBINATIONS_SUBGROUP_ORDER;
+        : NAILS_SUBGROUP_ORDER;
   const orderIndex = new Map<string, number>(subgroupOrder.map((key, index) => [key, index]));
   return subgroups.sort((a, b) => {
     const aIndex = orderIndex.has(a.key) ? orderIndex.get(a.key)! : Number.MAX_SAFE_INTEGER;
@@ -894,7 +846,7 @@ export default function BookAllServicesPage() {
     ? groupedCatalog.find((group) => group.key === activeCategory) || null
     : null;
   const totalVisibleServices = filteredServices.length;
-  const activeGroupTone = activeGroup ? GROUP_TONE[activeGroup.key] : GROUP_TONE.beauty;
+  const activeGroupTone = activeGroup ? GROUP_TONE[activeGroup.key] : GROUP_TONE['beauty-face'];
   const [showLoginModal, setShowLoginModal] = useState<boolean>(false);
   const [authModalMode, setAuthModalMode] = useState<'login' | 'signup'>('login');
   const [pendingClientDataRefresh, setPendingClientDataRefresh] = useState<boolean>(false);
@@ -1532,6 +1484,7 @@ export default function BookAllServicesPage() {
   const groupByKey = new Map(groupedCatalog.map((group) => [group.key, group]));
   const step1Groups = STEP1_GROUP_CONFIG.map((groupConfig) => ({
     ...groupConfig,
+    name: MAJOR_GROUP_META[groupConfig.key][language],
     count: groupByKey.get(groupConfig.key)?.count ?? 0,
   }));
   const handleSelectGroup = (groupKey: MajorGroupKey) => {
@@ -1707,10 +1660,10 @@ export default function BookAllServicesPage() {
                     </div>
                   ) : activeGroup ? (
                           <div className={cn(
-                            activeGroup.key === 'hair' || activeGroup.key === 'beauty' || activeGroup.key === 'manicure-pedicure'
+                            activeGroup.key === 'hair' || activeGroup.key === 'beauty-face' || activeGroup.key === 'nails'
                               ? 'p-0'
                               : 'rounded-[20px] bg-white/95 p-4 sm:p-6',
-                            activeGroup.key === 'hair' || activeGroup.key === 'beauty' || activeGroup.key === 'manicure-pedicure' ? '' : activeGroupTone.panel
+                            activeGroup.key === 'hair' || activeGroup.key === 'beauty-face' || activeGroup.key === 'nails' ? '' : activeGroupTone.panel
                           )}>
                             {activeGroup.count === 0 ? (
                               <div className="rounded-2xl border border-dashed border-stone-200 bg-stone-50/60 p-8 text-center">
