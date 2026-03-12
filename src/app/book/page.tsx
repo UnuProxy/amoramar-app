@@ -23,6 +23,7 @@ import {
 import {
   ArrowLeft,
   Check,
+  LogIn,
 } from 'lucide-react';
 
 type Step = 1 | 2 | 3 | 4;
@@ -1506,12 +1507,12 @@ export default function BookAllServicesPage() {
       {/* Header */}
       <header className="fixed inset-x-0 top-0 z-50 bg-white/80 backdrop-blur-xl border-b border-neutral-100">
         <div className="mx-auto max-w-7xl px-3 sm:px-8">
-          <div className="h-14 sm:h-16 flex items-center justify-between">
+          <div className="flex h-16 items-center justify-between gap-3 sm:gap-4">
             <Link href="/" className="transition-opacity hover:opacity-80">
-              <BrandLogo className="h-11 w-36 sm:h-12 sm:w-40" priority />
+              <BrandLogo className="h-12 w-36 sm:h-12 sm:w-40" priority />
             </Link>
             
-            <div className="flex items-center gap-1.5 sm:gap-3">
+            <div className="flex items-center justify-end gap-2 sm:gap-3">
               <LanguageSwitcher className="border-stone-200 bg-white/90 shadow-none" />
               {user ? (
                 <>
@@ -1520,7 +1521,7 @@ export default function BookAllServicesPage() {
                   </span>
                   <Link
                     href="/client/bookings"
-                    className="px-3 sm:px-5 py-2 sm:py-2.5 text-[10px] sm:text-xs font-black text-white bg-stone-700 hover:bg-neutral-900 uppercase tracking-wider sm:tracking-widest transition rounded-xl flex items-center gap-1.5 sm:gap-2"
+                    className="min-w-0 px-3 sm:px-5 py-2 sm:py-2.5 text-[10px] sm:text-xs font-black text-white bg-stone-700 hover:bg-neutral-900 uppercase tracking-[0.14em] sm:tracking-widest transition rounded-xl flex items-center gap-1.5 sm:gap-2"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -1532,18 +1533,11 @@ export default function BookAllServicesPage() {
                 <>
                   <button
                     onClick={() => openAuthModal('login')}
-                    className="px-2 sm:px-4 py-2 sm:py-2.5 text-[10px] sm:text-xs font-black text-neutral-600 hover:text-stone-700 uppercase tracking-wider sm:tracking-widest transition"
+                    aria-label={copy.login}
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-stone-200 bg-white text-stone-600 transition hover:border-stone-300 hover:text-stone-800 sm:h-auto sm:w-auto sm:gap-2 sm:rounded-xl sm:px-4 sm:py-2.5 sm:text-xs sm:font-black sm:uppercase sm:tracking-widest"
                   >
-                    {copy.login}
-                  </button>
-                  <button
-                    onClick={() => openAuthModal('signup')}
-                    className="px-3 sm:px-5 py-2 sm:py-2.5 text-[10px] sm:text-xs font-black text-white bg-stone-700 hover:bg-neutral-900 uppercase tracking-wider sm:tracking-widest transition rounded-xl flex items-center gap-1.5 sm:gap-2"
-                  >
-                    <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-                    </svg>
-                    {copy.createAccount}
+                    <LogIn className="h-4 w-4" />
+                    <span className="hidden sm:inline">{copy.login}</span>
                   </button>
                 </>
               )}
@@ -1552,7 +1546,7 @@ export default function BookAllServicesPage() {
         </div>
       </header>
 
-      <main className="pt-16 sm:pt-20 pb-8 sm:pb-12 px-3 sm:px-8 lg:pb-6 lg:flex lg:flex-col">
+      <main className="pt-20 sm:pt-20 pb-8 sm:pb-12 px-3 sm:px-8 lg:pb-6 lg:flex lg:flex-col">
         <div className="max-w-6xl mx-auto lg:flex lg:flex-col">
           {/* Booking Header + Progress */}
           <div className="mb-5 border-b border-stone-200/70 pb-4 sm:mb-6 sm:pb-5">
@@ -1566,7 +1560,7 @@ export default function BookAllServicesPage() {
                 <ArrowLeft className="h-5 w-5" />
               </button>
               <div className="min-w-0">
-                <h1 className="text-4xl sm:text-4xl lg:text-5xl font-semibold tracking-tight text-stone-800 leading-tight">
+                <h1 className="text-[2.2rem] sm:text-4xl lg:text-5xl font-semibold tracking-tight text-stone-800 leading-[0.95] sm:leading-tight">
                   {copy.title}
                 </h1>
                 <p className="mt-1 text-stone-500 font-medium text-sm sm:text-base">
@@ -1596,7 +1590,7 @@ export default function BookAllServicesPage() {
                 </div>
               ) : (
                 <>
-                  <h2 className="text-3xl sm:text-2xl font-semibold text-stone-800">{copy.chooseServiceGroupTitle}</h2>
+                  <h2 className="text-[2rem] sm:text-2xl font-semibold leading-tight text-stone-800">{copy.chooseServiceGroupTitle}</h2>
                   <div className="mt-4 grid grid-cols-2 gap-3 sm:gap-4">
                     {step1Groups.map((group) => {
                       const isSelected = selectedCategory === group.key;
@@ -1606,7 +1600,7 @@ export default function BookAllServicesPage() {
                           type="button"
                           onClick={() => handleSelectGroup(group.key)}
                           className={cn(
-                            'relative min-h-[156px] rounded-2xl border bg-white px-3 py-4 text-center transition-all flex flex-col items-center justify-center',
+                            'relative min-h-[118px] sm:min-h-[156px] rounded-2xl border bg-white px-3 py-4 text-center transition-all flex flex-col items-center justify-center',
                             isSelected
                               ? 'border-emerald-500 ring-2 ring-emerald-200/70'
                               : 'border-stone-200 hover:border-stone-300'
@@ -1617,11 +1611,11 @@ export default function BookAllServicesPage() {
                               <Check className="h-4 w-4" />
                             </span>
                           )}
-                          <p className="text-[20px] sm:text-base font-semibold leading-tight text-stone-800">
+                          <p className="text-[16px] sm:text-base font-semibold leading-snug text-stone-800">
                             {group.name}
                           </p>
                           {group.count > 0 && (
-                            <p className="mt-1 text-sm sm:text-xs text-stone-400">
+                            <p className="mt-1 text-xs sm:text-xs text-stone-400">
                               {group.count} {copy.services}
                             </p>
                           )}

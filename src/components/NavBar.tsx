@@ -14,10 +14,10 @@ export function NavBar() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-[#DDD3C8]/70 bg-[#F1F2F0]/90 backdrop-blur">
-      <nav className="mx-auto flex h-20 w-full max-w-6xl items-center justify-between px-4 sm:px-6 lg:px-8">
+      <nav className="mx-auto flex h-28 w-full max-w-6xl items-center justify-between px-4 sm:px-6 lg:px-8">
         <a href="/" className="inline-flex items-center">
           <BrandLogo
-            className="h-11 sm:h-12"
+            className="h-20 w-44 sm:h-24 sm:w-56"
             imageClassName="drop-shadow-none"
             priority
           />
