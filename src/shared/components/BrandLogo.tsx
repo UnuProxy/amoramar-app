@@ -11,7 +11,7 @@ export function BrandLogo({ className, imageClassName, priority = false }: Brand
   return (
     <div className={cn('inline-flex h-10 items-center justify-center', className)}>
       <Image
-        src="/icons/AmorAmarLogo.png"
+        src="/icons/Logo-black.png"
         alt="Amor Amar"
         width={640}
         height={220}

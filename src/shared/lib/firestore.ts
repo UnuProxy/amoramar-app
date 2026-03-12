@@ -201,7 +201,10 @@ export const updateEmployee = async (employeeId: string, updates: Partial<Employ
   await updateDoc(docRef, cleanUpdates);
 };
 
-export const deleteEmployee = async (employeeId: string): Promise<void> => {
+export const deleteEmployee = async (
+  employeeId: string,
+  options: { preserveUser?: boolean } = {}
+): Promise<void> => {
   try {
     console.log('[deleteEmployee] Starting deletion for employee ID:', employeeId);
     
@@ -226,8 +229,8 @@ export const deleteEmployee = async (employeeId: string): Promise<void> => {
     await deleteDoc(docRef);
     console.log('[deleteEmployee] Employee document deleted successfully');
 
-    // Delete the associated user document if it exists
-    if (employee.userId) {
+    // Delete the associated user document unless explicitly preserving it.
+    if (employee.userId && !options.preserveUser) {
       try {
         console.log('[deleteEmployee] Deleting user document for userId:', employee.userId);
         const userDocRef = doc(checkDb(), 'users', employee.userId);
@@ -240,6 +243,8 @@ export const deleteEmployee = async (employeeId: string): Promise<void> => {
         });
         // Continue even if user deletion fails
       }
+    } else if (employee.userId && options.preserveUser) {
+      console.log('[deleteEmployee] Preserving linked user document for userId:', employee.userId);
     }
 
     console.log('[deleteEmployee] Deletion completed successfully');

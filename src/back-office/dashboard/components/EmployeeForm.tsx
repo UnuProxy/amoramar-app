@@ -11,6 +11,7 @@ import { createUserWithEmailAndPassword, signOut } from 'firebase/auth';
 import { getSecondaryAuth } from '@/shared/lib/firebase';
 import type { Employee, EmployeeFormData, EmploymentType, Service } from '@/shared/lib/types';
 import { useLanguage } from '@/shared/context/LanguageContext';
+import { useAuth } from '@/shared/hooks/useAuth';
 import {
   formatServiceCategory,
   getOrderedServiceCategories,
@@ -23,9 +24,18 @@ interface EmployeeFormProps {
   employee?: Employee;
 }
 
+const EMPLOYEE_POSITION_OPTIONS = [
+  'Brows, Lashes, Permanent Makeup & Makeup',
+  'Manicure, Pedicure & Combinations',
+  'Hair',
+  'Estetica',
+  'Receptionist',
+] as const;
+
 export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
   const router = useRouter();
   const { language } = useLanguage();
+  const { user } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -361,8 +371,12 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
   const handleDelete = async () => {
     if (!employee) return;
 
+    const preserveUser = user?.role === 'owner' && user.id === employee.userId;
+
     const confirmDelete = window.confirm(
-      `Are you sure you want to delete ${employee.firstName} ${employee.lastName}? This action cannot be undone.\n\nThis will:\n- Remove their employee account\n- Remove their login access\n- Keep their booking history for records`
+      preserveUser
+        ? `Are you sure you want to remove ${employee.firstName} ${employee.lastName} from Team? This will delete only the employee profile and keep your owner account active.\n\nThis will:\n- Remove the employee profile from Team\n- Keep your owner/admin login access\n- Keep booking history for records`
+        : `Are you sure you want to delete ${employee.firstName} ${employee.lastName}? This action cannot be undone.\n\nThis will:\n- Remove their employee account\n- Remove their login access\n- Keep their booking history for records`
     );
 
     if (!confirmDelete) return;
@@ -387,7 +401,7 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
 
       // Delete through the authenticated client session so Firestore rules
       // evaluate the actual signed-in owner/admin instead of an anonymous API request.
-      await deleteEmployee(employee.id);
+      await deleteEmployee(employee.id, { preserveUser });
 
       // Success - redirect to employees list
       console.log('Employee deleted successfully, redirecting...');
@@ -498,14 +512,11 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
             defaultValue={employee?.position || ''}
           >
             <option value="" disabled>Select a position</option>
-            <option value="Hair Stylist">Hair Stylist</option>
-            <option value="Barber">Barber</option>
-            <option value="Manicure / Pedicure">Manicure / Pedicure</option>
-            <option value="Esthetician">Esthetician</option>
-            <option value="Colorist">Colorist</option>
-            <option value="Receptionist">Receptionist</option>
-            <option value="Makeup Artist">Makeup Artist</option>
-            <option value="Other">Other</option>
+            {EMPLOYEE_POSITION_OPTIONS.map((position) => (
+              <option key={position} value={position}>
+                {position}
+              </option>
+            ))}
           </select>
           {errors.position?.message && (
             <p className="mt-2 text-xs text-red-600 font-light">{errors.position.message}</p>

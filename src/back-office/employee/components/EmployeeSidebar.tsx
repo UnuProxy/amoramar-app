@@ -160,7 +160,7 @@ export const EmployeeSidebar: React.FC<EmployeeSidebarProps> = ({
         {/* Brand */}
         <div className="px-6 py-5 border-b border-neutral-100">
           <Link href="/employee" className="block">
-            <BrandLogo className="h-12 w-40" priority />
+            <BrandLogo className="h-20 w-56" priority />
             <p className="text-xs text-neutral-500 mt-1">Employee Portal</p>
           </Link>
         </div>

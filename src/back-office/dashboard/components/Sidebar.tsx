@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { useLanguage } from '@/shared/context/LanguageContext';
-import { getEmployees } from '@/shared/lib/firestore';
+import { getEmployeeByUserId } from '@/shared/lib/firestore';
 import { cn } from '@/shared/lib/utils';
 import { BrandLogo } from '@/shared/components/BrandLogo';
 import type { Employee } from '@/shared/lib/types';
@@ -53,6 +53,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [internalMobileMenuOpen, setInternalMobileMenuOpen] = useState(false);
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const toTitleCase = (value: string) =>
+    value
+      .split(/[\s._-]+/)
+      .filter(Boolean)
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+      .join(' ');
 
   const navigation = [
     {
@@ -139,12 +146,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
       }
 
       try {
-        if (user.role === 'employee') {
-          const employees = await getEmployees();
-          const foundEmployee = employees.find((e) => e.userId === user.id);
-          if (foundEmployee) {
-            setEmployee(foundEmployee);
-          }
+        const foundEmployee = await getEmployeeByUserId(user.id);
+        if (foundEmployee) {
+          setEmployee(foundEmployee);
         }
       } catch (error) {
         console.error('Error fetching employee data:', error);
@@ -160,11 +164,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
     if (loading) return t('loading');
     if (!user) return 'User';
     
-    if (user.role === 'employee' && employee) {
-      return `${employee.firstName} ${employee.lastName}`;
+    if (employee) {
+      return toTitleCase(`${employee.firstName} ${employee.lastName}`);
+    }
+
+    if (user.firstName || user.lastName) {
+      return toTitleCase(`${user.firstName || ''} ${user.lastName || ''}`.trim());
     }
     
-    return user.email?.split('@')[0] || 'Owner';
+    return toTitleCase(user.email?.split('@')[0] || 'Owner');
   };
 
   const getDisplayRole = () => {
@@ -172,6 +180,36 @@ export const Sidebar: React.FC<SidebarProps> = ({
     if (user.role === 'employee') return t('role_employee');
     return t('role_owner');
   };
+
+  const profileHref = user?.role === 'owner' ? '/dashboard/profile' : undefined;
+  const initials = employee
+    ? `${employee.firstName[0] || ''}${employee.lastName[0] || ''}`.toUpperCase()
+    : user?.email?.[0].toUpperCase() || 'A';
+
+  const profileCard = (
+    <div className="rounded-[24px] border border-stone-200/80 bg-[linear-gradient(145deg,rgba(255,255,255,0.98),rgba(248,245,241,0.98))] p-4 shadow-[0_18px_40px_rgba(28,25,23,0.08)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_22px_44px_rgba(28,25,23,0.12)]">
+      <div className="flex items-center gap-3">
+        <div className="relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-stone-700 text-sm font-semibold text-white ring-4 ring-white">
+          {employee?.profileImage ? (
+            <img src={employee.profileImage} alt={getDisplayName()} className="h-full w-full object-cover" />
+          ) : (
+            <span>{initials}</span>
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-semibold text-stone-900">{getDisplayName()}</p>
+          <p className="mt-0.5 text-xs font-medium tracking-[0.16em] text-stone-500 uppercase">{getDisplayRole()}</p>
+        </div>
+        {profileHref && (
+          <div className="flex h-8 w-8 items-center justify-center rounded-full border border-stone-200 bg-white text-stone-500">
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 
   return (
     <>
@@ -203,7 +241,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* Brand */}
         <div className="px-6 py-5 border-b border-slate-100">
           <Link href="/dashboard" className="block">
-            <BrandLogo className="h-12 w-40" priority />
+            <BrandLogo className="h-20 w-56" priority />
             <p className="text-xs text-slate-500 mt-1">{t('business_management')}</p>
           </Link>
         </div>
@@ -245,21 +283,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* User Profile + Logout */}
         <div className="border-t border-slate-100 bg-slate-50/40">
           <div className="px-6 py-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-sky-600 flex items-center justify-center text-white text-sm font-semibold">
-                {user && employee
-                  ? `${employee.firstName[0]}${employee.lastName[0]}`.toUpperCase()
-                  : user?.email?.[0].toUpperCase() || 'A'}
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-slate-900 truncate">
-                  {getDisplayName()}
-                </p>
-                <p className="text-xs text-slate-500">
-                  {getDisplayRole()}
-                </p>
-              </div>
-            </div>
+            {profileHref ? (
+              <Link href={profileHref} className="block">
+                {profileCard}
+              </Link>
+            ) : (
+              profileCard
+            )}
           </div>
           <div className="p-4 pt-0">
           <LogoutButton />

@@ -23,11 +23,6 @@ import {
 import {
   ArrowLeft,
   Check,
-  Gift,
-  Hand,
-  Scissors,
-  Sparkles,
-  type LucideIcon,
 } from 'lucide-react';
 
 type Step = 1 | 2 | 3 | 4;
@@ -292,11 +287,11 @@ const getCombinationsSubgroup = (service: Service, language: 'es' | 'en'): Local
 const MAJOR_GROUP_ORDER: MajorGroupKey[] = ['beauty-face', 'nails', 'hair', 'estetica'];
 const BOOKING_GROUP_ORDER: MajorGroupKey[] = ['beauty-face', 'nails', 'hair', 'estetica'];
 
-const STEP1_GROUP_CONFIG: Array<{ key: MajorGroupKey; name: string; icon: LucideIcon }> = [
-  { key: 'beauty-face', name: 'Brows, Lashes, Permanent Makeup & Makeup', icon: Sparkles },
-  { key: 'nails', name: 'Manicure, Pedicure & Combinations', icon: Hand },
-  { key: 'hair', name: 'Hair', icon: Scissors },
-  { key: 'estetica', name: 'Estetica', icon: Gift },
+const STEP1_GROUP_CONFIG: Array<{ key: MajorGroupKey; name: string }> = [
+  { key: 'beauty-face', name: 'Brows, Lashes, Permanent Makeup & Makeup' },
+  { key: 'nails', name: 'Manicure, Pedicure & Combinations' },
+  { key: 'hair', name: 'Hair' },
+  { key: 'estetica', name: 'Estetica' },
 ];
 
 const MAJOR_GROUP_META: Record<MajorGroupKey, { es: string; en: string }> = {
@@ -1605,7 +1600,6 @@ export default function BookAllServicesPage() {
                   <div className="mt-4 grid grid-cols-2 gap-3 sm:gap-4">
                     {step1Groups.map((group) => {
                       const isSelected = selectedCategory === group.key;
-                      const Icon = group.icon;
                       return (
                         <button
                           key={group.key}
@@ -1623,7 +1617,6 @@ export default function BookAllServicesPage() {
                               <Check className="h-4 w-4" />
                             </span>
                           )}
-                          <Icon className={cn('mx-auto mb-2 h-7 w-7', isSelected ? 'text-emerald-700' : 'text-stone-600')} />
                           <p className="text-[20px] sm:text-base font-semibold leading-tight text-stone-800">
                             {group.name}
                           </p>
