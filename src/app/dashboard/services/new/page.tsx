@@ -9,21 +9,21 @@ export default function NewServicePage() {
   const copy =
     language === 'es'
       ? {
-          title: 'Anadir Nuevo Servicio',
-          subtitle: 'Crear una nueva oferta de servicio',
+          title: 'Nuevo servicio',
+          subtitle: 'Crea el servicio',
         }
       : {
-          title: 'Add New Service',
-          subtitle: 'Create a new service offering',
+          title: 'New service',
+          subtitle: 'Create the service',
         };
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl sm:text-3xl font-light tracking-wide text-slate-900">{copy.title}</h1>
-        <p className="text-slate-600 text-sm mt-2 font-light">{copy.subtitle}</p>
+        <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-slate-900">{copy.title}</h1>
+        <p className="text-slate-600 text-sm mt-2">{copy.subtitle}</p>
       </div>
-      <div className="bg-slate-800/30 border border-slate-700 rounded-sm backdrop-blur-sm p-4 sm:p-6">
+      <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-6 shadow-sm">
         <ServiceForm />
       </div>
     </div>

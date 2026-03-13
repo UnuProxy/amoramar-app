@@ -1,21 +1,22 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { getServices, getEmployees, getEmployeeServices, updateService, createService } from '@/shared/lib/firestore';
+import { getServices, getEmployeeServices, deleteService, deleteEmployeeService, getServiceCatalogConfig, saveServiceCatalogConfig } from '@/shared/lib/firestore';
 import { Loading } from '@/shared/components/Loading';
 import Link from 'next/link';
-import { formatCurrency, cn } from '@/shared/lib/utils';
-import {
-  formatServiceCategory,
-  getServiceMainGroupForCategory,
-  getServiceMainGroupLabel,
-  SERVICE_MAIN_GROUP_ORDER,
-  type ServiceMainGroupKey,
-} from '@/shared/lib/serviceCategories';
-import type { Service, Employee, EmployeeService } from '@/shared/lib/types';
-import { DEFAULT_SERVICES } from '@/shared/lib/defaultServices';
+import { cn } from '@/shared/lib/utils';
+import type { Service, ServiceCatalogConfig, ServiceCatalogMainGroup } from '@/shared/lib/types';
 import { useLanguage } from '@/shared/context/LanguageContext';
-import { getLocalizedServiceDescription, getServiceDescriptionSearchText, normalizeServiceDescriptions } from '@/shared/lib/serviceLocalization';
+import {
+  createCatalogGroupDraft,
+  createCatalogSubgroupDraft,
+  DEFAULT_SALON_ID,
+  getCatalogGroupLabel,
+  getCatalogSubgroupLabel,
+  getDefaultServiceCatalogConfig,
+  getServiceGroupId,
+  getServiceSubgroupId,
+} from '@/shared/lib/serviceCatalog';
 
 type ServiceSubgroup = {
   key: string;
@@ -23,119 +24,41 @@ type ServiceSubgroup = {
   services: Service[];
 };
 
-const getServiceSubgroup = (service: Service): { key: string; label: string } => {
-  const category = service.category || 'other';
-  const name = service.serviceName.toLowerCase();
-
-  if (category === 'manicure' || category === 'nail-art-care-manicure') {
-    if (name.includes('relleno') || name.includes('refill')) return { key: 'gel-refill', label: 'Gel refill / Relleno con gel' };
-    if (name.includes('extension')) return { key: 'extensions', label: 'Extensions / Extensiones' };
-    if (name.includes('french glass') || name.includes('french interior')) return { key: 'special-techniques', label: 'Special techniques / Tecnicas especiales' };
-    if (name.includes('retirada') || name.includes('removal')) return { key: 'removal', label: 'Removal / Retirada' };
-    if (name.includes('higien')) return { key: 'hygienic', label: 'Hygienic manicure / Manicura higienica' };
-    return { key: 'semi-permanent', label: 'Semi-permanent gel polish / Esmaltado semipermanente' };
-  }
-
-  if (category === 'pedicure-care' || category === 'professional-foot-services' || category === 'foot-sole-treatments') {
-    if (name.includes('planta') || name.includes('sole') || name.includes('peeling') || name.includes('queratol') || name.includes('cleaning')) {
-      return { key: 'sole-treatments', label: 'Sole treatments / Planta del pie' };
-    }
-    return { key: 'pedicure-nails', label: 'Pedicure nails / Pedicura unas' };
-  }
-
-  if (category === 'nail-art-care-combinations') {
-    if (name.includes('sin limpieza') || name.includes('without cleaning')) {
-      return { key: 'without-cleaning', label: 'Combinations without sole cleaning' };
-    }
-    return { key: 'with-cleaning', label: 'Combinations with sole cleaning' };
-  }
-
-  if (
-    category === 'beauty-brow-services' ||
-    category === 'brow-services'
-  ) {
-    return { key: 'brows', label: 'Brows' };
-  }
-
-  if (
-    category === 'beauty-lash-extensions-full-set' ||
-    category === 'beauty-lash-refill-infill' ||
-    category === 'beauty-lash-removal' ||
-    category === 'lash-extensions' ||
-    category === 'lash-extension-refill' ||
-    category === 'lash-extension-removal'
-  ) {
-    return { key: 'lashes', label: 'Lashes' };
-  }
-
-  if (
-    category === 'beauty-semi-permanent-makeup' ||
-    category === 'semi-permanent-makeup'
-  ) {
-    return { key: 'semi-permanent-makeup', label: 'Semi-Permanent Makeup' };
-  }
-
-  if (
-    category === 'beauty-professional-makeup' ||
-    category === 'professional-makeup'
-  ) {
-    return { key: 'professional-makeup', label: 'Professional Makeup' };
-  }
-
-  if (category === 'beauty-lamination' || category === 'lamination') {
-    return { key: 'lamination', label: 'Lamination' };
-  }
-
-  if (String(category).startsWith('hair-')) {
-    if (category === 'hair-haircuts-styling') return { key: 'haircuts-styling', label: 'Haircuts & Styling' };
-    if (category === 'hair-color') return { key: 'color', label: 'Color' };
-    if (category === 'hair-bleach-highlights') return { key: 'bleach-highlights', label: 'Bleach & Highlights / Decoloracion y mechas' };
-    if (category === 'hair-treatments-signature') return { key: 'treatments-signature', label: 'Treatments & Signature' };
-    if (category === 'hair-men') return { key: 'mens-services', label: "Men's Services" };
-    if (category === 'hair-kids') return { key: 'kids-cuts', label: 'Kids Cuts' };
-    if (category === 'hair-extensions') return { key: 'extensions', label: 'Extensions' };
-  }
-
-  return { key: 'general', label: 'General services' };
-};
-
 export default function ServicesPage() {
   const { language } = useLanguage();
   const [services, setServices] = useState<Service[]>([]);
-  const [employees, setEmployees] = useState<Employee[]>([]);
-  const [employeeServices, setEmployeeServices] = useState<EmployeeService[]>([]);
+  const [catalogConfig, setCatalogConfig] = useState<ServiceCatalogConfig>(getDefaultServiceCatalogConfig());
   const [loading, setLoading] = useState(true);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
   const [copiedGeneral, setCopiedGeneral] = useState(false);
-  const [editingServiceId, setEditingServiceId] = useState<string | null>(null);
-  const [editValues, setEditValues] = useState<{ duration: string; price: string; category: string }>({
-    duration: '',
-    price: '',
-    category: 'other',
-  });
-  const [editError, setEditError] = useState<string | null>(null);
-  const [savingId, setSavingId] = useState<string | null>(null);
-  const [isImporting, setIsImporting] = useState(false);
-  const [importMessage, setImportMessage] = useState<string | null>(null);
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [catalogMessage, setCatalogMessage] = useState<string | null>(null);
+  const [catalogSaving, setCatalogSaving] = useState(false);
+  const [deletingAll, setDeletingAll] = useState(false);
+  const [catalogDirty, setCatalogDirty] = useState(false);
+  const [activeCatalogGroupId, setActiveCatalogGroupId] = useState<string>('beauty-face');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'hidden'>('all');
-  const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>({});
+  const activeCatalogGroup = useMemo(
+    () => catalogConfig.groups.find((group) => group.id === activeCatalogGroupId) || catalogConfig.groups[0] || null,
+    [catalogConfig.groups, activeCatalogGroupId]
+  );
 
   const copy =
     language === 'es'
       ? {
           title: 'Servicios',
-          subtitle: 'Catalogo de servicios y tratamientos',
+          subtitle: 'Anade o edita servicios rapido.',
           refreshList: 'Actualizar lista',
           importing: 'Importando...',
           importList: 'Importar lista',
           linkCopied: 'Enlace copiado',
           shareBookings: 'Compartir reservas',
-          bookingLinkTitle: 'Enlace de reservas para clientes',
-          bookingLinkSubtitle: 'Comparte este enlace en tu web, Instagram o WhatsApp. Los clientes veran todos los servicios y podran reservar directamente.',
+          bookingLinkTitle: 'Enlace de reservas',
+          bookingLinkSubtitle: 'Copia el enlace general cuando lo necesites.',
           copied: 'Copiado',
           copyLink: 'Copiar enlace',
-          searchServices: 'Buscar servicios',
+          listTitle: 'Servicios',
+          tools: 'Herramientas',
           searchPlaceholder: 'Buscar por nombre, descripcion o grupo',
           status: 'Estado',
           allServices: 'Todos los servicios',
@@ -144,7 +67,7 @@ export default function ServicesPage() {
           total: 'total',
           active: 'activos',
           hidden: 'ocultos',
-          groupedByCategory: 'Agrupado por categoria',
+          groupedByCategory: 'Listado por grupos',
           groups: 'grupos',
           servicesWord: 'servicios',
           expanded: 'expandidos',
@@ -169,23 +92,66 @@ export default function ServicesPage() {
           saving: 'Guardando',
           save: 'Guardar',
           cancel: 'Cancelar',
-          quick: 'Rapido',
           edit: 'Editar',
           addService: 'Anadir Servicio',
+          addGroup: 'Anadir grupo',
+          deleteGroup: 'Eliminar grupo',
+          deleteAllServices: 'Eliminar todos los servicios',
+          deleting: 'Eliminando...',
+          deleteAllServicesConfirm: '¿Eliminar todos los servicios? Los grupos y subgrupos se mantendran.',
+          deleteGroupConfirm: '¿Eliminar este grupo?',
+          deleteGroupUsedConfirm: (count: number, name: string) =>
+            `Este grupo se usa en ${count} servicio(s): ${name}. Si lo eliminas, esos servicios seguiran existiendo pero quedaran fuera del catalogo. ¿Quieres continuar?`,
+          allServicesDeleted: 'Todos los servicios han sido eliminados.',
+          deleteAllFailed: 'No se pudieron eliminar todos los servicios.',
+          catalogTitle: 'Organizar grupos',
+          catalogSubtitle: 'Primero crea la estructura. Despues anade servicios dentro de cada subgrupo.',
+          manageCatalog: 'Organizar grupos',
+          hideCatalog: 'Ocultar',
+          showCatalog: 'Abrir',
+          catalogPanelClosed: 'Plegado',
+          catalogPanelOpen: 'Abierto',
+          unsavedChanges: 'Cambios sin guardar',
+          chooseMainGroup: 'Selecciona un grupo principal',
+          editGroupNames: 'Nombre del grupo',
+          changeGroupTitle: 'Edita el titulo visible en ambos idiomas.',
+          editSubgroups: 'Subgrupos',
+          subgroupRowHint: 'Crea o ajusta subgrupos aqui.',
+          englishName: 'Nombre en ingles',
+          spanishName: 'Nombre en espanol',
+          englishPlaceholder: 'Nombre en ingles',
+          spanishPlaceholder: 'Nombre en espanol',
+          addSubgroup: 'Anadir subgrupo',
+          deleteLabel: 'Eliminar',
+          noSubgroupsYet: 'Aun no hay subgrupos. Anade el primero para este grupo.',
+          finalStepSave: 'Guarda los cambios cuando termines este grupo.',
+          catalogSaved: 'Catalogo guardado.',
+          deleteSubgroupConfirm: '¿Eliminar este subgrupo?',
+          deleteSubgroupUsedConfirm: (count: number, name: string) =>
+            `Este subgrupo se usa en ${count} servicio(s): ${name}. Si lo eliminas, esos servicios seguiran existiendo pero apareceran como subgrupo sin catalogar. ¿Quieres continuar?`,
+          orphanedSubgroups: 'sin catalogar',
+          missingSubgroupNotice: 'Hay servicios con subgrupos sin catalogar.',
+          saveCatalogFailed: 'No se pudo guardar el catalogo.',
+          noGroupsYet: 'Todavia no hay grupos. Crea el primero para empezar.',
+          subgroupCount: 'subgrupos',
+          serviceCount: 'servicios',
+          addServiceHere: 'Anadir servicio aqui',
+          emptySubgroup: 'Sin servicios',
         }
       : {
           title: 'Services',
-          subtitle: 'Services & Treatments Catalog',
+          subtitle: 'Add or edit services quickly.',
           refreshList: 'Refresh list',
           importing: 'Importing...',
           importList: 'Import List',
           linkCopied: 'Link Copied!',
           shareBookings: 'Share Bookings',
-          bookingLinkTitle: 'Booking Link for Clients',
-          bookingLinkSubtitle: 'Share this link on your website, Instagram or WhatsApp. Clients will see all services and can book directly.',
+          bookingLinkTitle: 'Booking link',
+          bookingLinkSubtitle: 'Copy the general link when you need it.',
           copied: 'Copied!',
           copyLink: 'Copy Link',
-          searchServices: 'Search Services',
+          listTitle: 'Services',
+          tools: 'Tools',
           searchPlaceholder: 'Search by name, description, or group',
           status: 'Status',
           allServices: 'All services',
@@ -194,7 +160,7 @@ export default function ServicesPage() {
           total: 'total',
           active: 'active',
           hidden: 'hidden',
-          groupedByCategory: 'Grouped by category',
+          groupedByCategory: 'Services by group',
           groups: 'groups',
           servicesWord: 'services',
           expanded: 'expanded',
@@ -219,83 +185,106 @@ export default function ServicesPage() {
           saving: 'Saving',
           save: 'Save',
           cancel: 'Cancel',
-          quick: 'Quick',
           edit: 'Edit',
           addService: 'Add Service',
+          addGroup: 'Add group',
+          deleteGroup: 'Delete group',
+          deleteAllServices: 'Delete all services',
+          deleting: 'Deleting...',
+          deleteAllServicesConfirm: 'Delete all services? Groups and subgroups will remain.',
+          deleteGroupConfirm: 'Delete this group?',
+          deleteGroupUsedConfirm: (count: number, name: string) =>
+            `This group is used by ${count} service(s): ${name}. If you delete it, those services will still exist but stay outside the catalog. Continue?`,
+          allServicesDeleted: 'All services were deleted.',
+          deleteAllFailed: 'Could not delete all services.',
+          catalogTitle: 'Organize groups',
+          catalogSubtitle: 'Create the structure first, then add services inside each subgroup.',
+          manageCatalog: 'Organize groups',
+          hideCatalog: 'Hide',
+          showCatalog: 'Open',
+          catalogPanelClosed: 'Collapsed',
+          catalogPanelOpen: 'Open',
+          unsavedChanges: 'Unsaved changes',
+          chooseMainGroup: 'Choose a main group',
+          editGroupNames: 'Group name',
+          changeGroupTitle: 'Edit the visible title in both languages.',
+          editSubgroups: 'Subgroups',
+          subgroupRowHint: 'Create or adjust subgroups here.',
+          englishName: 'English name',
+          spanishName: 'Spanish name',
+          englishPlaceholder: 'English',
+          spanishPlaceholder: 'Spanish',
+          addSubgroup: 'Add subgroup',
+          deleteLabel: 'Delete',
+          noSubgroupsYet: 'No subgroups yet. Add the first one for this group.',
+          finalStepSave: 'Save your changes when you finish this group.',
+          catalogSaved: 'Catalog saved.',
+          deleteSubgroupConfirm: 'Delete this subgroup?',
+          deleteSubgroupUsedConfirm: (count: number, name: string) =>
+            `This subgroup is used by ${count} service(s): ${name}. If you delete it, those services will still exist but show up as unlisted subgroups. Continue?`,
+          orphanedSubgroups: 'unlisted',
+          missingSubgroupNotice: 'Some services use unlisted subgroups.',
+          saveCatalogFailed: 'Could not save catalog.',
+          noGroupsYet: 'There are no groups yet. Create the first one to start.',
+          subgroupCount: 'subgroups',
+          serviceCount: 'services',
+          addServiceHere: 'Add service here',
+          emptySubgroup: 'No services yet',
         };
 
-  const filteredServices = useMemo(() => {
+  const groupSections = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
-    return services.filter((service) => {
-      if (statusFilter === 'active' && !service.isActive) return false;
-      if (statusFilter === 'hidden' && service.isActive) return false;
-      if (!term) return true;
-
-      const categoryLabel = formatServiceCategory(service.category || 'other').toLowerCase();
-      const majorGroupLabel = getServiceMainGroupLabel(
-        getServiceMainGroupForCategory(service.category, service.serviceName),
-        language === 'es' ? 'es' : 'en'
-      ).toLowerCase();
-      const subgroupLabel = getServiceSubgroup(service).label.toLowerCase();
-      return (
-        service.serviceName.toLowerCase().includes(term) ||
-        getServiceDescriptionSearchText(service).includes(term) ||
-        categoryLabel.includes(term) ||
-        majorGroupLabel.includes(term) ||
-        subgroupLabel.includes(term)
-      );
-    });
-  }, [services, searchTerm, statusFilter]);
-
-  const servicesByMajorGroup = useMemo(() => {
-    return SERVICE_MAIN_GROUP_ORDER.map((groupKey) => {
-      const groupServices = filteredServices
-        .filter((service) => getServiceMainGroupForCategory(service.category, service.serviceName) === groupKey)
+    return catalogConfig.groups.map((group) => {
+      const groupServices = services
+        .filter((service) => getServiceGroupId(service) === group.id)
         .sort((a, b) => a.serviceName.localeCompare(b.serviceName));
-
-      const subgroupMap = groupServices.reduce<Record<string, ServiceSubgroup>>((acc, service) => {
-        const subgroup = getServiceSubgroup(service);
-        if (!acc[subgroup.key]) {
-          acc[subgroup.key] = { key: subgroup.key, label: subgroup.label, services: [] };
-        }
-        acc[subgroup.key].services.push(service);
-        return acc;
-      }, {});
-
-      const subgroups = Object.values(subgroupMap);
-      subgroups.forEach((subgroup) => subgroup.services.sort((a, b) => a.serviceName.localeCompare(b.serviceName)));
+      const subgroups: ServiceSubgroup[] = group.subgroups.map((subgroup) => {
+        const subgroupServices = groupServices.filter((service) => {
+          if (getServiceSubgroupId(service) !== subgroup.id) return false;
+          if (statusFilter === 'active' && !service.isActive) return false;
+          if (statusFilter === 'hidden' && service.isActive) return false;
+          if (!term) return true;
+          return service.serviceName.toLowerCase().includes(term);
+        });
+        return {
+          key: subgroup.id,
+          label: getCatalogSubgroupLabel(subgroup, language === 'es' ? 'es' : 'en'),
+          services: subgroupServices,
+        };
+      });
 
       return {
-        key: groupKey,
-        label: getServiceMainGroupLabel(groupKey, language === 'es' ? 'es' : 'en'),
+        key: group.id,
+        label: getCatalogGroupLabel(group, language === 'es' ? 'es' : 'en'),
         services: groupServices,
         subgroups,
       };
     });
-  }, [filteredServices]);
-
-  const orderedCategories = useMemo(
-    () => servicesByMajorGroup.map((group) => group.key),
-    [servicesByMajorGroup]
+  }, [catalogConfig.groups, services, language, searchTerm, statusFilter]);
+  const totalSubgroupCount = useMemo(
+    () => catalogConfig.groups.reduce((count, group) => count + group.subgroups.length, 0),
+    [catalogConfig.groups]
   );
-  const expandedCategoryCount = useMemo(
-    () => orderedCategories.filter((category) => !(collapsedCategories[category] ?? false)).length,
-    [orderedCategories, collapsedCategories]
+  const orphanedServicesCount = useMemo(
+    () =>
+      services.filter((service) => {
+        const subgroupId = getServiceSubgroupId(service);
+        const groupId = getServiceGroupId(service);
+        return subgroupId && !catalogConfig.groups.some((group) => group.id === groupId && group.subgroups.some((subgroup) => subgroup.id === subgroupId));
+      }).length,
+    [services, catalogConfig.groups]
   );
-  const allExpanded = orderedCategories.length > 0 && expandedCategoryCount === orderedCategories.length;
-  const allCollapsed = orderedCategories.length > 0 && expandedCategoryCount === 0;
 
   const fetchServices = async () => {
     setLoading(true);
     try {
-      const [servicesData, employeesData, employeeServicesData] = await Promise.all([
+      const [servicesData, config] = await Promise.all([
         getServices(),
-        getEmployees(),
-        getEmployeeServices(),
+        getServiceCatalogConfig(DEFAULT_SALON_ID),
       ]);
       setServices(servicesData);
-      setEmployees(employeesData);
-      setEmployeeServices(employeeServicesData);
+      setCatalogConfig(config);
+      setCatalogDirty(false);
     } catch (error) {
       console.error('Error fetching services:', error);
     } finally {
@@ -306,14 +295,6 @@ export default function ServicesPage() {
   useEffect(() => {
     fetchServices();
   }, []);
-
-  const getServiceEmployees = (serviceId: string): Employee[] => {
-    const serviceEmployeeIds = employeeServices
-      .filter((es) => es.serviceId === serviceId && es.isOffered)
-      .map((es) => es.employeeId);
-    
-    return employees.filter((emp) => serviceEmployeeIds.includes(emp.id));
-  };
 
   const fallbackCopyText = (text: string) => {
     if (typeof document === 'undefined') return false;
@@ -354,167 +335,159 @@ export default function ServicesPage() {
     return fallbackCopyText(text);
   };
 
-  const copyBookingLink = async (serviceId: string) => {
-    const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
-    const link = `${baseUrl}/book/${serviceId}`;
-    
-    try {
-      const didCopy = await copyToClipboard(link);
-      if (!didCopy) return;
-      setCopiedId(serviceId);
-      setTimeout(() => setCopiedId(null), 2000);
-    } catch (err) {
-      console.error('Error copying link:', err);
-    }
+  const updateCatalogGroupField = (groupId: string, field: 'labelEn' | 'labelEs', value: string) => {
+    setCatalogDirty(true);
+    setCatalogConfig((prev) => ({
+      ...prev,
+      groups: prev.groups.map((group) => (group.id === groupId ? { ...group, [field]: value } : group)),
+    }));
   };
 
-  const startQuickEdit = (service: Service) => {
-    setEditingServiceId(service.id);
-    setEditValues({
-      duration: String(service.duration ?? ''),
-      price: String(service.price ?? ''),
-      category: service.category || 'other',
-    });
-    setEditError(null);
+  const addCatalogGroup = () => {
+    const newGroup = createCatalogGroupDraft(catalogConfig);
+    setCatalogDirty(true);
+    setCatalogConfig((prev) => ({
+      ...prev,
+      groups: [...prev.groups, newGroup],
+    }));
+    setActiveCatalogGroupId(newGroup.id);
   };
 
-  const cancelQuickEdit = () => {
-    setEditingServiceId(null);
-    setEditValues({ duration: '', price: '', category: 'other' });
-    setEditError(null);
+  const updateCatalogSubgroupField = (
+    groupId: string,
+    subgroupId: string,
+    field: 'labelEn' | 'labelEs',
+    value: string
+  ) => {
+    setCatalogDirty(true);
+    setCatalogConfig((prev) => ({
+      ...prev,
+      groups: prev.groups.map((group) =>
+        group.id === groupId
+          ? {
+              ...group,
+              subgroups: group.subgroups.map((subgroup) =>
+                subgroup.id === subgroupId ? { ...subgroup, [field]: value } : subgroup
+              ),
+            }
+          : group
+      ),
+    }));
   };
 
-  const handleQuickSave = async (serviceId: string) => {
-    const durationValue = Number.parseInt(editValues.duration, 10);
-    const priceValue = Number.parseFloat(editValues.price);
-    const categoryValue = editValues.category.trim();
-
-    if (Number.isNaN(durationValue) || durationValue < 15) {
-      setEditError('Duration must be at least 15 minutes.');
-      return;
-    }
-
-    if (Number.isNaN(priceValue) || priceValue < 0) {
-      setEditError('Price must be a valid number.');
-      return;
-    }
-
-    if (!categoryValue) {
-      setEditError('Category is required.');
-      return;
-    }
-
-    setSavingId(serviceId);
-    setEditError(null);
-
-    try {
-      await updateService(serviceId, {
-        duration: durationValue,
-        price: priceValue,
-        category: categoryValue,
-      });
-
-      setServices((prev) =>
-        prev.map((service) =>
-          service.id === serviceId
-            ? { ...service, duration: durationValue, price: priceValue, category: categoryValue }
-            : service
-        )
-      );
-      cancelQuickEdit();
-    } catch (error: any) {
-      setEditError(error?.message || 'Could not update service.');
-    } finally {
-      setSavingId(null);
-    }
+  const addCatalogSubgroup = (groupId: string) => {
+    setCatalogDirty(true);
+    setCatalogConfig((prev) => ({
+      ...prev,
+      groups: prev.groups.map((group) =>
+        group.id === groupId
+          ? {
+              ...group,
+              subgroups: [...group.subgroups, createCatalogSubgroupDraft(group)],
+            }
+          : group
+      ),
+    }));
   };
 
-  const importDefaultServices = async () => {
+  const deleteCatalogSubgroup = (groupId: string, subgroupId: string) => {
+    const affectedServices = services.filter(
+      (service) => getServiceGroupId(service) === groupId && getServiceSubgroupId(service) === subgroupId
+    );
+    const subgroupName =
+      affectedServices[0]
+        ? getMissingCatalogSubgroupLabel(subgroupId, language === 'es' ? 'es' : 'en')
+        : subgroupId;
     const confirmed = window.confirm(
-      'Sync the default service list? Missing services will be created, existing defaults updated, and services outside the default list will be hidden.'
+      affectedServices.length > 0
+        ? copy.deleteSubgroupUsedConfirm(affectedServices.length, subgroupName)
+        : copy.deleteSubgroupConfirm
     );
     if (!confirmed) return;
 
-    setIsImporting(true);
-    setImportMessage(null);
+    setCatalogDirty(true);
+    setCatalogConfig((prev) => ({
+      ...prev,
+      groups: prev.groups.map((group) =>
+        group.id === groupId
+          ? { ...group, subgroups: group.subgroups.filter((subgroup) => subgroup.id !== subgroupId) }
+          : group
+      ),
+    }));
+  };
 
+  const deleteCatalogGroup = (groupId: string) => {
+    const affectedServices = services.filter((service) => getServiceGroupId(service) === groupId);
+    const groupName =
+      catalogConfig.groups.find((group) => group.id === groupId)
+        ? getCatalogGroupLabel(catalogConfig.groups.find((group) => group.id === groupId)!, language === 'es' ? 'es' : 'en')
+        : groupId;
+    const confirmed = window.confirm(
+      affectedServices.length > 0
+        ? copy.deleteGroupUsedConfirm(affectedServices.length, groupName)
+        : copy.deleteGroupConfirm
+    );
+    if (!confirmed) return;
+
+    setCatalogDirty(true);
+    setCatalogConfig((prev) => ({
+      ...prev,
+      groups: prev.groups.filter((group) => group.id !== groupId),
+    }));
+  };
+
+  const saveCatalog = async () => {
+    setCatalogSaving(true);
+    setCatalogMessage(null);
     try {
-      const existingByKey = new Map(
-        services.map((service) => [
-          `${service.category}|${service.serviceName}`.toLowerCase(),
-          service,
-        ])
-      );
-      const defaultKeys = new Set(
-        DEFAULT_SERVICES.map((seed) => `${seed.category}|${seed.serviceName}`.toLowerCase())
-      );
-      let createdCount = 0;
-      let updatedCount = 0;
-      let hiddenCount = 0;
-      const salonId = 'default-salon-id';
+      const cleanedGroups: ServiceCatalogMainGroup[] = catalogConfig.groups.map((group) => ({
+        ...group,
+        labelEn: group.labelEn.trim(),
+        labelEs: group.labelEs.trim(),
+        subgroups: group.subgroups
+          .map((subgroup) => ({
+            ...subgroup,
+            labelEn: subgroup.labelEn.trim(),
+            labelEs: subgroup.labelEs.trim(),
+          }))
+          .filter((subgroup) => subgroup.labelEn || subgroup.labelEs),
+      }));
 
-      for (const seed of DEFAULT_SERVICES) {
-        const key = `${seed.category}|${seed.serviceName}`.toLowerCase();
-        const existing = existingByKey.get(key);
-
-        if (existing) {
-          const seedDescriptions = normalizeServiceDescriptions({ description: seed.description });
-          const needsUpdate =
-            existing.description !== seed.description ||
-            (existing.descriptionEn ?? existing.description) !== seedDescriptions.descriptionEn ||
-            (existing.descriptionEs ?? existing.description) !== seedDescriptions.descriptionEs ||
-            existing.duration !== seed.duration ||
-            existing.price !== seed.price ||
-            existing.category !== seed.category ||
-            existing.isActive !== true ||
-            (existing.offersConsultation ?? false) !== (seed.offersConsultation ?? false) ||
-            (existing.consultationDuration ?? 20) !== (seed.consultationDuration ?? 20);
-
-          if (needsUpdate) {
-            await updateService(existing.id, {
-              ...seedDescriptions,
-              duration: seed.duration,
-              price: seed.price,
-              category: seed.category,
-              isActive: true,
-              offersConsultation: seed.offersConsultation ?? false,
-              consultationDuration: seed.consultationDuration ?? 20,
-            });
-            updatedCount += 1;
-          }
-          continue;
-        }
-
-        await createService({
-          salonId,
-          serviceName: seed.serviceName,
-          ...normalizeServiceDescriptions({ description: seed.description }),
-          duration: seed.duration,
-          price: seed.price,
-          category: seed.category,
-          isActive: true,
-          offersConsultation: seed.offersConsultation ?? false,
-          consultationDuration: seed.consultationDuration ?? 20,
-        });
-
-        existingByKey.set(key, {} as Service);
-        createdCount += 1;
-      }
-
-      for (const service of services) {
-        const key = `${service.category}|${service.serviceName}`.toLowerCase();
-        if (!defaultKeys.has(key) && service.isActive) {
-          await updateService(service.id, { isActive: false });
-          hiddenCount += 1;
-        }
-      }
-
-      await fetchServices();
-      setImportMessage(`Sync complete: ${createdCount} created, ${updatedCount} updated, ${hiddenCount} hidden.`);
+      await saveServiceCatalogConfig({
+        id: DEFAULT_SALON_ID,
+        salonId: DEFAULT_SALON_ID,
+        groups: cleanedGroups,
+      });
+      setCatalogConfig((prev) => ({ ...prev, groups: cleanedGroups }));
+      setCatalogMessage(copy.catalogSaved);
+      setCatalogDirty(false);
     } catch (error: any) {
-      setImportMessage(error?.message || 'Could not import services.');
+      setCatalogMessage(error?.message || copy.saveCatalogFailed);
     } finally {
-      setIsImporting(false);
+      setCatalogSaving(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!catalogConfig.groups.length) return;
+    if (!catalogConfig.groups.some((group) => group.id === activeCatalogGroupId)) {
+      setActiveCatalogGroupId(catalogConfig.groups[0].id);
+    }
+  }, [catalogConfig.groups, activeCatalogGroupId]);
+
+  const deleteAllServices = async () => {
+    if (!window.confirm(copy.deleteAllServicesConfirm)) return;
+    setDeletingAll(true);
+    try {
+      const assignments = await getEmployeeServices();
+      await Promise.all(assignments.map((assignment) => deleteEmployeeService(assignment.id)));
+      await Promise.all(services.map((service) => deleteService(service.id)));
+      await fetchServices();
+      setActionMessage(copy.allServicesDeleted);
+    } catch (error: any) {
+      setActionMessage(error?.message || copy.deleteAllFailed);
+    } finally {
+      setDeletingAll(false);
     }
   };
 
@@ -532,15 +505,6 @@ export default function ServicesPage() {
     }
   };
 
-  const setAllCategoriesCollapsed = (collapsed: boolean) => {
-    setCollapsedCategories(
-      orderedCategories.reduce<Record<string, boolean>>((acc, category) => {
-        acc[category] = collapsed;
-        return acc;
-      }, {})
-    );
-  };
-
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -550,18 +514,18 @@ export default function ServicesPage() {
   }
 
   return (
-    <div className="max-w-[1600px] mx-auto space-y-12 pb-12">
-      {/* Header - Bold Premium */}
-      <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-8">
-        <div>
-          <h1 className="text-3xl font-semibold text-slate-800 tracking-tight">
-            {copy.title}
-          </h1>
-          <p className="text-slate-500 text-sm font-medium mt-2">
-            {copy.subtitle}
-          </p>
+    <div className="max-w-[1400px] mx-auto space-y-8 pb-12">
+      <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6">
+        <div className="max-w-2xl">
+          <h1 className="text-3xl font-semibold text-slate-800 tracking-tight">{copy.title}</h1>
+          <p className="text-slate-500 text-sm font-medium mt-2">{copy.subtitle}</p>
         </div>
-        <div className="flex flex-col sm:flex-row gap-3">
+        <div className="flex items-center gap-3">
+          <Link href="/dashboard/services/new">
+            <button className="px-5 py-2.5 rounded-full bg-slate-900 text-white text-sm font-medium hover:bg-slate-800 transition-all">
+              {copy.addService}
+            </button>
+          </Link>
           <button
             onClick={fetchServices}
             className="px-4 py-2.5 rounded-full bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all flex items-center justify-center"
@@ -571,436 +535,221 @@ export default function ServicesPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
           </button>
-          <button
-            onClick={importDefaultServices}
-            className={cn(
-              "px-6 py-2.5 rounded-full text-sm font-medium transition-all flex items-center justify-center gap-2 border",
-              isImporting
-                ? "bg-slate-100 text-slate-400 border-slate-200"
-                : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
-            )}
-            disabled={isImporting}
-          >
-            {isImporting ? copy.importing : copy.importList}
-          </button>
-          <button
-            onClick={copyGeneralBookingLink}
-            className={cn(
-              "px-6 py-2.5 rounded-full text-sm font-medium transition-all flex items-center justify-center gap-2 border",
-              copiedGeneral
-                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                : "bg-white text-emerald-700 border-emerald-200 hover:bg-emerald-50"
-            )}
-          >
-            {copiedGeneral ? (
-              <>
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-                {copy.linkCopied}
-              </>
-            ) : (
-              <>
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-                </svg>
-                {copy.shareBookings}
-              </>
-            )}
-          </button>
-          <Link href="/dashboard/services/new">
-            <button
-              className="px-6 py-2.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-sm font-medium hover:bg-emerald-100 transition-all flex items-center justify-center gap-2"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              {copy.addService}
-            </button>
-          </Link>
         </div>
       </div>
 
-      {/* Info Banner */}
-      <div className="bg-sky-50 rounded-2xl p-6 border border-sky-100">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-start gap-3">
-            <div className="w-10 h-10 bg-sky-100 rounded-lg flex items-center justify-center flex-shrink-0">
-              <svg className="w-5 h-5 text-sky-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-              </svg>
-            </div>
-            <div>
-              <p className="font-semibold text-slate-800 mb-1">{copy.bookingLinkTitle}</p>
-              <p className="text-sm text-slate-600">{copy.bookingLinkSubtitle}</p>
-            </div>
+      <details className="bg-white rounded-2xl border border-slate-200 px-5 py-4 shadow-sm">
+        <summary className="cursor-pointer list-none flex items-center justify-between gap-4">
+          <div>
+            <p className="text-sm font-semibold text-slate-800">{copy.tools}</p>
+            <p className="text-sm text-slate-500 mt-1">{copy.bookingLinkSubtitle}</p>
           </div>
+          <span className="text-sm text-slate-500">{copy.tools}</span>
+        </summary>
+        <div className="mt-4 flex flex-wrap gap-3">
           <button
             onClick={copyGeneralBookingLink}
             className={cn(
-              "px-5 py-2.5 rounded-full text-sm font-medium transition-all whitespace-nowrap border",
+              "px-4 py-2 rounded-full text-sm font-medium border transition-all",
               copiedGeneral
                 ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                : "bg-white text-emerald-700 border-emerald-200 hover:bg-emerald-50"
+                : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
             )}
           >
-            {copiedGeneral ? copy.copied : copy.copyLink}
+            {copiedGeneral ? copy.copied : copy.bookingLinkTitle}
+          </button>
+          <button
+            onClick={deleteAllServices}
+            disabled={deletingAll || services.length === 0}
+            className={cn(
+              "px-4 py-2 rounded-full text-sm font-medium border transition-all",
+              deletingAll || services.length === 0
+                ? "bg-slate-100 text-slate-400 border-slate-200"
+                : "bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100"
+            )}
+          >
+            {deletingAll ? copy.deleting : copy.deleteAllServices}
           </button>
         </div>
-      </div>
-      {importMessage && (
+      </details>
+
+      {actionMessage && (
         <div className="bg-white border border-slate-200 rounded-2xl px-6 py-4 text-sm text-slate-700">
-          {importMessage}
+          {actionMessage}
         </div>
       )}
 
-      {/* Search + Filters */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-4 lg:p-6 shadow-sm space-y-4">
-        <div className="flex flex-col lg:flex-row lg:items-center gap-4">
-          <div className="flex-1">
-            <label className="block text-xs font-medium text-slate-500 tracking-wide mb-2">
-              {copy.searchServices}
-            </label>
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
-              placeholder={copy.searchPlaceholder}
-              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 focus:border-emerald-300 focus:outline-none"
-            />
-          </div>
-          <div className="w-full lg:w-56">
-            <label className="block text-xs font-medium text-slate-500 tracking-wide mb-2">
-              {copy.status}
-            </label>
-            <select
-              value={statusFilter}
-              onChange={(event) => setStatusFilter(event.target.value as 'all' | 'active' | 'hidden')}
-              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-700 focus:border-emerald-300 focus:outline-none"
-            >
-              <option value="all">{copy.allServices}</option>
-              <option value="active">{copy.onlyActive}</option>
-              <option value="hidden">{copy.onlyHidden}</option>
-            </select>
-          </div>
-          <div className="flex flex-wrap items-center gap-3 text-xs font-medium text-slate-500 tracking-wide">
-            <span className="px-3 py-2 rounded-full bg-slate-50 border border-slate-200 text-slate-600">
-              {filteredServices.length} {copy.total}
-            </span>
-            <span className="px-3 py-2 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">
-              {filteredServices.filter((s) => s.isActive).length} {copy.active}
-            </span>
-            <span className="px-3 py-2 rounded-full bg-slate-100 text-slate-500 border border-slate-200">
-              {filteredServices.filter((s) => !s.isActive).length} {copy.hidden}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Services List - Grouped */}
-      <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
-        <div className="px-6 py-4 border-b border-slate-200 bg-slate-50/60 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <p className="text-sm font-semibold text-slate-700">{copy.groupedByCategory}</p>
-            <span className="text-xs text-slate-500">
-              {orderedCategories.length} {copy.groups} · {expandedCategoryCount} {copy.expanded}
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
+      <div className="grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)]">
+        <aside className="space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm font-semibold text-slate-800">{copy.catalogTitle}</p>
             <button
-              onClick={() => setAllCategoriesCollapsed(false)}
-              disabled={allExpanded}
-              className={cn(
-                "px-3 py-1.5 rounded-full text-xs font-medium border transition-all",
-                allExpanded
-                  ? "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"
-                  : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
-              )}
+              type="button"
+              onClick={addCatalogGroup}
+              className="px-3 py-1.5 rounded-full bg-slate-900 text-white text-xs font-medium hover:bg-slate-800 transition-all"
             >
-              {copy.expandAll}
-            </button>
-            <button
-              onClick={() => setAllCategoriesCollapsed(true)}
-              disabled={allCollapsed}
-              className={cn(
-                "px-3 py-1.5 rounded-full text-xs font-medium border transition-all",
-                allCollapsed
-                  ? "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"
-                  : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
-              )}
-            >
-              {copy.collapseAll}
+              {copy.addGroup}
             </button>
           </div>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="bg-slate-50 border-b border-slate-200">
-                <th className="px-6 py-4 text-left text-[11px] font-medium text-slate-500 tracking-wide">{copy.service}</th>
-                <th className="px-6 py-4 text-left text-[11px] font-medium text-slate-500 tracking-wide">{copy.assignedTo}</th>
-                <th className="px-6 py-4 text-center text-[11px] font-medium text-slate-500 tracking-wide">{copy.time}</th>
-                <th className="px-6 py-4 text-center text-[11px] font-medium text-slate-500 tracking-wide">{copy.price}</th>
-                <th className="px-6 py-4 text-center text-[11px] font-medium text-slate-500 tracking-wide">{copy.status}</th>
-                <th className="px-6 py-4 text-right text-[11px] font-medium text-slate-500 tracking-wide">{copy.actions}</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {services.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-6 py-16 text-center">
-                    <div className="w-16 h-16 bg-slate-100 rounded-xl flex items-center justify-center mx-auto mb-4">
-                      <svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                      </svg>
-                    </div>
-                    <p className="text-lg font-semibold text-slate-700">{copy.emptyCatalog}</p>
-                  </td>
-                </tr>
-              ) : filteredServices.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-6 py-16 text-center">
-                    <div className="w-16 h-16 bg-slate-100 rounded-xl flex items-center justify-center mx-auto mb-4">
-                      <svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                      </svg>
-                    </div>
-                    <p className="text-lg font-semibold text-slate-700">{copy.noServicesMatch}</p>
-                    <p className="text-sm text-slate-400 mt-2">{copy.noServicesMatchHint}</p>
-                  </td>
-                </tr>
-              ) : (
-                servicesByMajorGroup.map((group) => {
-                  const isCollapsed = collapsedCategories[group.key] ?? false;
-                  const activeCount = group.services.filter((service) => service.isActive).length;
-                  const hiddenCount = group.services.length - activeCount;
-                  const therapistCount = new Set(
-                    group.services.flatMap((service) => getServiceEmployees(service.id).map((employee) => employee.id))
-                  ).size;
+          {catalogConfig.groups.length === 0 ? (
+            <div className="rounded-2xl bg-white border border-slate-200 px-4 py-6 text-sm text-slate-500">
+              {copy.noGroupsYet}
+            </div>
+          ) : (
+            catalogConfig.groups.map((group) => {
+              const isActive = activeCatalogGroup?.id === group.id;
+              const groupSection = groupSections.find((section) => section.key === group.id);
+              return (
+                <button
+                  key={group.id}
+                  type="button"
+                  onClick={() => setActiveCatalogGroupId(group.id)}
+                  className={cn(
+                    "w-full rounded-2xl px-4 py-4 text-left transition-all",
+                    isActive ? "bg-slate-900 text-white" : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
+                  )}
+                >
+                  <span className="block text-sm font-semibold">
+                    {getCatalogGroupLabel(group, language === 'es' ? 'es' : 'en')}
+                  </span>
+                  <span className={cn("block text-xs mt-1", isActive ? "text-white/70" : "text-slate-500")}>
+                    {group.subgroups.length} {copy.subgroupCount} · {groupSection?.services.length || 0} {copy.serviceCount}
+                  </span>
+                </button>
+              );
+            })
+          )}
+        </aside>
 
-                  return (
-                    <React.Fragment key={group.key}>
-                      <tr className="bg-slate-50 border-y border-slate-200">
-                        <td colSpan={6} className="px-6 py-4">
+        <section className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-6">
+          {catalogMessage && <div className="text-sm text-slate-700">{catalogMessage}</div>}
+          {orphanedServicesCount > 0 && <div className="text-sm text-amber-800">{copy.missingSubgroupNotice}</div>}
+
+          {activeCatalogGroup ? (
+            <>
+              <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-semibold text-slate-900">
+                    {getCatalogGroupLabel(activeCatalogGroup, language === 'es' ? 'es' : 'en')}
+                  </h2>
+                  <p className="text-sm text-slate-500 mt-1">{copy.catalogSubtitle}</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => addCatalogSubgroup(activeCatalogGroup.id)}
+                    className="px-4 py-2 rounded-full bg-slate-900 text-white text-sm font-medium hover:bg-slate-800 transition-all"
+                  >
+                    {copy.addSubgroup}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => deleteCatalogGroup(activeCatalogGroup.id)}
+                    className="px-4 py-2 rounded-full bg-rose-50 text-rose-700 text-sm font-medium hover:bg-rose-100 transition-all"
+                  >
+                    {copy.deleteGroup}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={saveCatalog}
+                    disabled={catalogSaving}
+                    className={cn(
+                      "px-4 py-2 rounded-full text-sm font-medium transition-all",
+                      catalogSaving ? "bg-slate-100 text-slate-400" : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                    )}
+                  >
+                    {catalogSaving ? copy.saving : copy.save}
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <input
+                  value={activeCatalogGroup.labelEn}
+                  onChange={(event) => updateCatalogGroupField(activeCatalogGroup.id, 'labelEn', event.target.value)}
+                  placeholder={copy.englishName}
+                  className="w-full rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-300"
+                />
+                <input
+                  value={activeCatalogGroup.labelEs}
+                  onChange={(event) => updateCatalogGroupField(activeCatalogGroup.id, 'labelEs', event.target.value)}
+                  placeholder={copy.spanishName}
+                  className="w-full rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-300"
+                />
+              </div>
+
+              <div className="space-y-3">
+                {groupSections
+                  .find((section) => section.key === activeCatalogGroup.id)
+                  ?.subgroups.map((subgroup, index) => (
+                    <div key={subgroup.key} className="rounded-2xl border border-slate-200 px-4 py-4 space-y-3">
+                      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm font-semibold text-slate-400">{index + 1}</span>
+                          <div className="flex flex-wrap gap-2 text-xs text-slate-500">
+                            <span>{subgroup.services.length} {copy.serviceCount}</span>
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <Link href={`/dashboard/services/new?group=${activeCatalogGroup.id}&subgroup=${subgroup.key}`}>
+                            <button className="px-3 py-1.5 rounded-full bg-slate-900 text-white text-xs font-medium hover:bg-slate-800 transition-all">
+                              {copy.addServiceHere}
+                            </button>
+                          </Link>
                           <button
-                            onClick={() =>
-                              setCollapsedCategories((prev) => ({
-                                ...prev,
-                                [group.key]: !isCollapsed,
-                              }))
-                            }
-                            className="w-full flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-left"
+                            type="button"
+                            onClick={() => deleteCatalogSubgroup(activeCatalogGroup.id, subgroup.key)}
+                            className="px-3 py-1.5 rounded-full bg-rose-50 text-rose-700 text-xs font-medium hover:bg-rose-100 transition-all"
                           >
-                            <div className="flex items-start gap-3">
-                              <span className="mt-0.5 w-6 h-6 rounded-full border border-slate-300 bg-white text-slate-500 flex items-center justify-center">
-                                <svg
-                                  className={cn("w-3.5 h-3.5 transition-transform", isCollapsed && "-rotate-90")}
-                                  fill="none"
-                                  stroke="currentColor"
-                                  viewBox="0 0 24 24"
-                                >
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                </svg>
-                              </span>
-                              <div className="space-y-1">
-                                <span className="block text-sm font-semibold text-slate-700">
-                                  {group.label}
-                                </span>
-                                <span className="text-xs text-slate-500">
-                                  {group.services.length} {copy.servicesWord} · {group.subgroups.length} {copy.subgroups} · {therapistCount} {copy.therapists} · {activeCount} {copy.active} · {hiddenCount} {copy.hidden}
-                                </span>
-                              </div>
-                            </div>
-                            <span
-                              className={cn(
-                                "inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium",
-                                isCollapsed
-                                  ? "border-slate-300 text-slate-500 bg-white"
-                                  : "border-emerald-200 text-emerald-700 bg-emerald-50"
-                              )}
-                            >
-                              {isCollapsed ? copy.collapsed : copy.expandedState}
-                            </span>
+                            {copy.deleteLabel}
                           </button>
-                        </td>
-                      </tr>
-                      {!isCollapsed && group.services.length === 0 && (
-                        <tr>
-                          <td colSpan={6} className="px-8 py-6 text-sm text-slate-400">
-                            {copy.noServicesInGroup}
-                          </td>
-                        </tr>
+                        </div>
+                      </div>
+
+                      <div className="grid gap-3 md:grid-cols-2">
+                        <input
+                          value={activeCatalogGroup.subgroups.find((item) => item.id === subgroup.key)?.labelEn || ''}
+                          onChange={(event) => updateCatalogSubgroupField(activeCatalogGroup.id, subgroup.key, 'labelEn', event.target.value)}
+                          placeholder={copy.englishPlaceholder}
+                          className="w-full rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-300"
+                        />
+                        <input
+                          value={activeCatalogGroup.subgroups.find((item) => item.id === subgroup.key)?.labelEs || ''}
+                          onChange={(event) => updateCatalogSubgroupField(activeCatalogGroup.id, subgroup.key, 'labelEs', event.target.value)}
+                          placeholder={copy.spanishPlaceholder}
+                          className="w-full rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-300"
+                        />
+                      </div>
+
+                      {subgroup.services.length > 0 ? (
+                        <div className="flex flex-wrap gap-2">
+                          {subgroup.services.slice(0, 6).map((service) => (
+                            <Link key={service.id} href={`/dashboard/services/${service.id}`}>
+                              <button className="px-3 py-1.5 rounded-full bg-slate-100 text-slate-700 text-xs font-medium hover:bg-slate-200 transition-all">
+                                {service.serviceName}
+                              </button>
+                            </Link>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-slate-400">{copy.emptySubgroup}</p>
                       )}
-                      {!isCollapsed &&
-                        group.subgroups.map((subgroup) => (
-                          <React.Fragment key={`${group.key}-${subgroup.key}`}>
-                            <tr className="bg-slate-50/60 border-y border-slate-100">
-                              <td colSpan={6} className="px-8 py-3">
-                                <span className="text-xs font-semibold tracking-wide text-slate-600">
-                                  {copy.subgroup}: {subgroup.label} ({subgroup.services.length})
-                                </span>
-                              </td>
-                            </tr>
-                            {subgroup.services.map((service) => {
-                              const serviceEmployees = getServiceEmployees(service.id);
-                              const isEditing = editingServiceId === service.id;
-                              return (
-                                <tr key={service.id} className="hover:bg-slate-50/80 transition-all group">
-                              <td className="px-10 py-6">
-                                <div className="space-y-1">
-                                  <p className="text-base font-semibold text-slate-800 leading-snug">{service.serviceName}</p>
-                                  {getLocalizedServiceDescription(service, language) && (
-                                    <p className="text-xs text-slate-400 truncate max-w-xs">
-                                      {getLocalizedServiceDescription(service, language)}
-                                    </p>
-                                  )}
-                                </div>
-                              </td>
-                              <td className="px-10 py-6">
-                                {serviceEmployees.length > 0 ? (
-                                  <div className="flex flex-wrap gap-2">
-                                    {serviceEmployees.map((emp) => (
-                                      <span
-                                        key={emp.id}
-                                        className="px-3 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-medium"
-                                      >
-                                        {emp.firstName}
-                                      </span>
-                                    ))}
-                                  </div>
-                                ) : (
-                                  <span className="inline-flex items-center rounded-full bg-rose-50 px-3 py-1 text-xs font-medium text-rose-700">
-                                    {copy.needsTherapist}
-                                  </span>
-                                )}
-                              </td>
-                              <td className="px-10 py-6 text-center">
-                                {isEditing ? (
-                                  <div className="flex flex-col items-center gap-2">
-                                    <input
-                                      type="number"
-                                      min={15}
-                                      value={editValues.duration}
-                                      onChange={(event) =>
-                                        setEditValues((prev) => ({ ...prev, duration: event.target.value }))
-                                      }
-                                      className="w-24 rounded-xl border border-slate-200 bg-white px-3 py-2 text-center text-sm font-medium text-slate-700 focus:border-emerald-300 focus:outline-none"
-                                    />
-                                    <span className="text-xs text-slate-400">min</span>
-                                  </div>
-                                ) : (
-                                  <div className="flex flex-col items-center">
-                                    <span className="text-lg font-semibold text-slate-700 tabular-nums leading-none">{service.duration}</span>
-                                    <span className="text-xs text-slate-400 mt-1">min</span>
-                                  </div>
-                                )}
-                              </td>
-                              <td className="px-10 py-6 text-center">
-                                {isEditing ? (
-                                  <div className="flex flex-col items-center gap-2">
-                                    <input
-                                      type="number"
-                                      min={0}
-                                      step="0.01"
-                                      value={editValues.price}
-                                      onChange={(event) =>
-                                        setEditValues((prev) => ({ ...prev, price: event.target.value }))
-                                      }
-                                      className="w-28 rounded-xl border border-slate-200 bg-white px-3 py-2 text-center text-sm font-medium text-slate-700 focus:border-emerald-300 focus:outline-none"
-                                    />
-                                    <span className="text-xs text-slate-400">EUR</span>
-                                  </div>
-                                ) : (
-                                  <p className="text-lg font-semibold text-emerald-700 tabular-nums leading-none">{formatCurrency(service.price)}</p>
-                                )}
-                              </td>
-                              <td className="px-10 py-6 text-center">
-                                <span className={`px-4 py-2 rounded-full text-xs font-medium ${
-                                  service.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'
-                                }`}>
-                                  {service.isActive ? 'Activo' : 'Oculto'}
-                                </span>
-                              </td>
-                              <td className="px-10 py-6 text-right">
-                                <div className="flex flex-col items-end gap-2">
-                                  <div className="flex items-center justify-end gap-3">
-                                    <button
-                                      onClick={() => copyBookingLink(service.id)}
-                                      className={cn(
-                                        "px-4 py-2 rounded-full text-xs font-medium transition-all flex items-center gap-2",
-                                        copiedId === service.id
-                                          ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                                          : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
-                                      )}
-                                      title="Copiar enlace de reserva directa"
-                                    >
-                                      {copiedId === service.id ? (
-                                        <>
-                                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                                          </svg>
-                                          ¡Copiado!
-                                        </>
-                                      ) : (
-                                        <>
-                                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                                          </svg>
-                                          {copy.link}
-                                        </>
-                                      )}
-                                    </button>
-                                    {isEditing ? (
-                                      <>
-                                        <button
-                                          onClick={() => handleQuickSave(service.id)}
-                                          className="px-4 py-2 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-medium hover:bg-emerald-200 transition-all"
-                                          disabled={savingId === service.id}
-                                        >
-                                          {savingId === service.id ? copy.saving : copy.save}
-                                        </button>
-                                        <button
-                                          onClick={cancelQuickEdit}
-                                          className="px-4 py-2 rounded-full border border-slate-200 text-xs font-medium text-slate-500 hover:bg-slate-50 transition-all"
-                                        >
-                                          {copy.cancel}
-                                        </button>
-                                      </>
-                                    ) : (
-                                      <>
-                                        <button
-                                          onClick={() => startQuickEdit(service)}
-                                          className="px-4 py-2 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-medium hover:bg-emerald-100 transition-all"
-                                        >
-                                          {copy.quick}
-                                        </button>
-                                        <Link href={`/dashboard/services/${service.id}`}>
-                                          <button
-                                            className="px-4 py-2 rounded-full border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-all"
-                                          >
-                                            {copy.edit}
-                                          </button>
-                                        </Link>
-                                      </>
-                                    )}
-                                  </div>
-                                  {isEditing && editError && (
-                                    <span className="text-[10px] font-semibold text-rose-500 uppercase tracking-wider">{editError}</span>
-                                  )}
-                                </div>
-                              </td>
-                                </tr>
-                              );
-                            })}
-                          </React.Fragment>
-                        ))}
-                    </React.Fragment>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
+                    </div>
+                  ))}
+
+                {activeCatalogGroup.subgroups.length === 0 && (
+                  <div className="rounded-2xl bg-slate-50 px-4 py-10 text-center text-sm text-slate-500">
+                    {copy.noSubgroupsYet}
+                  </div>
+                )}
+              </div>
+            </>
+          ) : (
+            <div className="rounded-2xl bg-slate-50 px-4 py-10 text-center text-sm text-slate-500">
+              {copy.noGroupsYet}
+            </div>
+          )}
+        </section>
       </div>
     </div>
   );

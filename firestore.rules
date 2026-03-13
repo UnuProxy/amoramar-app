@@ -88,6 +88,14 @@ service cloud.firestore {
       allow update: if isOwner();
       allow delete: if isOwner();
     }
+
+    // Service catalog config for editable main groups/subgroups
+    match /serviceCatalogConfigs/{configId} {
+      allow read: if isOwner();
+      allow create: if isOwner();
+      allow update: if isOwner();
+      allow delete: if isOwner();
+    }
     
     // EmployeeServices junction
     match /employeeServices/{id} {

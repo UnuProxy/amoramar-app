@@ -5,20 +5,15 @@ import { useForm } from 'react-hook-form';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/shared/components/Button';
 import { Input } from '@/shared/components/Input';
-import { createEmployee, updateEmployee, createUser, getEmployeeServices, getServices, createEmployeeService, deleteEmployeeService, deleteEmployee } from '@/shared/lib/firestore';
+import { createEmployee, updateEmployee, createUser, getEmployeeServices, getServices, createEmployeeService, deleteEmployeeService, deleteEmployee, getServiceCatalogConfig } from '@/shared/lib/firestore';
 import { uploadEmployeeProfileImage, deleteEmployeeProfileImage } from '@/shared/lib/storage';
 import { createUserWithEmailAndPassword, signOut } from 'firebase/auth';
 import { getSecondaryAuth } from '@/shared/lib/firebase';
 import type { Employee, EmployeeFormData, EmploymentType, Service } from '@/shared/lib/types';
 import { useLanguage } from '@/shared/context/LanguageContext';
 import { useAuth } from '@/shared/hooks/useAuth';
-import {
-  formatServiceCategory,
-  getOrderedServiceCategories,
-  getServiceMainGroupForCategory,
-  getServiceMainGroupLabel,
-  SERVICE_MAIN_GROUP_ORDER,
-} from '@/shared/lib/serviceCategories';
+import { DEFAULT_SALON_ID, getDefaultServiceCatalogConfig, getServiceGroupId, getServiceSubgroupId, getServiceGroupLabel, getServiceSubgroupLabel } from '@/shared/lib/serviceCatalog';
+import type { ServiceCatalogConfig } from '@/shared/lib/types';
 
 interface EmployeeFormProps {
   employee?: Employee;
@@ -46,6 +41,7 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
   const [services, setServices] = useState<Service[]>([]);
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
   const [servicesLoading, setServicesLoading] = useState(false);
+  const [catalogConfig, setCatalogConfig] = useState<ServiceCatalogConfig>(getDefaultServiceCatalogConfig());
 
   const copy =
     language === 'es'
@@ -126,8 +122,12 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
     const loadServices = async () => {
       setServicesLoading(true);
       try {
-        const servicesData = await getServices();
+        const [servicesData, config] = await Promise.all([
+          getServices(),
+          getServiceCatalogConfig(DEFAULT_SALON_ID),
+        ]);
         setServices(servicesData);
+        setCatalogConfig(config);
 
         if (employee?.id) {
           const assignments = await getEmployeeServices(employee.id);
@@ -146,49 +146,37 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
     loadServices();
   }, [employee?.id]);
 
-  const servicesByCategory = useMemo(() => {
-    const grouped = services.reduce<Record<string, Service[]>>((acc, service) => {
-      const category = service.category || 'other';
-      if (!acc[category]) {
-        acc[category] = [];
-      }
-      acc[category].push(service);
-      return acc;
-    }, {});
-    Object.values(grouped).forEach((items) => {
-      items.sort((a, b) => a.serviceName.localeCompare(b.serviceName));
-    });
-    return grouped;
-  }, [services]);
-
-  const visibleCategories = useMemo(() => {
-    return getOrderedServiceCategories(services);
-  }, [services]);
-
   const groupedServiceSections = useMemo(() => {
-    return SERVICE_MAIN_GROUP_ORDER.map((mainGroup) => {
-      const categories = visibleCategories
-        .filter((category) => getServiceMainGroupForCategory(category) === mainGroup)
-        .map((category) => ({
-          category,
-          services: servicesByCategory[category] || [],
-        }))
-        .filter((entry) => entry.services.length > 0);
+    return catalogConfig.groups
+      .map((group) => {
+        const categories = group.subgroups
+          .map((subgroup) => {
+            const subgroupServices = services
+              .filter((service) => getServiceGroupId(service) === group.id && getServiceSubgroupId(service) === subgroup.id)
+              .sort((a, b) => a.serviceName.localeCompare(b.serviceName));
 
-      const selectedCount = categories.reduce(
-        (count, entry) =>
-          count + entry.services.filter((service) => selectedServiceIds.includes(service.id)).length,
-        0
-      );
+            return {
+              category: subgroup.id,
+              label: getServiceSubgroupLabel({ mainGroupId: group.id, subgroupId: subgroup.id, category: subgroup.id }, catalogConfig, language === 'es' ? 'es' : 'en'),
+              services: subgroupServices,
+            };
+          })
+          .filter((entry) => entry.services.length > 0);
 
-      return {
-        key: mainGroup,
-        label: getServiceMainGroupLabel(mainGroup, language === 'es' ? 'es' : 'en'),
-        categories,
-        selectedCount,
-      };
-    }).filter((group) => group.categories.length > 0);
-  }, [visibleCategories, servicesByCategory, selectedServiceIds, language]);
+        const selectedCount = categories.reduce(
+          (count, entry) => count + entry.services.filter((service) => selectedServiceIds.includes(service.id)).length,
+          0
+        );
+
+        return {
+          key: group.id,
+          label: getServiceGroupLabel({ mainGroupId: group.id, category: group.id }, catalogConfig, language === 'es' ? 'es' : 'en'),
+          categories,
+          selectedCount,
+        };
+      })
+      .filter((group) => group.categories.length > 0);
+  }, [catalogConfig, language, selectedServiceIds, services]);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -663,10 +651,10 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
                   </span>
                 </div>
                 <div className="p-4 space-y-4">
-                  {group.categories.map(({ category, services: categoryServices }) => (
+                  {group.categories.map(({ category, label, services: categoryServices }) => (
                     <div key={category} className="border border-slate-200 rounded-sm p-4 bg-white">
                       <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500">
-                        {formatServiceCategory(category)}
+                        {label}
                       </p>
                       <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
                         {categoryServices.map((service) => (

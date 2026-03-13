@@ -39,7 +39,9 @@ import type {
   Salon,
   BlockedSlot,
   Expense,
+  ServiceCatalogConfig,
 } from './types';
+import { DEFAULT_SALON_ID, getDefaultServiceCatalogConfig } from './serviceCatalog';
 
 // Helper to convert Firestore timestamp to Date
 const timestampToDate = (timestamp: any): Date => {
@@ -388,6 +390,49 @@ export const updateService = async (serviceId: string, updates: Partial<Service>
 export const deleteService = async (serviceId: string): Promise<void> => {
   const docRef = doc(checkDb(), 'services', serviceId);
   await deleteDoc(docRef);
+};
+
+export const getServiceCatalogConfig = async (
+  salonId: string = DEFAULT_SALON_ID
+): Promise<ServiceCatalogConfig> => {
+  try {
+    const docRef = doc(checkDb(), 'serviceCatalogConfigs', salonId);
+    const docSnap = await getDoc(docRef);
+    if (!docSnap.exists()) {
+      return getDefaultServiceCatalogConfig(salonId);
+    }
+
+    const data = docSnap.data();
+    return {
+      id: docSnap.id,
+      salonId: data.salonId || salonId,
+      groups: data.groups || getDefaultServiceCatalogConfig(salonId).groups,
+      createdAt: timestampToDate(data.createdAt || 0),
+      updatedAt: timestampToDate(data.updatedAt || 0),
+    } as ServiceCatalogConfig;
+  } catch (error: any) {
+    if (error?.code === 'permission-denied') {
+      console.warn('Permission denied reading serviceCatalogConfigs. Falling back to default catalog.');
+      return getDefaultServiceCatalogConfig(salonId);
+    }
+    throw error;
+  }
+};
+
+export const saveServiceCatalogConfig = async (
+  config: Omit<ServiceCatalogConfig, 'createdAt' | 'updatedAt'>
+): Promise<void> => {
+  const docRef = doc(checkDb(), 'serviceCatalogConfigs', config.id || config.salonId);
+  const existing = await getDoc(docRef);
+  await setDoc(
+    docRef,
+    {
+      ...filterUndefined(config as any),
+      createdAt: existing.exists() ? existing.data().createdAt || Timestamp.now() : Timestamp.now(),
+      updatedAt: Timestamp.now(),
+    },
+    { merge: true }
+  );
 };
 
 // Bookings Collection

@@ -151,6 +151,8 @@ export interface Service {
   duration: number; // minutes
   price: number;
   category: ServiceCategory;
+  mainGroupId?: string;
+  subgroupId?: string;
   isActive: boolean;
   offersConsultation?: boolean; // If true, clients can book free consultations for this service
   consultationDuration?: number; // Default consultation duration in minutes (15-30)
@@ -346,9 +348,32 @@ export interface ServiceFormData {
   duration: number;
   price: number;
   category: ServiceCategory;
+  mainGroupId?: string;
+  subgroupId?: string;
   offersConsultation?: boolean;
   consultationDuration?: number;
   employeeIds: string[];
+}
+
+export interface ServiceCatalogSubgroup {
+  id: string;
+  labelEn: string;
+  labelEs: string;
+}
+
+export interface ServiceCatalogMainGroup {
+  id: string;
+  labelEn: string;
+  labelEs: string;
+  subgroups: ServiceCatalogSubgroup[];
+}
+
+export interface ServiceCatalogConfig {
+  id: string;
+  salonId: string;
+  groups: ServiceCatalogMainGroup[];
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface BookingFormData {

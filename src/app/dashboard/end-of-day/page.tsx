@@ -162,6 +162,9 @@ export default function EndOfDayPage() {
     bookings.forEach((booking) => {
       const service = services.find((s) => s.id === booking.serviceId);
       const employee = employees.find((e) => e.id === booking.employeeId);
+      const assignedStaffId = employee?.id || booking.employeeId || 'unassigned';
+      const assignedStaffName =
+        employee ? `${employee.firstName} ${employee.lastName}`.trim() : copy.unspecified;
       const basePrice = service?.price || 0;
       const additionalTotal = (booking.additionalServices || []).reduce((sum, item) => sum + item.price, 0);
       const totalPrice = basePrice + additionalTotal;
@@ -230,8 +233,8 @@ export default function EndOfDayPage() {
           amount: depositAmount,
           createdByName: creatorName,
           closedByName: closerName,
-          staffId: creatorId,
-          staffName: creatorName,
+          staffId: assignedStaffId,
+          staffName: assignedStaffName,
         });
       }
 
@@ -250,8 +253,8 @@ export default function EndOfDayPage() {
           amount: finalAmount,
           createdByName: creatorName,
           closedByName: closerName,
-          staffId: closerId,
-          staffName: closerName,
+          staffId: assignedStaffId,
+          staffName: assignedStaffName,
         });
       }
 
@@ -270,8 +273,8 @@ export default function EndOfDayPage() {
           amount: -Math.abs(depositAmount),
           createdByName: creatorName,
           closedByName: refundStaffName,
-          staffId: refundStaffId,
-          staffName: refundStaffName,
+          staffId: assignedStaffId,
+          staffName: assignedStaffName,
         });
       }
     });
@@ -346,12 +349,13 @@ export default function EndOfDayPage() {
   }, [transactionsForDay, copy.unspecified]);
 
   const staffMembers = useMemo(() => {
-    const uniqueStaff = new Map<string, string>();
-    allTransactions.forEach((tx) => {
-      uniqueStaff.set(tx.staffId, tx.staffName || 'Unspecified');
-    });
-    return Array.from(uniqueStaff).map(([id, name]) => ({ id, name }));
-  }, [allTransactions]);
+    return employees
+      .map((employee) => ({
+        id: employee.id,
+        name: `${employee.firstName} ${employee.lastName}`.trim() || copy.unspecified,
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [employees, copy.unspecified]);
 
   if (loading) {
     return (

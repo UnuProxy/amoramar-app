@@ -21,14 +21,14 @@ export default function EditServicePage() {
       ? {
           notFound: 'Servicio no encontrado',
           back: 'Volver a servicios',
-          title: 'Editar Servicio',
-          subtitle: 'Actualizar informacion del servicio',
+          title: 'Editar servicio',
+          subtitle: 'Actualiza el servicio',
         }
       : {
           notFound: 'Service not found',
           back: 'Back to services',
-          title: 'Edit Service',
-          subtitle: 'Update service information',
+          title: 'Edit service',
+          subtitle: 'Update the service',
         };
 
   useEffect(() => {
@@ -73,10 +73,10 @@ export default function EditServicePage() {
           </svg>
           {copy.back}
         </button>
-        <h1 className="text-3xl font-bold text-gray-900">{copy.title}</h1>
+        <h1 className="text-3xl font-semibold tracking-tight text-gray-900">{copy.title}</h1>
         <p className="text-gray-600 mt-1">{copy.subtitle}</p>
       </div>
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
         <ServiceForm service={service} />
       </div>
     </div>
