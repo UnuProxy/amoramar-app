@@ -14,6 +14,7 @@ import {
   deleteService,
   getEmployees,
   getEmployeeServices,
+  getServices,
   getServiceCatalogConfig,
   updateService,
 } from '@/shared/lib/firestore';
@@ -24,6 +25,7 @@ import {
   findCatalogGroup,
   getCatalogGroupLabel,
   getCatalogSubgroupLabel,
+  getNextServiceDisplayOrder,
   getDefaultServiceCatalogConfig,
   getServiceGroupId,
   getServiceSubgroupId,
@@ -41,6 +43,7 @@ export const ServiceForm: React.FC<ServiceFormProps> = ({ service }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [allServices, setAllServices] = useState<Service[]>([]);
   const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
   const [catalogConfig, setCatalogConfig] = useState<ServiceCatalogConfig>(getDefaultServiceCatalogConfig());
   const requestedGroupId = searchParams.get('group') || undefined;
@@ -177,12 +180,14 @@ export const ServiceForm: React.FC<ServiceFormProps> = ({ service }) => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [employeeData, config] = await Promise.all([
+        const [employeeData, servicesData, config] = await Promise.all([
           getEmployees(),
+          getServices(),
           getServiceCatalogConfig(DEFAULT_SALON_ID),
         ]);
 
         setEmployees(employeeData.filter((employee) => employee.status === 'active'));
+        setAllServices(servicesData);
         setCatalogConfig(config);
 
         if (service) {
@@ -241,6 +246,18 @@ export const ServiceForm: React.FC<ServiceFormProps> = ({ service }) => {
         descriptionEn: data.descriptionEn,
         descriptionEs: data.descriptionEs,
       });
+      const placementChanged =
+        !!service &&
+        (getServiceGroupId(service) !== data.mainGroupId || getServiceSubgroupId(service) !== data.subgroupId);
+      const nextDisplayOrder = service
+        ? placementChanged
+          ? getNextServiceDisplayOrder(
+              allServices.filter((item) => item.id !== service.id),
+              data.mainGroupId,
+              data.subgroupId
+            )
+          : service.displayOrder
+        : getNextServiceDisplayOrder(allServices, data.mainGroupId, data.subgroupId);
 
       const payload = {
         serviceName: data.serviceName,
@@ -250,6 +267,7 @@ export const ServiceForm: React.FC<ServiceFormProps> = ({ service }) => {
         category: (data.subgroupId || data.category) as ServiceFormData['category'],
         mainGroupId: data.mainGroupId,
         subgroupId: data.subgroupId,
+        displayOrder: nextDisplayOrder,
         offersConsultation: data.offersConsultation || false,
         consultationDuration: data.consultationDuration || 20,
       };

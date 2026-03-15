@@ -153,6 +153,7 @@ export interface Service {
   category: ServiceCategory;
   mainGroupId?: string;
   subgroupId?: string;
+  displayOrder?: number;
   isActive: boolean;
   offersConsultation?: boolean; // If true, clients can book free consultations for this service
   consultationDuration?: number; // Default consultation duration in minutes (15-30)

@@ -15,6 +15,7 @@ import {
   Firestore,
 } from 'firebase/firestore';
 import { db } from './firebase';
+import { compareServicesByDisplayOrder } from './serviceCatalog';
 
 // Helper to check if Firestore is initialized
 const checkDb = (): Firestore => {
@@ -178,7 +179,11 @@ export const getEmployees = async (salonId?: string): Promise<Employee[]> => {
     if (salonId) {
       results = results.filter(r => r.salonId === salonId);
     }
-    return results.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    return results.sort((a, b) => {
+      const orderComparison = compareServicesByDisplayOrder(a, b);
+      if (orderComparison !== 0) return orderComparison;
+      return b.createdAt.getTime() - a.createdAt.getTime();
+    });
   }
 };
 

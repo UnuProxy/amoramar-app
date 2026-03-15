@@ -143,6 +143,27 @@ export const getServiceSubgroupLabel = (
   return getMissingCatalogSubgroupLabel(getServiceSubgroupId(service), language);
 };
 
+export const compareServicesByDisplayOrder = (a: Partial<Service>, b: Partial<Service>): number => {
+  const aOrder = typeof a.displayOrder === 'number' ? a.displayOrder : Number.POSITIVE_INFINITY;
+  const bOrder = typeof b.displayOrder === 'number' ? b.displayOrder : Number.POSITIVE_INFINITY;
+  if (aOrder !== bOrder) return aOrder - bOrder;
+  return (a.serviceName || '').localeCompare(b.serviceName || '');
+};
+
+export const getNextServiceDisplayOrder = (
+  services: Partial<Service>[],
+  groupId?: string,
+  subgroupId?: string
+): number => {
+  const relevantOrders = services
+    .filter((service) => getServiceGroupId(service) === groupId && getServiceSubgroupId(service) === subgroupId)
+    .map((service) => service.displayOrder)
+    .filter((value): value is number => typeof value === 'number');
+
+  if (relevantOrders.length === 0) return 0;
+  return Math.max(...relevantOrders) + 1;
+};
+
 export const slugifyCatalogId = (value: string): string =>
   value
     .toLowerCase()

@@ -16,6 +16,7 @@ import {
 import { Loading } from '@/shared/components/Loading';
 import { cn, formatDate, formatTime } from '@/shared/lib/utils';
 import type { Booking, Client, Employee, Service, TimeSlot, PaymentMethod } from '@/shared/lib/types';
+import { compareServicesByDisplayOrder } from '@/shared/lib/serviceCatalog';
 import { CurrentBookingPanel } from '@/shared/components/CurrentBookingPanel';
 import { PaymentMethodModal } from '@/shared/components/PaymentMethodModal';
 import { ClosingSaleModal } from '@/shared/components/ClosingSaleModal';
@@ -301,7 +302,7 @@ export default function DashboardPage() {
 
   const serviceMatches = useMemo(() => {
     const term = serviceSearchTerm.trim().toLowerCase();
-    const sorted = [...services].sort((a, b) => a.serviceName.localeCompare(b.serviceName));
+    const sorted = [...services].sort(compareServicesByDisplayOrder);
     if (!term) return sorted.slice(0, 12);
     return sorted.filter((service) => service.serviceName.toLowerCase().includes(term)).slice(0, 30);
   }, [services, serviceSearchTerm]);

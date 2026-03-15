@@ -12,7 +12,7 @@ import { getSecondaryAuth } from '@/shared/lib/firebase';
 import type { Employee, EmployeeFormData, EmploymentType, Service } from '@/shared/lib/types';
 import { useLanguage } from '@/shared/context/LanguageContext';
 import { useAuth } from '@/shared/hooks/useAuth';
-import { DEFAULT_SALON_ID, getDefaultServiceCatalogConfig, getServiceGroupId, getServiceSubgroupId, getServiceGroupLabel, getServiceSubgroupLabel } from '@/shared/lib/serviceCatalog';
+import { DEFAULT_SALON_ID, compareServicesByDisplayOrder, getDefaultServiceCatalogConfig, getServiceGroupId, getServiceSubgroupId, getServiceGroupLabel, getServiceSubgroupLabel } from '@/shared/lib/serviceCatalog';
 import type { ServiceCatalogConfig } from '@/shared/lib/types';
 
 interface EmployeeFormProps {
@@ -153,7 +153,7 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
           .map((subgroup) => {
             const subgroupServices = services
               .filter((service) => getServiceGroupId(service) === group.id && getServiceSubgroupId(service) === subgroup.id)
-              .sort((a, b) => a.serviceName.localeCompare(b.serviceName));
+              .sort(compareServicesByDisplayOrder);
 
             return {
               category: subgroup.id,

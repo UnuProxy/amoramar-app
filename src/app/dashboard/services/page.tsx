@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { getServices, getEmployeeServices, deleteService, deleteEmployeeService, getServiceCatalogConfig, saveServiceCatalogConfig } from '@/shared/lib/firestore';
+import { getServices, getEmployeeServices, deleteService, deleteEmployeeService, getServiceCatalogConfig, saveServiceCatalogConfig, updateService } from '@/shared/lib/firestore';
 import { Loading } from '@/shared/components/Loading';
 import Link from 'next/link';
 import { cn } from '@/shared/lib/utils';
@@ -13,6 +13,7 @@ import {
   DEFAULT_SALON_ID,
   getCatalogGroupLabel,
   getCatalogSubgroupLabel,
+  compareServicesByDisplayOrder,
   getDefaultServiceCatalogConfig,
   getMissingCatalogSubgroupLabel,
   getServiceGroupId,
@@ -39,6 +40,9 @@ export default function ServicesPage() {
   const [activeCatalogGroupId, setActiveCatalogGroupId] = useState<string>('beauty-face');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'hidden'>('all');
+  const [draggedServiceId, setDraggedServiceId] = useState<string | null>(null);
+  const [dragOverServiceId, setDragOverServiceId] = useState<string | null>(null);
+  const [openSubgroups, setOpenSubgroups] = useState<Record<string, boolean>>({});
   const activeCatalogGroup = useMemo(
     () => catalogConfig.groups.find((group) => group.id === activeCatalogGroupId) || catalogConfig.groups[0] || null,
     [catalogConfig.groups, activeCatalogGroupId]
@@ -138,6 +142,10 @@ export default function ServicesPage() {
           serviceCount: 'servicios',
           addServiceHere: 'Anadir servicio aqui',
           emptySubgroup: 'Sin servicios',
+          savingOrder: 'Guardando orden...',
+          dragToReorder: 'Arrastra para ordenar',
+          openSubgroup: 'Abrir',
+          closeSubgroup: 'Cerrar',
         }
       : {
           title: 'Services',
@@ -231,14 +239,20 @@ export default function ServicesPage() {
           serviceCount: 'services',
           addServiceHere: 'Add service here',
           emptySubgroup: 'No services yet',
+          savingOrder: 'Saving order...',
+          dragToReorder: 'Drag to reorder',
+          openSubgroup: 'Open',
+          closeSubgroup: 'Close',
         };
+
+  const getSubgroupPanelKey = (groupId: string, subgroupId: string) => `${groupId}:${subgroupId}`;
 
   const groupSections = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
     return catalogConfig.groups.map((group) => {
       const groupServices = services
         .filter((service) => getServiceGroupId(service) === group.id)
-        .sort((a, b) => a.serviceName.localeCompare(b.serviceName));
+        .sort(compareServicesByDisplayOrder);
       const subgroups: ServiceSubgroup[] = group.subgroups.map((subgroup) => {
         const subgroupServices = groupServices.filter((service) => {
           if (getServiceSubgroupId(service) !== subgroup.id) return false;
@@ -253,11 +267,13 @@ export default function ServicesPage() {
           services: subgroupServices,
         };
       });
+      const visibleServiceCount = subgroups.reduce((count, subgroup) => count + subgroup.services.length, 0);
 
       return {
         key: group.id,
         label: getCatalogGroupLabel(group, language === 'es' ? 'es' : 'en'),
         services: groupServices,
+        visibleServiceCount,
         subgroups,
       };
     });
@@ -378,17 +394,26 @@ export default function ServicesPage() {
 
   const addCatalogSubgroup = (groupId: string) => {
     setCatalogDirty(true);
-    setCatalogConfig((prev) => ({
-      ...prev,
-      groups: prev.groups.map((group) =>
-        group.id === groupId
-          ? {
-              ...group,
-              subgroups: [...group.subgroups, createCatalogSubgroupDraft(group)],
-            }
-          : group
-      ),
-    }));
+    setCatalogConfig((prev) => {
+      const targetGroup = prev.groups.find((group) => group.id === groupId);
+      if (!targetGroup) return prev;
+      const nextSubgroup = createCatalogSubgroupDraft(targetGroup);
+      setOpenSubgroups((current) => ({
+        ...current,
+        [getSubgroupPanelKey(groupId, nextSubgroup.id)]: true,
+      }));
+      return {
+        ...prev,
+        groups: prev.groups.map((group) =>
+          group.id === groupId
+            ? {
+                ...group,
+                subgroups: [...group.subgroups, nextSubgroup],
+              }
+            : group
+        ),
+      };
+    });
   };
 
   const deleteCatalogSubgroup = (groupId: string, subgroupId: string) => {
@@ -407,6 +432,11 @@ export default function ServicesPage() {
     if (!confirmed) return;
 
     setCatalogDirty(true);
+    setOpenSubgroups((prev) => {
+      const next = { ...prev };
+      delete next[getSubgroupPanelKey(groupId, subgroupId)];
+      return next;
+    });
     setCatalogConfig((prev) => ({
       ...prev,
       groups: prev.groups.map((group) =>
@@ -435,6 +465,63 @@ export default function ServicesPage() {
       ...prev,
       groups: prev.groups.filter((group) => group.id !== groupId),
     }));
+  };
+
+  const persistSubgroupServiceOrder = async (
+    groupId: string,
+    subgroupId: string,
+    reordered: Service[]
+  ) => {
+    const previousServices = services;
+    const reorderedMap = new Map(reordered.map((service, index) => [service.id, index]));
+
+    setServices((prev) =>
+      prev.map((service) => {
+        if (getServiceGroupId(service) !== groupId || getServiceSubgroupId(service) !== subgroupId) return service;
+        const nextIndex = reorderedMap.get(service.id);
+        return typeof nextIndex === 'number' ? { ...service, displayOrder: nextIndex } : service;
+      })
+    );
+
+    setActionMessage(copy.savingOrder);
+    try {
+      await Promise.all(
+        reordered.map((service, index) => updateService(service.id, { displayOrder: index }))
+      );
+      setActionMessage(null);
+    } catch (error: any) {
+      setServices(previousServices);
+      setActionMessage(error?.message || copy.saveCatalogFailed);
+    }
+  };
+
+  const reorderSubgroupServicesByDrop = async (
+    groupId: string,
+    subgroupId: string,
+    draggedId: string,
+    targetId?: string
+  ) => {
+    const subgroupServices = services
+      .filter((service) => getServiceGroupId(service) === groupId && getServiceSubgroupId(service) === subgroupId)
+      .sort(compareServicesByDisplayOrder);
+    const currentIndex = subgroupServices.findIndex((service) => service.id === draggedId);
+    if (currentIndex === -1) return;
+
+    const reordered = [...subgroupServices];
+    const [moved] = reordered.splice(currentIndex, 1);
+
+    if (!targetId) {
+      reordered.push(moved);
+    } else {
+      const targetIndex = reordered.findIndex((service) => service.id === targetId);
+      if (targetIndex === -1) return;
+      reordered.splice(targetIndex, 0, moved);
+    }
+
+    const didChange = reordered.some((service, index) => service.id !== subgroupServices[index]?.id);
+    if (!didChange) return;
+
+    await persistSubgroupServiceOrder(groupId, subgroupId, reordered);
   };
 
   const saveCatalog = async () => {
@@ -614,7 +701,7 @@ export default function ServicesPage() {
                     {getCatalogGroupLabel(group, language === 'es' ? 'es' : 'en')}
                   </span>
                   <span className={cn("block text-xs mt-1", isActive ? "text-white/70" : "text-slate-500")}>
-                    {group.subgroups.length} {copy.subgroupCount} · {groupSection?.services.length || 0} {copy.serviceCount}
+                    {group.subgroups.length} {copy.subgroupCount} · {groupSection?.visibleServiceCount || 0} {copy.serviceCount}
                   </span>
                 </button>
               );
@@ -684,6 +771,12 @@ export default function ServicesPage() {
                   .find((section) => section.key === activeCatalogGroup.id)
                   ?.subgroups.map((subgroup, index) => (
                     <div key={subgroup.key} className="rounded-2xl border border-slate-200 px-4 py-4 space-y-3">
+                      {(() => {
+                        const subgroupPanelKey = getSubgroupPanelKey(activeCatalogGroup.id, subgroup.key);
+                        const isSubgroupOpen = openSubgroups[subgroupPanelKey] ?? false;
+
+                        return (
+                          <>
                       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
                         <div className="flex items-center gap-3">
                           <span className="text-sm font-semibold text-slate-400">{index + 1}</span>
@@ -699,6 +792,18 @@ export default function ServicesPage() {
                           </Link>
                           <button
                             type="button"
+                            onClick={() =>
+                              setOpenSubgroups((prev) => ({
+                                ...prev,
+                                [subgroupPanelKey]: !isSubgroupOpen,
+                              }))
+                            }
+                            className="px-3 py-1.5 rounded-full bg-slate-100 text-slate-700 text-xs font-medium hover:bg-slate-200 transition-all"
+                          >
+                            {isSubgroupOpen ? copy.closeSubgroup : copy.openSubgroup}
+                          </button>
+                          <button
+                            type="button"
                             onClick={() => deleteCatalogSubgroup(activeCatalogGroup.id, subgroup.key)}
                             className="px-3 py-1.5 rounded-full bg-rose-50 text-rose-700 text-xs font-medium hover:bg-rose-100 transition-all"
                           >
@@ -707,6 +812,8 @@ export default function ServicesPage() {
                         </div>
                       </div>
 
+                      {isSubgroupOpen ? (
+                        <>
                       <div className="grid gap-3 md:grid-cols-2">
                         <input
                           value={activeCatalogGroup.subgroups.find((item) => item.id === subgroup.key)?.labelEn || ''}
@@ -723,18 +830,88 @@ export default function ServicesPage() {
                       </div>
 
                       {subgroup.services.length > 0 ? (
-                        <div className="flex flex-wrap gap-2">
-                          {subgroup.services.slice(0, 6).map((service) => (
-                            <Link key={service.id} href={`/dashboard/services/${service.id}`}>
-                              <button className="px-3 py-1.5 rounded-full bg-slate-100 text-slate-700 text-xs font-medium hover:bg-slate-200 transition-all">
-                                {service.serviceName}
-                              </button>
-                            </Link>
-                          ))}
+                        <div
+                          className="space-y-2"
+                          onDragOver={(event) => event.preventDefault()}
+                          onDrop={async (event) => {
+                            event.preventDefault();
+                            if (!draggedServiceId) return;
+                            setDragOverServiceId(null);
+                            await reorderSubgroupServicesByDrop(activeCatalogGroup.id, subgroup.key, draggedServiceId);
+                            setDraggedServiceId(null);
+                          }}
+                        >
+                          {subgroup.services.map((service, serviceIndex) => {
+                            const isDragging = draggedServiceId === service.id;
+                            const isDropTarget = dragOverServiceId === service.id && draggedServiceId !== service.id;
+
+                            return (
+                              <div
+                                key={service.id}
+                                draggable
+                                onDragStart={() => {
+                                  setDraggedServiceId(service.id);
+                                  setDragOverServiceId(service.id);
+                                }}
+                                onDragEnd={() => {
+                                  setDraggedServiceId(null);
+                                  setDragOverServiceId(null);
+                                }}
+                                onDragOver={(event) => {
+                                  event.preventDefault();
+                                  event.stopPropagation();
+                                  if (dragOverServiceId !== service.id) {
+                                    setDragOverServiceId(service.id);
+                                  }
+                                }}
+                                onDrop={async (event) => {
+                                  event.preventDefault();
+                                  event.stopPropagation();
+                                  if (!draggedServiceId) return;
+                                  setDragOverServiceId(null);
+                                  await reorderSubgroupServicesByDrop(
+                                    activeCatalogGroup.id,
+                                    subgroup.key,
+                                    draggedServiceId,
+                                    service.id
+                                  );
+                                  setDraggedServiceId(null);
+                                }}
+                                className={cn(
+                                  "flex items-center gap-3 rounded-2xl bg-slate-50 px-3 py-2 transition-all",
+                                  isDragging && "opacity-50",
+                                  isDropTarget && "ring-2 ring-slate-300"
+                                )}
+                              >
+                                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-sm font-semibold text-slate-500">
+                                  {serviceIndex + 1}
+                                </div>
+                                <div className="flex min-w-0 flex-1 items-center gap-3">
+                                  <button
+                                    type="button"
+                                    className="cursor-grab rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-500 active:cursor-grabbing"
+                                  >
+                                    {copy.dragToReorder}
+                                  </button>
+                                  <Link
+                                    href={`/dashboard/services/${service.id}`}
+                                    className="min-w-0 flex-1 text-sm font-medium text-slate-700 hover:text-slate-900"
+                                  >
+                                    <span className="truncate">{service.serviceName}</span>
+                                  </Link>
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
                       ) : (
                         <p className="text-sm text-slate-400">{copy.emptySubgroup}</p>
                       )}
+                        </>
+                      ) : null}
+                          </>
+                        );
+                      })()}
                     </div>
                   ))}
 

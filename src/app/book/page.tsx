@@ -20,6 +20,7 @@ import {
   getServiceMainGroupForCategory,
   type ServiceMainGroupKey,
 } from '@/shared/lib/serviceCategories';
+import { compareServicesByDisplayOrder } from '@/shared/lib/serviceCatalog';
 import {
   ArrowLeft,
   Check,
@@ -752,20 +753,16 @@ export default function BookAllServicesPage() {
     next.sort((a, b) => {
       if (serviceSort === 'priceAsc') {
         if (a.price !== b.price) return a.price - b.price;
-        return a.serviceName.localeCompare(b.serviceName);
+        return compareServicesByDisplayOrder(a, b);
       }
       if (serviceSort === 'durationAsc') {
         if (a.duration !== b.duration) return a.duration - b.duration;
-        return a.serviceName.localeCompare(b.serviceName);
+        return compareServicesByDisplayOrder(a, b);
       }
       if (serviceSort === 'nameAsc') {
         return a.serviceName.localeCompare(b.serviceName);
       }
-      const aEmployees = a.employees?.length || 0;
-      const bEmployees = b.employees?.length || 0;
-      if (aEmployees !== bEmployees) return bEmployees - aEmployees;
-      if (a.price !== b.price) return a.price - b.price;
-      return a.serviceName.localeCompare(b.serviceName);
+      return compareServicesByDisplayOrder(a, b);
     });
     return next;
   };
