@@ -64,7 +64,7 @@ const toInputDate = (date: Date) => {
 const getStartOfWeek = (baseDate: Date = new Date()) => {
   const date = new Date(baseDate);
   const day = date.getDay();
-  const diff = day === 0 ? -6 : 1 - day; // move to Monday
+  const diff = day === 0 ? -6 : 1 - day; 
   date.setDate(date.getDate() + diff);
   return toInputDate(date);
 };
