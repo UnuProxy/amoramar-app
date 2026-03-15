@@ -14,6 +14,7 @@ import {
   getCatalogGroupLabel,
   getCatalogSubgroupLabel,
   getDefaultServiceCatalogConfig,
+  getMissingCatalogSubgroupLabel,
   getServiceGroupId,
   getServiceSubgroupId,
 } from '@/shared/lib/serviceCatalog';
