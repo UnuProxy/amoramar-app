@@ -1042,14 +1042,14 @@ export default function DashboardPage() {
                 <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Bookings</p>
               </div>
             </div>
-            <div className="relative bg-white border border-slate-100 border-t-4 border-success-500 rounded-[40px] p-8 shadow-[0_1px_3px_rgba(0,0,0,0.1)] hover:shadow-[0_10px_30px_rgba(0,0,0,0.12)] transition-all group flex flex-col items-center justify-center text-center min-h-[220px]">
+            <div className="relative bg-white border border-slate-100 border-t-4 border-t-success-500 rounded-[40px] p-8 shadow-[0_1px_3px_rgba(0,0,0,0.1)] hover:shadow-[0_10px_30px_rgba(0,0,0,0.12)] transition-all group flex flex-col items-center justify-center text-center min-h-[220px]">
               <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-4 group-hover:text-success-600 transition-colors">Confirmed</p>
               <div className="flex items-baseline justify-center gap-3 w-full px-4">
                 <p className="text-6xl font-black text-success-600 tracking-tight leading-none whitespace-nowrap">{analytics.confirmedBookings}</p>
                 <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Pending</p>
               </div>
             </div>
-            <div className="relative bg-white border border-slate-100 border-t-4 border-slate-200 rounded-[40px] p-8 shadow-[0_1px_3px_rgba(0,0,0,0.1)] hover:shadow-[0_10px_30px_rgba(0,0,0,0.12)] transition-all group flex flex-col items-center justify-center text-center min-h-[220px]">
+            <div className="relative bg-white border border-slate-100 border-t-4 border-t-slate-200 rounded-[40px] p-8 shadow-[0_1px_3px_rgba(0,0,0,0.1)] hover:shadow-[0_10px_30px_rgba(0,0,0,0.12)] transition-all group flex flex-col items-center justify-center text-center min-h-[220px]">
               <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-4 group-hover:text-slate-700 transition-colors">Cancellation Rate</p>
               <div className="flex items-baseline justify-center gap-3 w-full px-4">
                 <p className={cn(

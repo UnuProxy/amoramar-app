@@ -133,8 +133,8 @@ export function AvailabilityCalendar({
 
   return (
     <div className={cn(
-      "bg-white border-2 rounded-2xl p-4 shadow-lg relative max-w-md mx-auto",
-      isConsultation ? "border-emerald-200 bg-gradient-to-br from-white to-emerald-50/30" : "border-neutral-100"
+      "bg-white border rounded-2xl p-3 shadow-sm relative max-w-sm mx-auto",
+      isConsultation ? "border-emerald-200 bg-gradient-to-br from-white to-emerald-50/20" : "border-neutral-200"
     )}>
       {/* Consultation Badge */}
       {isConsultation && (
@@ -144,23 +144,23 @@ export function AvailabilityCalendar({
       )}
       
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-3">
         <button
           onClick={previousMonth}
-          className="w-8 h-8 rounded-lg bg-neutral-100 hover:bg-neutral-200 transition-colors flex items-center justify-center"
+          className="w-9 h-9 rounded-xl bg-neutral-100 hover:bg-neutral-200 transition-colors flex items-center justify-center"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
         </button>
         
-        <h3 className="text-base font-black text-neutral-800 uppercase tracking-tight">
+        <h3 className="text-sm font-black text-neutral-800 uppercase tracking-tight">
           {monthNames[currentMonth.getMonth()]} {currentMonth.getFullYear()}
         </h3>
         
         <button
           onClick={nextMonth}
-          className="w-8 h-8 rounded-lg bg-neutral-100 hover:bg-neutral-200 transition-colors flex items-center justify-center"
+          className="w-9 h-9 rounded-xl bg-neutral-100 hover:bg-neutral-200 transition-colors flex items-center justify-center"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -169,9 +169,9 @@ export function AvailabilityCalendar({
       </div>
 
       {/* Day names */}
-      <div className="grid grid-cols-7 gap-1 mb-2">
+      <div className="grid grid-cols-7 gap-1 mb-1.5">
         {dayNames.map((day) => (
-          <div key={day} className="text-center text-[9px] font-black text-neutral-400 uppercase tracking-wider py-1">
+          <div key={day} className="text-center text-[8px] font-black text-neutral-400 uppercase tracking-[0.18em] py-1">
             {day}
           </div>
         ))}
@@ -196,28 +196,38 @@ export function AvailabilityCalendar({
               onClick={() => !isPast && onDateSelect(dateStr)}
               disabled={isPast || loading || !hasAvailability}
               className={cn(
-                "aspect-square rounded-lg flex flex-col items-center justify-center relative transition-all",
+                "aspect-square rounded-xl flex flex-col items-center justify-center relative transition-all",
                 "text-xs font-bold",
                 isPast && "opacity-30 cursor-not-allowed",
-                !isPast && !isSelected && !hasAvailability && "bg-neutral-50 text-neutral-300 cursor-not-allowed",
-                !isPast && hasAvailability && !isSelected && isConsultation 
-                  ? "bg-neutral-50 text-neutral-800 hover:bg-emerald-50 hover:border-emerald-200 border border-transparent"
-                  : "bg-neutral-50 text-neutral-800 hover:bg-rose-50 hover:border-rose-200 border border-transparent",
+                !isPast && !isSelected && !hasAvailability && "bg-stone-100 text-stone-400 border border-stone-200 cursor-not-allowed",
+                !isPast && hasAvailability && !isSelected && "bg-white text-neutral-800 border border-emerald-300 hover:bg-emerald-50 hover:border-emerald-400",
                 isSelected && isConsultation && "bg-emerald-600 text-white shadow-md scale-105 border border-emerald-700",
                 isSelected && !isConsultation && "bg-rose-600 text-white shadow-md scale-105 border border-rose-700",
-                isToday && !isSelected && (isConsultation ? "border border-emerald-300" : "border border-rose-300")
+                isToday && !isSelected && hasAvailability && "ring-1 ring-emerald-300",
+                isToday && !isSelected && !hasAvailability && "ring-1 ring-stone-300"
               )}
             >
               <span className="relative z-10">{day.getDate()}</span>
-              
-              {/* Availability indicator dot */}
+
               {!isPast && hasAvailability && !isSelected && (
-                <div className="absolute bottom-0.5 w-1 h-1 rounded-full bg-green-500" />
+                <div className="absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 text-white shadow-sm">
+                  <svg className="h-2.5 w-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
               )}
-              
-              {/* No availability indicator */}
+
               {!isPast && !hasAvailability && !isSelected && (
-                <div className="absolute bottom-0.5 w-1 h-1 rounded-full bg-neutral-300" />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <svg
+                    className="h-7 w-7 text-stone-400/65"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.75} d="M6 6l12 12M18 6L6 18" />
+                  </svg>
+                </div>
               )}
             </button>
           );
@@ -225,13 +235,21 @@ export function AvailabilityCalendar({
       </div>
 
       {/* Legend */}
-      <div className="flex items-center justify-center gap-4 mt-4 pt-3 border-t border-neutral-100">
+      <div className="flex items-center justify-center gap-4 mt-3 pt-3 border-t border-neutral-100">
         <div className="flex items-center gap-1.5">
-          <div className="w-2 h-2 rounded-full bg-green-500" />
+          <div className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-emerald-500 text-white">
+            <svg className="h-2 w-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
           <span className="text-[10px] text-neutral-600 font-medium">Disponible</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <div className="w-2 h-2 rounded-full bg-neutral-300" />
+          <div className="flex h-4 w-4 items-center justify-center rounded-full border border-stone-300 bg-white text-stone-700 shadow-sm">
+            <svg className="h-2.5 w-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          </div>
           <span className="text-[10px] text-neutral-600 font-medium">No disponible</span>
         </div>
       </div>
