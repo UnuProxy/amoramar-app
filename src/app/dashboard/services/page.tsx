@@ -878,7 +878,7 @@ export default function ServicesPage() {
                                   setDraggedServiceId(null);
                                 }}
                                 className={cn(
-                                  "flex items-center gap-3 rounded-2xl bg-slate-50 px-3 py-2 transition-all",
+                                  "flex items-start gap-2 rounded-2xl bg-slate-50 px-2.5 py-2 transition-all sm:items-center sm:gap-3 sm:px-3",
                                   isDragging && "opacity-50",
                                   isDropTarget && "ring-2 ring-slate-300"
                                 )}
@@ -886,10 +886,10 @@ export default function ServicesPage() {
                                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-sm font-semibold text-slate-500">
                                   {serviceIndex + 1}
                                 </div>
-                                <div className="flex min-w-0 flex-1 items-center gap-3">
+                                <div className="flex min-w-0 flex-1 flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-3">
                                   <button
                                     type="button"
-                                    className="cursor-grab rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-500 active:cursor-grabbing"
+                                    className="max-w-full shrink-0 cursor-grab rounded-full bg-white px-2.5 py-1 text-[11px] font-medium text-slate-500 active:cursor-grabbing"
                                   >
                                     {copy.dragToReorder}
                                   </button>
@@ -897,7 +897,7 @@ export default function ServicesPage() {
                                     href={`/dashboard/services/${service.id}`}
                                     className="min-w-0 flex-1 text-sm font-medium text-slate-700 hover:text-slate-900"
                                   >
-                                    <span className="truncate">{service.serviceName}</span>
+                                    <span className="block whitespace-normal break-words leading-snug">{service.serviceName}</span>
                                   </Link>
                                 </div>
                               </div>

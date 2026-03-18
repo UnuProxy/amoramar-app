@@ -6,21 +6,26 @@ import { useAuth } from '@/shared/hooks/useAuth';
 import { Loading } from '@/shared/components/Loading';
 import { ClientAuthModal } from '@/shared/components/ClientAuthModal';
 import { formatCurrency, cn, getDateKeyInMadrid } from '@/shared/lib/utils';
-import type { Service, Employee, BookingFormData, Client } from '@/shared/lib/types';
+import type { Service, Employee, BookingFormData, Client, ServiceCatalogConfig } from '@/shared/lib/types';
 import { loadStripe, type Stripe, type StripeCardElement, type StripeElements } from '@stripe/stripe-js';
 import Link from 'next/link';
 import Image from 'next/image';
-import { getClient, getClientByEmail } from '@/shared/lib/firestore';
+import { getClient, getClientByEmail, getServiceCatalogConfig } from '@/shared/lib/firestore';
 import { AvailabilityCalendar } from '@/shared/components/AvailabilityCalendar';
 import { useLanguage } from '@/shared/context/LanguageContext';
 import { BrandLogo } from '@/shared/components/BrandLogo';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
-import { getServiceDescriptionSearchText } from '@/shared/lib/serviceLocalization';
+import { getLocalizedServiceDescription, getServiceDescriptionSearchText } from '@/shared/lib/serviceLocalization';
+import { type ServiceMainGroupKey } from '@/shared/lib/serviceCategories';
 import {
-  getServiceMainGroupForCategory,
-  type ServiceMainGroupKey,
-} from '@/shared/lib/serviceCategories';
-import { compareServicesByDisplayOrder } from '@/shared/lib/serviceCatalog';
+  compareServicesByDisplayOrder,
+  DEFAULT_SALON_ID,
+  getDefaultServiceCatalogConfig,
+  getServiceGroupId,
+  getServiceGroupLabel,
+  getServiceSubgroupId,
+  getServiceSubgroupLabel,
+} from '@/shared/lib/serviceCatalog';
 import {
   ArrowLeft,
   Check,
@@ -43,7 +48,7 @@ type TimeSlot = {
   available: boolean;
 };
 
-type MajorGroupKey = ServiceMainGroupKey;
+type MajorGroupKey = string;
 
 type LocalizedSubgroup = {
   key: string;
@@ -379,7 +384,7 @@ const GROUP_TONE: Record<MajorGroupKey, GroupTone> = {
 };
 
 const getMajorGroupForService = (service: Service): MajorGroupKey => {
-  return getServiceMainGroupForCategory(service.category, service.serviceName);
+  return getServiceGroupId(service);
 };
 
 const getServiceSubgroup = (service: Service, language: 'es' | 'en'): LocalizedSubgroup => {
@@ -476,6 +481,7 @@ export default function BookAllServicesPage() {
   const { language } = useLanguage();
   
   const [services, setServices] = useState<Service[]>([]);
+  const [catalogConfig, setCatalogConfig] = useState<ServiceCatalogConfig>(getDefaultServiceCatalogConfig(DEFAULT_SALON_ID));
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<MajorGroupKey | null>(null);
   const [serviceSearch, setServiceSearch] = useState('');
@@ -771,65 +777,49 @@ export default function BookAllServicesPage() {
     if (!normalizedServiceSearch) return services;
 
     return services.filter((service) => {
-      const groupKey = getMajorGroupForService(service);
-      const subgroup = getServiceSubgroup(service, language);
-      const groupLabel = MAJOR_GROUP_META[groupKey][language].toLowerCase();
+      const groupLabel = getServiceGroupLabel(service, catalogConfig, language).toLowerCase();
+      const subgroupLabel = getServiceSubgroupLabel(service, catalogConfig, language).toLowerCase();
 
       return (
         service.serviceName.toLowerCase().includes(normalizedServiceSearch) ||
         getServiceDescriptionSearchText(service).includes(normalizedServiceSearch) ||
-        subgroup.label.toLowerCase().includes(normalizedServiceSearch) ||
+        subgroupLabel.includes(normalizedServiceSearch) ||
         groupLabel.includes(normalizedServiceSearch)
       );
     });
-  }, [services, normalizedServiceSearch, language]);
+  }, [services, normalizedServiceSearch, language, catalogConfig]);
 
   const groupedCatalog = useMemo(() => {
-    const initial = MAJOR_GROUP_ORDER.reduce(
-      (acc, group) => {
-        acc[group] = {
-          key: group,
-          label: MAJOR_GROUP_META[group][language],
-          services: [] as Service[],
-          subgroups: new Map<string, { key: string; label: string; services: Service[] }>(),
+    return catalogConfig.groups
+      .map((group) => {
+        const groupServices = filteredServices.filter((service) => getServiceGroupId(service) === group.id);
+        const prices = groupServices.map((s) => s.price).filter((p) => typeof p === 'number');
+        const durations = groupServices.map((s) => s.duration).filter((d) => typeof d === 'number');
+        const subgroups = group.subgroups
+          .map((subgroup) => ({
+            key: subgroup.id,
+            label: getServiceSubgroupLabel(
+              { mainGroupId: group.id, subgroupId: subgroup.id, category: subgroup.id } as Service,
+              catalogConfig,
+              language
+            ),
+            services: sortServices(groupServices.filter((service) => getServiceSubgroupId(service) === subgroup.id)),
+          }))
+          .filter((subgroup) => subgroup.services.length > 0);
+
+        return {
+          key: group.id,
+          label: getServiceGroupLabel({ mainGroupId: group.id, category: group.id } as Service, catalogConfig, language),
+          count: groupServices.length,
+          minPrice: prices.length ? Math.min(...prices) : 0,
+          maxPrice: prices.length ? Math.max(...prices) : 0,
+          minDuration: durations.length ? Math.min(...durations) : 0,
+          maxDuration: durations.length ? Math.max(...durations) : 0,
+          subgroups,
         };
-        return acc;
-      },
-      {} as Record<MajorGroupKey, { key: MajorGroupKey; label: string; services: Service[]; subgroups: Map<string, { key: string; label: string; services: Service[] }> }>
-    );
-
-    for (const service of filteredServices) {
-      const group = getMajorGroupForService(service);
-      const subgroup = getServiceSubgroup(service, language);
-      initial[group].services.push(service);
-
-      if (!initial[group].subgroups.has(subgroup.key)) {
-        initial[group].subgroups.set(subgroup.key, { key: subgroup.key, label: subgroup.label, services: [] });
-      }
-      initial[group].subgroups.get(subgroup.key)!.services.push(service);
-    }
-
-    return BOOKING_GROUP_ORDER.map((group) => {
-      const entry = initial[group];
-      const prices = entry.services.map((s) => s.price).filter((p) => typeof p === 'number');
-      const durations = entry.services.map((s) => s.duration).filter((d) => typeof d === 'number');
-      const subgroups = sortSubgroupsForGroup(entry.key, Array.from(entry.subgroups.values()).map((subgroup) => ({
-        ...subgroup,
-        services: sortServices(subgroup.services),
-      })));
-
-      return {
-        key: entry.key,
-        label: entry.label,
-        count: entry.services.length,
-        minPrice: prices.length ? Math.min(...prices) : 0,
-        maxPrice: prices.length ? Math.max(...prices) : 0,
-        minDuration: durations.length ? Math.min(...durations) : 0,
-        maxDuration: durations.length ? Math.max(...durations) : 0,
-        subgroups,
-      };
-    });
-  }, [filteredServices, language, serviceSort]);
+      })
+      .filter((group) => group.count > 0);
+  }, [filteredServices, language, serviceSort, catalogConfig]);
 
   const visibleCategories = groupedCatalog.map((group) => group.key);
   const activeCategory = selectedCategory && visibleCategories.includes(selectedCategory as MajorGroupKey)
@@ -839,7 +829,9 @@ export default function BookAllServicesPage() {
     ? groupedCatalog.find((group) => group.key === activeCategory) || null
     : null;
   const totalVisibleServices = filteredServices.length;
-  const activeGroupTone = activeGroup ? GROUP_TONE[activeGroup.key] : GROUP_TONE['beauty-face'];
+  const activeGroupTone = activeGroup
+    ? GROUP_TONE[activeGroup.key as ServiceMainGroupKey] || GROUP_TONE['beauty-face']
+    : GROUP_TONE['beauty-face'];
   const [showLoginModal, setShowLoginModal] = useState<boolean>(false);
   const [authModalMode, setAuthModalMode] = useState<'login' | 'signup'>('login');
   const [pendingClientDataRefresh, setPendingClientDataRefresh] = useState<boolean>(false);
@@ -868,13 +860,17 @@ export default function BookAllServicesPage() {
   useEffect(() => {
     const fetchServices = async () => {
       try {
-        const response = await fetch('/api/services?withEmployees=true');
+        const [response, config] = await Promise.all([
+          fetch('/api/services?withEmployees=true'),
+          getServiceCatalogConfig(DEFAULT_SALON_ID),
+        ]);
         const data = await response.json();
         
         if (data.success) {
           const activeServices = (data.data as Service[]).filter((service) => service.isActive);
           setServices(activeServices);
         }
+        setCatalogConfig(config);
       } catch (err) {
         console.error('Error fetching services:', err);
       } finally {
@@ -898,11 +894,11 @@ export default function BookAllServicesPage() {
     if (bookingStep !== 2 || !selectedService || !activeGroup) return;
     if (getMajorGroupForService(selectedService) !== activeGroup.key) return;
 
-    const subgroup = getServiceSubgroup(selectedService, language);
-    if (activeGroup.subgroups.some((item) => item.key === subgroup.key)) {
-      setSelectedSubgroupKey(subgroup.key);
+    const subgroupKey = getServiceSubgroupId(selectedService);
+    if (activeGroup.subgroups.some((item) => item.key === subgroupKey)) {
+      setSelectedSubgroupKey(subgroupKey);
     }
-  }, [bookingStep, selectedService, activeGroup, language]);
+  }, [bookingStep, selectedService, activeGroup]);
 
   useEffect(() => {
     if (!activeGroup) {
@@ -1214,6 +1210,7 @@ export default function BookAllServicesPage() {
     const canBook = isActive && hasEmployees && !isRestrictedOnline;
     const specialistCount = service.employees?.length || 0;
     const isSelectedService = selectedService?.id === service.id;
+    const localizedDescription = getLocalizedServiceDescription(service, language).trim();
 
     return (
       <button
@@ -1250,6 +1247,11 @@ export default function BookAllServicesPage() {
             <p className="text-base font-semibold text-stone-800 leading-snug line-clamp-2">
               {service.serviceName}
             </p>
+            {localizedDescription ? (
+              <p className="mt-2 text-sm leading-6 text-stone-500 whitespace-pre-line line-clamp-4">
+                {localizedDescription}
+              </p>
+            ) : null}
           </div>
           <div className="text-right">
             <p className="text-xl sm:text-2xl leading-none font-semibold text-stone-700">
@@ -1474,11 +1476,10 @@ export default function BookAllServicesPage() {
   const progressStepLabel = progressStepLabelByStep[visualProgressStep];
   const progressWidth = `${(visualProgressStep / 4) * 100}%`;
 
-  const groupByKey = new Map(groupedCatalog.map((group) => [group.key, group]));
-  const step1Groups = STEP1_GROUP_CONFIG.map((groupConfig) => ({
-    ...groupConfig,
-    name: MAJOR_GROUP_META[groupConfig.key][language],
-    count: groupByKey.get(groupConfig.key)?.count ?? 0,
+  const step1Groups = groupedCatalog.map((group) => ({
+    key: group.key,
+    name: group.label,
+    count: group.count,
   }));
   const handleSelectGroup = (groupKey: MajorGroupKey) => {
     setSelectedCategory(groupKey);
