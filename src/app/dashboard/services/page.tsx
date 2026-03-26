@@ -774,14 +774,24 @@ export default function ServicesPage() {
                       {(() => {
                         const subgroupPanelKey = getSubgroupPanelKey(activeCatalogGroup.id, subgroup.key);
                         const isSubgroupOpen = openSubgroups[subgroupPanelKey] ?? false;
+                        const subgroupDraft = activeCatalogGroup.subgroups.find((item) => item.id === subgroup.key);
+                        const subgroupDisplayName = [subgroupDraft?.labelEn, subgroupDraft?.labelEs]
+                          .filter((value): value is string => Boolean(value?.trim()))
+                          .filter((value, index, values) => values.indexOf(value) === index)
+                          .join(' / ') || subgroup.label;
 
                         return (
                           <>
                       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-                        <div className="flex items-center gap-3">
-                          <span className="text-sm font-semibold text-slate-400">{index + 1}</span>
-                          <div className="flex flex-wrap gap-2 text-xs text-slate-500">
+                        <div className="flex min-w-0 items-start gap-3">
+                          <span className="pt-0.5 text-sm font-semibold text-slate-400">{index + 1}</span>
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-slate-800">
+                              {subgroupDisplayName}
+                            </p>
+                            <div className="mt-1 flex flex-wrap gap-2 text-xs text-slate-500">
                             <span>{subgroup.services.length} {copy.serviceCount}</span>
+                            </div>
                           </div>
                         </div>
                         <div className="flex flex-wrap gap-2">
