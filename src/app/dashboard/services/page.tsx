@@ -107,6 +107,9 @@ export default function ServicesPage() {
           deleteGroupConfirm: '¿Eliminar este grupo?',
           deleteGroupUsedConfirm: (count: number, name: string) =>
             `Este grupo se usa en ${count} servicio(s): ${name}. Si lo eliminas, esos servicios seguiran existiendo pero quedaran fuera del catalogo. ¿Quieres continuar?`,
+          typeToDeleteGroup: (name: string) => `Para eliminar este grupo, escribe exactamente: ${name}`,
+          typeToDeleteSubgroup: (name: string) => `Para eliminar este subgrupo, escribe exactamente: ${name}`,
+          deleteNameMismatch: 'El texto no coincide. Eliminacion cancelada.',
           allServicesDeleted: 'Todos los servicios han sido eliminados.',
           deleteAllFailed: 'No se pudieron eliminar todos los servicios.',
           catalogTitle: 'Organizar grupos',
@@ -204,6 +207,9 @@ export default function ServicesPage() {
           deleteGroupConfirm: 'Delete this group?',
           deleteGroupUsedConfirm: (count: number, name: string) =>
             `This group is used by ${count} service(s): ${name}. If you delete it, those services will still exist but stay outside the catalog. Continue?`,
+          typeToDeleteGroup: (name: string) => `To delete this group, type exactly: ${name}`,
+          typeToDeleteSubgroup: (name: string) => `To delete this subgroup, type exactly: ${name}`,
+          deleteNameMismatch: 'The text did not match. Deletion was cancelled.',
           allServicesDeleted: 'All services were deleted.',
           deleteAllFailed: 'Could not delete all services.',
           catalogTitle: 'Organize groups',
@@ -246,6 +252,16 @@ export default function ServicesPage() {
         };
 
   const getSubgroupPanelKey = (groupId: string, subgroupId: string) => `${groupId}:${subgroupId}`;
+
+  const confirmTypedDeletion = (expectedName: string, message: string): boolean => {
+    const typedValue = window.prompt(message, '');
+    if (typedValue === null) return false;
+    if (typedValue.trim() !== expectedName.trim()) {
+      window.alert(copy.deleteNameMismatch);
+      return false;
+    }
+    return true;
+  };
 
   const groupSections = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
@@ -420,8 +436,12 @@ export default function ServicesPage() {
     const affectedServices = services.filter(
       (service) => getServiceGroupId(service) === groupId && getServiceSubgroupId(service) === subgroupId
     );
-    const subgroupName =
-      affectedServices[0]
+    const subgroupDraft = catalogConfig.groups
+      .find((group) => group.id === groupId)
+      ?.subgroups.find((subgroup) => subgroup.id === subgroupId);
+    const subgroupName = subgroupDraft
+      ? getCatalogSubgroupLabel(subgroupDraft, language === 'es' ? 'es' : 'en')
+      : affectedServices[0]
         ? getMissingCatalogSubgroupLabel(subgroupId, language === 'es' ? 'es' : 'en')
         : subgroupId;
     const confirmed = window.confirm(
@@ -430,6 +450,7 @@ export default function ServicesPage() {
         : copy.deleteSubgroupConfirm
     );
     if (!confirmed) return;
+    if (!confirmTypedDeletion(subgroupName, copy.typeToDeleteSubgroup(subgroupName))) return;
 
     setCatalogDirty(true);
     setOpenSubgroups((prev) => {
@@ -459,6 +480,7 @@ export default function ServicesPage() {
         : copy.deleteGroupConfirm
     );
     if (!confirmed) return;
+    if (!confirmTypedDeletion(groupName, copy.typeToDeleteGroup(groupName))) return;
 
     setCatalogDirty(true);
     setCatalogConfig((prev) => ({
@@ -732,13 +754,6 @@ export default function ServicesPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => deleteCatalogGroup(activeCatalogGroup.id)}
-                    className="px-4 py-2 rounded-full bg-rose-50 text-rose-700 text-sm font-medium hover:bg-rose-100 transition-all"
-                  >
-                    {copy.deleteGroup}
-                  </button>
-                  <button
-                    type="button"
                     onClick={saveCatalog}
                     disabled={catalogSaving}
                     className={cn(
@@ -930,6 +945,16 @@ export default function ServicesPage() {
                     {copy.noSubgroupsYet}
                   </div>
                 )}
+
+                <div className="flex justify-end pt-2">
+                  <button
+                    type="button"
+                    onClick={() => deleteCatalogGroup(activeCatalogGroup.id)}
+                    className="px-4 py-2 rounded-full bg-rose-50 text-rose-700 text-sm font-medium hover:bg-rose-100 transition-all"
+                  >
+                    {copy.deleteGroup}
+                  </button>
+                </div>
               </div>
             </>
           ) : (

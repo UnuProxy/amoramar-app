@@ -1242,9 +1242,9 @@ export default function BookAllServicesPage() {
             </span>
           )}
         </div>
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-base font-semibold text-stone-800 leading-snug line-clamp-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-base font-semibold text-stone-800 leading-snug whitespace-normal break-words">
               {service.serviceName}
             </p>
             {localizedDescription ? (
@@ -1253,7 +1253,7 @@ export default function BookAllServicesPage() {
               </p>
             ) : null}
           </div>
-          <div className="text-right">
+          <div className="flex shrink-0 items-end justify-between gap-3 sm:block sm:text-right">
             <p className="text-xl sm:text-2xl leading-none font-semibold text-stone-700">
               {formatCurrency(service.price)}
             </p>
