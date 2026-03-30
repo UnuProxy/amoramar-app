@@ -687,6 +687,8 @@ export default function EmployeeCalendarPage() {
 
   const handleDeleteBlock = async () => {
     if (!employee || !selectedServiceId || !blockModal?.blockedSlotId) return;
+    const ok = window.confirm('¿Eliminar este bloqueo? Esta acción liberará ese horario.');
+    if (!ok) return;
     
     setSavingBlock(true);
     try {

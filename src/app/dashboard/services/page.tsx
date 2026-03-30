@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { getServices, getEmployeeServices, deleteService, deleteEmployeeService, getServiceCatalogConfig, saveServiceCatalogConfig, updateService } from '@/shared/lib/firestore';
 import { Loading } from '@/shared/components/Loading';
 import Link from 'next/link';
@@ -27,6 +28,7 @@ type ServiceSubgroup = {
 };
 
 export default function ServicesPage() {
+  const searchParams = useSearchParams();
   const { language } = useLanguage();
   const [services, setServices] = useState<Service[]>([]);
   const [catalogConfig, setCatalogConfig] = useState<ServiceCatalogConfig>(getDefaultServiceCatalogConfig());
@@ -45,6 +47,7 @@ export default function ServicesPage() {
   const [openSubgroups, setOpenSubgroups] = useState<Record<string, boolean>>({});
   const catalogConfigRef = useRef(catalogConfig);
   const catalogAutoSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const requestedGroupId = searchParams.get('group');
   const activeCatalogGroup = useMemo(
     () => catalogConfig.groups.find((group) => group.id === activeCatalogGroupId) || catalogConfig.groups[0] || null,
     [catalogConfig.groups, activeCatalogGroupId]
@@ -623,6 +626,13 @@ export default function ServicesPage() {
   }, [catalogConfig, catalogDirty, loading]);
 
   useEffect(() => {
+    if (!requestedGroupId) return;
+    if (!catalogConfig.groups.some((group) => group.id === requestedGroupId)) return;
+    if (requestedGroupId === activeCatalogGroupId) return;
+    setActiveCatalogGroupId(requestedGroupId);
+  }, [requestedGroupId, catalogConfig.groups, activeCatalogGroupId]);
+
+  useEffect(() => {
     if (!catalogConfig.groups.length) return;
     if (!catalogConfig.groups.some((group) => group.id === activeCatalogGroupId)) {
       setActiveCatalogGroupId(catalogConfig.groups[0].id);
@@ -871,13 +881,6 @@ export default function ServicesPage() {
                           >
                             {isSubgroupOpen ? copy.closeSubgroup : copy.openSubgroup}
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => deleteCatalogSubgroup(activeCatalogGroup.id, subgroup.key)}
-                            className="px-3 py-1.5 rounded-full bg-rose-50 text-rose-700 text-xs font-medium hover:bg-rose-100 transition-all"
-                          >
-                            {copy.deleteLabel}
-                          </button>
                         </div>
                       </div>
 
@@ -963,7 +966,7 @@ export default function ServicesPage() {
                                     {copy.dragToReorder}
                                   </button>
                                   <Link
-                                    href={`/dashboard/services/${service.id}`}
+                                    href={`/dashboard/services/${service.id}?group=${activeCatalogGroup.id}&subgroup=${subgroup.key}`}
                                     className="min-w-0 flex-1 text-sm font-medium text-slate-700 hover:text-slate-900"
                                   >
                                     <span className="block whitespace-normal break-words leading-snug">{service.serviceName}</span>
@@ -976,6 +979,16 @@ export default function ServicesPage() {
                       ) : (
                         <p className="text-sm text-slate-400">{copy.emptySubgroup}</p>
                       )}
+
+                      <div className="flex justify-end pt-1">
+                        <button
+                          type="button"
+                          onClick={() => deleteCatalogSubgroup(activeCatalogGroup.id, subgroup.key)}
+                          className="rounded-full border border-rose-200 px-3 py-1.5 text-xs font-medium text-rose-600 transition-all hover:bg-rose-50"
+                        >
+                          {copy.deleteLabel}
+                        </button>
+                      </div>
                         </>
                       ) : null}
                           </>

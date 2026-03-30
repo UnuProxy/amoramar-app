@@ -176,6 +176,9 @@ export const ServiceForm: React.FC<ServiceFormProps> = ({ service }) => {
     () => visibleSubgroups.find((subgroup) => subgroup.id === selectedSubgroup),
     [visibleSubgroups, selectedSubgroup]
   );
+  const backToServicesPath = requestedGroupId || selectedMainGroup
+    ? `/dashboard/services?group=${encodeURIComponent(requestedGroupId || selectedMainGroup)}`
+    : '/dashboard/services';
 
   useEffect(() => {
     const fetchData = async () => {
@@ -301,7 +304,7 @@ export const ServiceForm: React.FC<ServiceFormProps> = ({ service }) => {
         }
       }
 
-      router.push('/dashboard/services');
+      router.push(backToServicesPath);
     } catch (submitError: any) {
       setError(submitError.message || copy.saveError);
     } finally {
@@ -325,7 +328,7 @@ export const ServiceForm: React.FC<ServiceFormProps> = ({ service }) => {
       }
 
       await deleteService(service.id);
-      router.push('/dashboard/services');
+      router.push(backToServicesPath);
     } catch (deleteError: any) {
       setError(deleteError?.message || copy.deleteError);
     } finally {
@@ -570,7 +573,7 @@ export const ServiceForm: React.FC<ServiceFormProps> = ({ service }) => {
         <Button type="submit" isLoading={isLoading}>
           {service ? copy.updateService : copy.createService}
         </Button>
-        <Button type="button" variant="outline" onClick={() => router.push('/dashboard/services')}>
+        <Button type="button" variant="outline" onClick={() => router.push(backToServicesPath)}>
           {copy.cancel}
         </Button>
         {service && (

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { getService } from '@/shared/lib/firestore';
 import { ServiceForm } from '@/back-office/dashboard/components/ServiceForm';
 import { Loading } from '@/shared/components/Loading';
@@ -11,8 +11,13 @@ import type { Service } from '@/shared/lib/types';
 export default function EditServicePage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { language } = useLanguage();
   const serviceId = params.id as string;
+  const requestedGroupId = searchParams.get('group');
+  const backToServicesPath = requestedGroupId
+    ? `/dashboard/services?group=${encodeURIComponent(requestedGroupId)}`
+    : '/dashboard/services';
   const [service, setService] = useState<Service | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -65,7 +70,7 @@ export default function EditServicePage() {
       <div>
         <button
           type="button"
-          onClick={() => router.push('/dashboard/services')}
+          onClick={() => router.push(backToServicesPath)}
           className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-900 mb-3"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -17,7 +17,7 @@ export default function ClientLayout({
 
   useEffect(() => {
     if (!loading && (!user || user.role !== 'client')) {
-      router.push('/');
+      router.push('/book?auth=login&redirect=%2Fclient%2Fbookings');
     }
   }, [user, loading, router]);
 

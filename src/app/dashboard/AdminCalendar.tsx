@@ -341,6 +341,8 @@ export function AdminCalendar({
 
   const handleDeleteBlock = async () => {
     if (!selectedEmployeeId || !selectedServiceId || !blockModal?.blockedSlotId) return;
+    const ok = window.confirm('¿Eliminar este bloqueo? Esta acción liberará ese horario.');
+    if (!ok) return;
     setSavingBlock(true);
     try {
       await deleteBlockedSlot(blockModal.blockedSlotId);

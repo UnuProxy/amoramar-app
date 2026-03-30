@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo, useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { Loading } from '@/shared/components/Loading';
 import { ClientAuthModal } from '@/shared/components/ClientAuthModal';
@@ -477,6 +477,7 @@ const formatDisplayDate = (dateStr: string): string => {
 
 export default function BookAllServicesPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, loading: authLoading } = useAuth();
   const { language } = useLanguage();
   
@@ -850,6 +851,7 @@ export default function BookAllServicesPage() {
   const stripeRef = useRef<Stripe | null>(null);
   const elementsRef = useRef<StripeElements | null>(null);
   const cardElementRef = useRef<StripeCardElement | null>(null);
+  const handledAuthQueryRef = useRef(false);
   const cardMountId = 'book-all-card-element';
   const stripePublicKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '';
   const activeSubgroup = activeGroup && selectedSubgroupKey
@@ -1108,6 +1110,11 @@ export default function BookAllServicesPage() {
 
   const handleClientLoginSuccess = async () => {
     setShowLoginModal(false);
+    const redirectTarget = searchParams.get('redirect');
+    if (redirectTarget) {
+      router.push(redirectTarget);
+      return;
+    }
     // Mark that we need to refresh client data once auth state updates
     setPendingClientDataRefresh(true);
   };
@@ -1116,6 +1123,16 @@ export default function BookAllServicesPage() {
     setAuthModalMode(mode);
     setShowLoginModal(true);
   };
+
+  useEffect(() => {
+    if (handledAuthQueryRef.current) return;
+
+    const authMode = searchParams.get('auth');
+    if (!authMode || user?.role === 'client') return;
+
+    handledAuthQueryRef.current = true;
+    openAuthModal(authMode === 'signup' ? 'signup' : 'login');
+  }, [searchParams, user?.role]);
 
   const selectService = (service: Service, employeeId?: string) => {
     const preselectedEmployeeId = employeeId || service.employees?.[0]?.id || '';
@@ -1556,12 +1573,9 @@ export default function BookAllServicesPage() {
                   </span>
                   <Link
                     href="/client/bookings"
-                    className="min-w-0 px-3 sm:px-5 py-2 sm:py-2.5 text-[10px] sm:text-xs font-black text-white bg-stone-700 hover:bg-neutral-900 uppercase tracking-[0.14em] sm:tracking-widest transition rounded-xl flex items-center gap-1.5 sm:gap-2"
+                    className="min-w-0 rounded-xl bg-stone-700 px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-white transition hover:bg-neutral-900 sm:px-5 sm:py-2.5 sm:text-xs sm:tracking-widest"
                   >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                    <span className="hidden xs:inline">{copy.myBookings}</span>
+                    {copy.myBookings}
                   </Link>
                 </>
               ) : (
