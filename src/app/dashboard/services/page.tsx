@@ -568,7 +568,8 @@ export default function ServicesPage() {
         salonId: DEFAULT_SALON_ID,
         groups: cleanedGroups,
       });
-      setCatalogConfig((prev) => ({ ...prev, groups: cleanedGroups }));
+      const persistedConfig = await getServiceCatalogConfig(DEFAULT_SALON_ID);
+      setCatalogConfig(persistedConfig);
       setCatalogMessage(copy.catalogSaved);
       setCatalogDirty(false);
     } catch (error: any) {

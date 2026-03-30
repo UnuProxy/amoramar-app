@@ -483,6 +483,7 @@ export default function BookAllServicesPage() {
   const [services, setServices] = useState<Service[]>([]);
   const [catalogConfig, setCatalogConfig] = useState<ServiceCatalogConfig>(getDefaultServiceCatalogConfig(DEFAULT_SALON_ID));
   const [selectedService, setSelectedService] = useState<Service | null>(null);
+  const [expandedServiceDescriptions, setExpandedServiceDescriptions] = useState<string[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<MajorGroupKey | null>(null);
   const [serviceSearch, setServiceSearch] = useState('');
   const [serviceSort, setServiceSort] = useState<'recommended' | 'priceAsc' | 'durationAsc' | 'nameAsc'>('recommended');
@@ -543,6 +544,8 @@ export default function BookAllServicesPage() {
         specialistSingular: 'especialista',
         specialistPlural: 'especialistas',
         book: 'Reservar',
+        showMore: 'Ver mas',
+        showLess: 'Ver menos',
         unavailable: 'No disponible',
         onlineBookingUnavailable: 'No disponible online',
         consultationRequired: 'Consulta previa obligatoria',
@@ -669,6 +672,8 @@ export default function BookAllServicesPage() {
       specialistSingular: 'specialist',
       specialistPlural: 'specialists',
       book: 'Book',
+      showMore: 'Show more',
+      showLess: 'Show less',
       unavailable: 'Unavailable',
       onlineBookingUnavailable: 'Not available online',
       consultationRequired: 'Consultation required',
@@ -1211,17 +1216,28 @@ export default function BookAllServicesPage() {
     const specialistCount = service.employees?.length || 0;
     const isSelectedService = selectedService?.id === service.id;
     const localizedDescription = getLocalizedServiceDescription(service, language).trim();
+    const isDescriptionExpanded = expandedServiceDescriptions.includes(service.id);
+    const canExpandDescription = localizedDescription.length > 140 || localizedDescription.includes('\n');
 
     return (
-      <button
+      <div
         key={service.id}
+        role={canBook ? 'button' : undefined}
+        tabIndex={canBook ? 0 : -1}
         onClick={() => canBook && selectService(service)}
-        disabled={!canBook}
+        onKeyDown={(event) => {
+          if (!canBook) return;
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            selectService(service);
+          }
+        }}
+        aria-disabled={!canBook}
         className={cn(
           'group rounded-[16px] sm:rounded-[18px] border p-3.5 sm:p-4 text-left transition-all',
           isSelectedService ? 'ring-2 ring-stone-700 border-stone-700 shadow-sm' : '',
           canBook
-            ? cn('border-stone-200 bg-white hover:-translate-y-0.5 hover:shadow-lg', activeGroupTone.serviceHover)
+            ? cn('cursor-pointer border-stone-200 bg-white hover:-translate-y-0.5 hover:shadow-lg', activeGroupTone.serviceHover)
             : 'cursor-not-allowed border-stone-200 bg-stone-50/70'
         )}
       >
@@ -1248,9 +1264,30 @@ export default function BookAllServicesPage() {
               {service.serviceName}
             </p>
             {localizedDescription ? (
-              <p className="mt-2 text-sm leading-6 text-stone-500 whitespace-pre-line line-clamp-4">
-                {localizedDescription}
-              </p>
+              <>
+                <p className={cn(
+                  'mt-2 text-sm leading-6 text-stone-500 whitespace-pre-line',
+                  !isDescriptionExpanded && 'line-clamp-4'
+                )}>
+                  {localizedDescription}
+                </p>
+                {canExpandDescription ? (
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setExpandedServiceDescriptions((prev) =>
+                        prev.includes(service.id)
+                          ? prev.filter((id) => id !== service.id)
+                          : [...prev, service.id]
+                      );
+                    }}
+                    className="mt-2 text-xs font-semibold text-stone-600 underline underline-offset-2 hover:text-stone-900"
+                  >
+                    {isDescriptionExpanded ? copy.showLess : copy.showMore}
+                  </button>
+                ) : null}
+              </>
             ) : null}
           </div>
           <div className="flex shrink-0 items-end justify-between gap-3 sm:block sm:text-right">
@@ -1289,7 +1326,7 @@ export default function BookAllServicesPage() {
             </span>
           )}
         </div>
-      </button>
+      </div>
     );
   };
 
