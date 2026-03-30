@@ -2,6 +2,7 @@ import {
   collection,
   doc,
   getDoc,
+  getDocFromServer,
   getDocs,
   setDoc,
   updateDoc,
@@ -14,7 +15,7 @@ import {
   QueryConstraint,
   Firestore,
 } from 'firebase/firestore';
-import { db } from './firebase';
+import { auth, db } from './firebase';
 import { compareServicesByDisplayOrder } from './serviceCatalog';
 
 // Helper to check if Firestore is initialized
@@ -400,9 +401,28 @@ export const deleteService = async (serviceId: string): Promise<void> => {
 export const getServiceCatalogConfig = async (
   salonId: string = DEFAULT_SALON_ID
 ): Promise<ServiceCatalogConfig> => {
+  if (typeof window !== 'undefined') {
+    const response = await fetch(`/api/service-catalog?salonId=${encodeURIComponent(salonId)}`);
+    const payload = await response.json();
+    if (!response.ok || !payload.success || !payload.data) {
+      throw new Error(payload.error || 'Failed to fetch service catalog');
+    }
+    return {
+      ...payload.data,
+      createdAt: timestampToDate(payload.data.createdAt || 0),
+      updatedAt: timestampToDate(payload.data.updatedAt || 0),
+    } as ServiceCatalogConfig;
+  }
+
   try {
     const docRef = doc(checkDb(), 'serviceCatalogConfigs', salonId);
-    const docSnap = await getDoc(docRef);
+    let docSnap;
+    try {
+      docSnap = await getDocFromServer(docRef);
+    } catch (serverError: any) {
+      if (serverError?.code === 'permission-denied') throw serverError;
+      docSnap = await getDoc(docRef);
+    }
     if (!docSnap.exists()) {
       return getDefaultServiceCatalogConfig(salonId);
     }
@@ -427,16 +447,41 @@ export const getServiceCatalogConfig = async (
 export const saveServiceCatalogConfig = async (
   config: Omit<ServiceCatalogConfig, 'createdAt' | 'updatedAt'>
 ): Promise<void> => {
+  if (typeof window !== 'undefined') {
+    const token = await auth?.currentUser?.getIdToken();
+    if (!token) {
+      throw new Error('You must be logged in as an owner to save the service catalog.');
+    }
+
+    const response = await fetch('/api/service-catalog', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(config),
+    });
+    const payload = await response.json();
+    if (!response.ok || !payload.success) {
+      throw new Error(payload.error || 'Failed to save service catalog');
+    }
+    return;
+  }
+
   const docRef = doc(checkDb(), 'serviceCatalogConfigs', config.id || config.salonId);
-  const existing = await getDoc(docRef);
+  let existing;
+  try {
+    existing = await getDocFromServer(docRef);
+  } catch {
+    existing = await getDoc(docRef);
+  }
   await setDoc(
     docRef,
     {
       ...filterUndefined(config as any),
       createdAt: existing.exists() ? existing.data().createdAt || Timestamp.now() : Timestamp.now(),
       updatedAt: Timestamp.now(),
-    },
-    { merge: true }
+    }
   );
 };
 

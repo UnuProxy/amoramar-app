@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { getServices, getEmployeeServices, deleteService, deleteEmployeeService, getServiceCatalogConfig, saveServiceCatalogConfig, updateService } from '@/shared/lib/firestore';
 import { Loading } from '@/shared/components/Loading';
 import Link from 'next/link';
@@ -43,6 +43,8 @@ export default function ServicesPage() {
   const [draggedServiceId, setDraggedServiceId] = useState<string | null>(null);
   const [dragOverServiceId, setDragOverServiceId] = useState<string | null>(null);
   const [openSubgroups, setOpenSubgroups] = useState<Record<string, boolean>>({});
+  const catalogConfigRef = useRef(catalogConfig);
+  const catalogAutoSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeCatalogGroup = useMemo(
     () => catalogConfig.groups.find((group) => group.id === activeCatalogGroupId) || catalogConfig.groups[0] || null,
     [catalogConfig.groups, activeCatalogGroupId]
@@ -329,6 +331,18 @@ export default function ServicesPage() {
     fetchServices();
   }, []);
 
+  useEffect(() => {
+    catalogConfigRef.current = catalogConfig;
+  }, [catalogConfig]);
+
+  useEffect(() => {
+    return () => {
+      if (catalogAutoSaveTimeoutRef.current) {
+        clearTimeout(catalogAutoSaveTimeoutRef.current);
+      }
+    };
+  }, []);
+
   const fallbackCopyText = (text: string) => {
     if (typeof document === 'undefined') return false;
 
@@ -546,30 +560,41 @@ export default function ServicesPage() {
     await persistSubgroupServiceOrder(groupId, subgroupId, reordered);
   };
 
-  const saveCatalog = async () => {
+  const buildCleanCatalogGroups = (config: ServiceCatalogConfig): ServiceCatalogMainGroup[] =>
+    config.groups.map((group) => ({
+      ...group,
+      labelEn: group.labelEn.trim(),
+      labelEs: group.labelEs.trim(),
+      subgroups: group.subgroups
+        .map((subgroup) => ({
+          ...subgroup,
+          labelEn: subgroup.labelEn.trim(),
+          labelEs: subgroup.labelEs.trim(),
+        }))
+        .filter((subgroup) => subgroup.labelEn || subgroup.labelEs),
+    }));
+
+  const saveCatalog = async (
+    configToSave: ServiceCatalogConfig = catalogConfigRef.current,
+    options: { refreshAfterSave?: boolean } = {}
+  ) => {
+    if (catalogAutoSaveTimeoutRef.current) {
+      clearTimeout(catalogAutoSaveTimeoutRef.current);
+      catalogAutoSaveTimeoutRef.current = null;
+    }
     setCatalogSaving(true);
     setCatalogMessage(null);
     try {
-      const cleanedGroups: ServiceCatalogMainGroup[] = catalogConfig.groups.map((group) => ({
-        ...group,
-        labelEn: group.labelEn.trim(),
-        labelEs: group.labelEs.trim(),
-        subgroups: group.subgroups
-          .map((subgroup) => ({
-            ...subgroup,
-            labelEn: subgroup.labelEn.trim(),
-            labelEs: subgroup.labelEs.trim(),
-          }))
-          .filter((subgroup) => subgroup.labelEn || subgroup.labelEs),
-      }));
-
       await saveServiceCatalogConfig({
         id: DEFAULT_SALON_ID,
         salonId: DEFAULT_SALON_ID,
-        groups: cleanedGroups,
+        groups: buildCleanCatalogGroups(configToSave),
       });
-      const persistedConfig = await getServiceCatalogConfig(DEFAULT_SALON_ID);
-      setCatalogConfig(persistedConfig);
+      if (options.refreshAfterSave) {
+        const persistedConfig = await getServiceCatalogConfig(DEFAULT_SALON_ID);
+        setCatalogConfig(persistedConfig);
+        catalogConfigRef.current = persistedConfig;
+      }
       setCatalogMessage(copy.catalogSaved);
       setCatalogDirty(false);
     } catch (error: any) {
@@ -578,6 +603,24 @@ export default function ServicesPage() {
       setCatalogSaving(false);
     }
   };
+
+  useEffect(() => {
+    if (loading || !catalogDirty) return;
+
+    if (catalogAutoSaveTimeoutRef.current) {
+      clearTimeout(catalogAutoSaveTimeoutRef.current);
+    }
+
+    catalogAutoSaveTimeoutRef.current = setTimeout(() => {
+      void saveCatalog(catalogConfigRef.current);
+    }, 300);
+
+    return () => {
+      if (catalogAutoSaveTimeoutRef.current) {
+        clearTimeout(catalogAutoSaveTimeoutRef.current);
+      }
+    };
+  }, [catalogConfig, catalogDirty, loading]);
 
   useEffect(() => {
     if (!catalogConfig.groups.length) return;
@@ -755,7 +798,7 @@ export default function ServicesPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={saveCatalog}
+                    onClick={() => saveCatalog(catalogConfigRef.current, { refreshAfterSave: true })}
                     disabled={catalogSaving}
                     className={cn(
                       "px-4 py-2 rounded-full text-sm font-medium transition-all",

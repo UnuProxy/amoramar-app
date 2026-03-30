@@ -1,8 +1,10 @@
 import { cert, getApps, initializeApp, type App } from 'firebase-admin/app';
+import { getAuth, type Auth } from 'firebase-admin/auth';
 import { getFirestore, type Firestore } from 'firebase-admin/firestore';
 
 let adminApp: App | null = null;
 let adminDb: Firestore | null = null;
+let adminAuth: Auth | null = null;
 
 const unwrapWrappingQuotes = (value: string): string => {
   const trimmed = value.trim();
@@ -43,11 +45,12 @@ const getPrivateKey = () => {
 };
 
 const initAdmin = (): void => {
-  if (adminApp && adminDb) return;
+  if (adminApp && adminDb && adminAuth) return;
 
   if (getApps().length > 0) {
     adminApp = getApps()[0]!;
     adminDb = getFirestore(adminApp);
+    adminAuth = getAuth(adminApp);
     return;
   }
 
@@ -77,6 +80,7 @@ const initAdmin = (): void => {
   }
 
   adminDb = getFirestore(adminApp);
+  adminAuth = getAuth(adminApp);
 };
 
 export const getAdminDb = (): Firestore => {
@@ -85,4 +89,12 @@ export const getAdminDb = (): Firestore => {
     throw new Error('Firebase Admin Firestore is not initialized.');
   }
   return adminDb;
+};
+
+export const getAdminAuth = (): Auth => {
+  initAdmin();
+  if (!adminAuth) {
+    throw new Error('Firebase Admin Auth is not initialized.');
+  }
+  return adminAuth;
 };
