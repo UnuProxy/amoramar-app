@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useMemo } from 'react';
+import { auth } from '@/shared/lib/firebase';
 import { Loading } from '@/shared/components/Loading';
 import { getBookings, getServices, getExpenses, getEmployees } from '@/shared/lib/firestore';
 import { calculateBookingTotals } from '@/shared/lib/booking-utils';
@@ -33,6 +34,10 @@ export default function FinancialDashboard() {
   const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState<DateRange>('month');
   const [payoutMonth, setPayoutMonth] = useState<string>(() => new Date().toISOString().slice(0, 7));
+  const [expenseSearchTerm, setExpenseSearchTerm] = useState('');
+  const [expenseCategoryFilter, setExpenseCategoryFilter] = useState<'all' | ExpenseCategory>('all');
+  const [expenseStartDateFilter, setExpenseStartDateFilter] = useState('');
+  const [expenseEndDateFilter, setExpenseEndDateFilter] = useState('');
   const [showAddExpense, setShowAddExpense] = useState(false);
   const [payoutDetail, setPayoutDetail] = useState<{
     employee: Employee;
@@ -96,12 +101,20 @@ export default function FinancialDashboard() {
           expenseBreakdown: 'Desglose de gastos',
           invoices: 'FACTURAS',
           noExpenses: 'Sin gastos',
-          recentTransactions: 'Transacciones recientes',
+          recentExpenses: 'Gastos recientes',
+          expensesWord: 'GASTOS',
           dateVendor: 'Fecha / Proveedor',
           description: 'Descripcion',
           category: 'Categoria',
           amount: 'Importe',
           action: 'Accion',
+          searchExpenses: 'Buscar gasto',
+          searchExpensesPlaceholder: 'Buscar por concepto, proveedor o nota',
+          allCategories: 'Todas las categorias',
+          fromDate: 'Desde',
+          toDate: 'Hasta',
+          matchingExpenses: 'gastos encontrados',
+          noMatchingExpenses: 'No hay gastos con esos filtros.',
           date: 'Fecha',
           paymentDetails: 'Detalles de pagos',
           totalRevenueDeposit: 'Ingresos totales (deposito 50%)',
@@ -154,12 +167,20 @@ export default function FinancialDashboard() {
           expenseBreakdown: 'Expense Breakdown',
           invoices: 'INVOICES',
           noExpenses: 'No expenses',
-          recentTransactions: 'Recent Transactions',
+          recentExpenses: 'Recent Expenses',
+          expensesWord: 'EXPENSES',
           dateVendor: 'Date / Vendor',
           description: 'Description',
           category: 'Category',
           amount: 'Amount',
           action: 'Action',
+          searchExpenses: 'Search expenses',
+          searchExpensesPlaceholder: 'Search by concept, vendor, or note',
+          allCategories: 'All categories',
+          fromDate: 'From',
+          toDate: 'To',
+          matchingExpenses: 'matching expenses',
+          noMatchingExpenses: 'No expenses match these filters.',
           date: 'Date',
           paymentDetails: 'Payment details',
           totalRevenueDeposit: 'Total Revenue (50% Deposit)',
@@ -304,6 +325,38 @@ export default function FinancialDashboard() {
     return expenses.filter((e) => e.date >= startDate && e.date <= endDate);
   }, [expenses, startDate, endDate]);
 
+  const manageableExpenses = useMemo(() => {
+    const search = expenseSearchTerm.trim().toLowerCase();
+
+    return filteredExpenses.filter((expense) => {
+      if (expenseStartDateFilter && expense.date < expenseStartDateFilter) {
+        return false;
+      }
+
+      if (expenseEndDateFilter && expense.date > expenseEndDateFilter) {
+        return false;
+      }
+
+      if (expenseCategoryFilter !== 'all' && expense.category !== expenseCategoryFilter) {
+        return false;
+      }
+
+      if (!search) return true;
+
+      const searchableText = [
+        expense.name,
+        expense.vendor,
+        expense.notes,
+        expense.description,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+
+      return searchableText.includes(search);
+    });
+  }, [filteredExpenses, expenseCategoryFilter, expenseEndDateFilter, expenseSearchTerm, expenseStartDateFilter]);
+
   // Month-specific window for therapist payouts
   const { payoutStartDate, payoutEndDate } = useMemo(() => {
     if (!payoutMonth) {
@@ -434,6 +487,18 @@ export default function FinancialDashboard() {
     };
   }, [filteredBookings, filteredExpenses, services, employees, payoutBookings, expenseCategories]);
 
+  const getOwnerAuthHeaders = async () => {
+    const token = await auth?.currentUser?.getIdToken();
+    if (!token) {
+      throw new Error('Debes iniciar sesion como administrador para gestionar gastos.');
+    }
+
+    return {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    };
+  };
+
   const handleAddExpense = async () => {
     if (!newExpense.name || !newExpense.amount) {
       alert(copy.fillRequiredFields);
@@ -441,16 +506,18 @@ export default function FinancialDashboard() {
     }
 
     try {
+      const headers = await getOwnerAuthHeaders();
       const response = await fetch('/api/expenses', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           ...newExpense,
           amount: parseFloat(newExpense.amount),
         }),
       });
+      const payload = await response.json();
 
-      if (response.ok) {
+      if (response.ok && payload.success) {
         await loadData();
         setShowAddExpense(false);
         setNewExpense({
@@ -464,10 +531,12 @@ export default function FinancialDashboard() {
           vendor: '',
           notes: '',
         });
+      } else {
+        throw new Error(payload.error || copy.errorAddingExpense);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error adding expense:', error);
-      alert(copy.errorAddingExpense);
+      alert(error?.message || copy.errorAddingExpense);
     }
   };
 
@@ -475,16 +544,21 @@ export default function FinancialDashboard() {
     if (!confirm(copy.confirmDeleteExpense)) return;
 
     try {
+      const headers = await getOwnerAuthHeaders();
       const response = await fetch(`/api/expenses/${id}`, {
         method: 'DELETE',
+        headers,
       });
+      const payload = await response.json();
 
-      if (response.ok) {
+      if (response.ok && payload.success) {
         await loadData();
+      } else {
+        throw new Error(payload.error || 'Error al eliminar el gasto');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error deleting expense:', error);
-      alert('Error al eliminar el gasto');
+      alert(error?.message || 'Error al eliminar el gasto');
     }
   };
 
@@ -571,7 +645,7 @@ export default function FinancialDashboard() {
           <div className="relative text-center w-full px-4">
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-4">{copy.totalExpenses}</p>
             <p className="text-4xl font-black text-slate-800 tracking-tight leading-none whitespace-nowrap">{formatCurrency(financials.totalExpenses)}</p>
-            <p className="text-[10px] font-black text-sky-500 uppercase tracking-widest mt-4">{filteredExpenses.length} {copy.transactions}</p>
+            <p className="text-[10px] font-black text-sky-500 uppercase tracking-widest mt-4">{filteredExpenses.length} {copy.expensesWord}</p>
           </div>
         </div>
 
@@ -770,8 +844,49 @@ export default function FinancialDashboard() {
 
       {/* Recent Expenses Table */}
       <div className="bg-white border border-slate-100 rounded-[48px] overflow-hidden shadow-sm">
-        <div className="px-10 py-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/30">
-          <h2 className="text-sm font-black text-slate-800 tracking-[0.3em] uppercase">{copy.recentTransactions}</h2>
+        <div className="px-10 py-8 border-b border-slate-100 bg-slate-50/30 space-y-5">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <h2 className="text-sm font-black text-slate-800 tracking-[0.3em] uppercase">{copy.recentExpenses}</h2>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.25em]">
+              {manageableExpenses.length} {copy.matchingExpenses}
+            </p>
+          </div>
+          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px_170px_170px]">
+            <input
+              type="text"
+              value={expenseSearchTerm}
+              onChange={(event) => setExpenseSearchTerm(event.target.value)}
+              placeholder={copy.searchExpensesPlaceholder}
+              aria-label={copy.searchExpenses}
+              className="w-full rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm text-slate-700 outline-none transition-all focus:border-sky-400"
+            />
+            <select
+              value={expenseCategoryFilter}
+              onChange={(event) => setExpenseCategoryFilter(event.target.value as 'all' | ExpenseCategory)}
+              className="rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 outline-none transition-all focus:border-sky-400"
+            >
+              <option value="all">{copy.allCategories}</option>
+              {expenseCategories.map((category) => (
+                <option key={category.value} value={category.value}>
+                  {category.label}
+                </option>
+              ))}
+            </select>
+            <input
+              type="date"
+              value={expenseStartDateFilter}
+              onChange={(event) => setExpenseStartDateFilter(event.target.value)}
+              aria-label={copy.fromDate}
+              className="rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 outline-none transition-all focus:border-sky-400"
+            />
+            <input
+              type="date"
+              value={expenseEndDateFilter}
+              onChange={(event) => setExpenseEndDateFilter(event.target.value)}
+              aria-label={copy.toDate}
+              className="rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 outline-none transition-all focus:border-sky-400"
+            />
+          </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -785,7 +900,13 @@ export default function FinancialDashboard() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredExpenses.slice(0, 10).map((expense) => {
+              {manageableExpenses.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-10 py-12 text-center text-sm font-semibold text-slate-400">
+                    {copy.noMatchingExpenses}
+                  </td>
+                </tr>
+              ) : manageableExpenses.map((expense) => {
                 const category = expenseCategories.find((c) => c.value === expense.category);
                 return (
                   <tr key={expense.id} className="hover:bg-slate-50 transition-all group">
