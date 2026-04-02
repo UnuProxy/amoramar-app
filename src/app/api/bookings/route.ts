@@ -204,7 +204,9 @@ export async function POST(request: NextRequest) {
       consultationDuration: isConsultation ? data.consultationDuration : undefined,
     });
 
-    if (isConsultation || !allowUnpaid) {
+    const shouldEnqueueWhatsApp = isConsultation || !allowUnpaid || createdByRole !== 'client';
+
+    if (shouldEnqueueWhatsApp) {
       try {
         await enqueueWhatsAppJobsForConfirmedBooking({
           id: bookingId,

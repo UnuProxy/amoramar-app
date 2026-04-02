@@ -137,7 +137,7 @@ export async function PUT(
 
     await updateBooking(id, updates);
 
-    if (statusBefore !== 'confirmed' && statusAfter === 'confirmed') {
+    if (statusBefore !== 'confirmed' && statusAfter === 'confirmed' && booking.createdByRole === 'client') {
       try {
         await enqueueWhatsAppJobsForConfirmedBooking({
           ...booking,

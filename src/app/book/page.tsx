@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState, useEffect, useRef } from 'react';
+import React, { Suspense, useMemo, useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { Loading } from '@/shared/components/Loading';
@@ -475,7 +475,7 @@ const formatDisplayDate = (dateStr: string): string => {
   return `${day}.${month}.${year}`;
 };
 
-export default function BookAllServicesPage() {
+function BookAllServicesPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, loading: authLoading } = useAuth();
@@ -2262,5 +2262,13 @@ export default function BookAllServicesPage() {
         mode={authModalMode}
       />
     </div>
+  );
+}
+
+export default function BookAllServicesPage() {
+  return (
+    <Suspense fallback={<Loading />}>
+      <BookAllServicesPageContent />
+    </Suspense>
   );
 }

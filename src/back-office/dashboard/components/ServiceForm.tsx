@@ -176,8 +176,9 @@ export const ServiceForm: React.FC<ServiceFormProps> = ({ service }) => {
     () => visibleSubgroups.find((subgroup) => subgroup.id === selectedSubgroup),
     [visibleSubgroups, selectedSubgroup]
   );
-  const backToServicesPath = requestedGroupId || selectedMainGroup
-    ? `/dashboard/services?group=${encodeURIComponent(requestedGroupId || selectedMainGroup)}`
+  const returnGroupId = requestedGroupId ?? selectedMainGroup ?? '';
+  const backToServicesPath = returnGroupId
+    ? `/dashboard/services?group=${encodeURIComponent(returnGroupId)}`
     : '/dashboard/services';
 
   useEffect(() => {
