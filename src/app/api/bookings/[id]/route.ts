@@ -128,6 +128,7 @@ export async function PUT(
         isConsultation: updates.isConsultation ?? booking.isConsultation,
         consultationDuration: updates.consultationDuration ?? booking.consultationDuration,
         excludeBookingId: booking.id,
+        skipScheduleValidation: actorRole === 'owner' || actorRole === 'employee' || actorRole === 'admin',
       });
     }
 

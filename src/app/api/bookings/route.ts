@@ -101,6 +101,7 @@ export async function POST(request: NextRequest) {
       bookingTime: data.bookingTime,
       isConsultation: isConsultation,
       consultationDuration: data.consultationDuration,
+      skipScheduleValidation: createdByRole !== 'client',
     });
 
     const servicePrice = typeof service.price === 'string'

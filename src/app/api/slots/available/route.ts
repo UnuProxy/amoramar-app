@@ -59,8 +59,9 @@ export async function GET(request: NextRequest) {
     const dayOfWeek = dayNames[dateObj.getDay()];
     const allAvailability = await getAvailability(employeeId);
     const genericAvailability = allAvailability.filter((a) => !a.serviceId);
-    const availabilityList =
-      genericAvailability.length > 0
+    const availabilityList = isStaffBooking
+      ? allAvailability
+      : genericAvailability.length > 0
         ? genericAvailability
         : allAvailability.filter((a) => a.serviceId === serviceId);
 
@@ -123,7 +124,7 @@ export async function GET(request: NextRequest) {
       // Slots the employee manually blocked
       getBlockedSlots({
         employeeId,
-        serviceId,
+        serviceId: isStaffBooking ? undefined : serviceId,
         startDate: date,
         endDate: date,
       }),

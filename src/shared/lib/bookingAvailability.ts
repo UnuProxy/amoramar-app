@@ -33,6 +33,7 @@ type ValidateBookingScheduleInput = {
   isConsultation?: boolean;
   consultationDuration?: number;
   excludeBookingId?: string;
+  skipScheduleValidation?: boolean;
 };
 
 export const validateBookingSchedule = async ({
@@ -43,6 +44,7 @@ export const validateBookingSchedule = async ({
   isConsultation = false,
   consultationDuration,
   excludeBookingId,
+  skipScheduleValidation = false,
 }: ValidateBookingScheduleInput): Promise<void> => {
   const service = await getService(serviceId);
   if (!service) {
@@ -66,39 +68,46 @@ export const validateBookingSchedule = async ({
   const requestedEnd = requestedStart + requestedDuration;
   const dayOfWeek = DAY_NAMES[dateObj.getDay()];
 
-  const allAvailability = await getAvailability(employeeId);
-  const genericAvailability = allAvailability.filter((a) => !a.serviceId);
-  const availability =
-    genericAvailability.length > 0
-      ? genericAvailability
-      : allAvailability.filter((a) => a.serviceId === serviceId);
-  const dayAvailabilities = availability.filter((a) => {
-    if (!a.isAvailable) return false;
-    if (a.dayOfWeek !== dayOfWeek) return false;
-    if (a.startDate && bookingDate < a.startDate) return false;
-    if (a.endDate && bookingDate > a.endDate) return false;
-    return true;
-  });
+  if (!skipScheduleValidation) {
+    const allAvailability = await getAvailability(employeeId);
+    const genericAvailability = allAvailability.filter((a) => !a.serviceId);
+    const availability =
+      genericAvailability.length > 0
+        ? genericAvailability
+        : allAvailability.filter((a) => a.serviceId === serviceId);
+    const dayAvailabilities = availability.filter((a) => {
+      if (!a.isAvailable) return false;
+      if (a.dayOfWeek !== dayOfWeek) return false;
+      if (a.startDate && bookingDate < a.startDate) return false;
+      if (a.endDate && bookingDate > a.endDate) return false;
+      return true;
+    });
 
-  if (dayAvailabilities.length === 0) {
-    throw new BookingScheduleValidationError('Employee has no working schedule for this date.');
-  }
+    if (dayAvailabilities.length === 0) {
+      throw new BookingScheduleValidationError('Employee has no working schedule for this date.');
+    }
 
-  const fitsInWorkingSchedule = dayAvailabilities.some((a) => {
-    const windowStart = toMinutes(a.startTime);
-    const windowEnd = toMinutes(a.endTime);
-    return requestedStart >= windowStart && requestedEnd <= windowEnd;
-  });
+    const fitsInWorkingSchedule = dayAvailabilities.some((a) => {
+      const windowStart = toMinutes(a.startTime);
+      const windowEnd = toMinutes(a.endTime);
+      return requestedStart >= windowStart && requestedEnd <= windowEnd;
+    });
 
-  if (!fitsInWorkingSchedule) {
-    throw new BookingScheduleValidationError(
-      `This booking does not fit the employee's work schedule. ${requestedDuration} minutes are required.`
-    );
+    if (!fitsInWorkingSchedule) {
+      throw new BookingScheduleValidationError(
+        `This booking does not fit the employee's work schedule. ${requestedDuration} minutes are required.`
+      );
+    }
   }
 
   const [bookings, blockedSlots] = await Promise.all([
     getBookings({ employeeId, startDate: bookingDate, endDate: bookingDate }),
-    getBlockedSlots({ employeeId, serviceId, startDate: bookingDate, endDate: bookingDate }),
+    getBlockedSlots({
+      employeeId,
+      serviceId: skipScheduleValidation ? undefined : serviceId,
+      startDate: bookingDate,
+      endDate: bookingDate,
+    }),
   ]);
 
   const dayBookings = bookings.filter((booking) => {

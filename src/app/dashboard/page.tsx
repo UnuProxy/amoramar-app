@@ -2018,21 +2018,46 @@ export default function DashboardPage() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 <div className="space-y-2">
                   <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">Time</label>
-                  <select
+                  <input
+                    type="time"
+                    step={1800}
                     value={bookingForm.bookingTime}
                     onChange={(e) => setBookingForm((prev) => ({ ...prev, bookingTime: e.target.value }))}
-                    className="w-full px-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-2xl text-slate-900 font-black focus:border-sky-500 transition-all outline-none appearance-none"
+                    className="w-full px-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-2xl text-slate-900 font-black focus:border-sky-500 transition-all outline-none"
                     disabled={!bookingForm.employeeId || !bookingForm.bookingDate}
-                  >
-                    <option value="">SELECT</option>
-                    {bookingSlots
-                      .filter((slot) => slot.available)
-                      .map((slot) => (
-                        <option key={slot.time} value={slot.time}>
-                          {slot.time}
-                        </option>
-                      ))}
-                  </select>
+                  />
+                  {bookingSlotsLoading ? (
+                    <p className="text-[10px] font-black text-sky-500 uppercase tracking-[0.2em]">Loading suggested slots...</p>
+                  ) : bookingSlotsError ? (
+                    <p className="text-[10px] font-black text-amber-600 uppercase tracking-[0.2em]">
+                      {bookingSlotsError}. You can still type a manual time.
+                    </p>
+                  ) : bookingSlots.some((slot) => slot.available) ? (
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      {bookingSlots
+                        .filter((slot) => slot.available)
+                        .slice(0, 8)
+                        .map((slot) => (
+                          <button
+                            key={slot.time}
+                            type="button"
+                            onClick={() => setBookingForm((prev) => ({ ...prev, bookingTime: slot.time }))}
+                            className={cn(
+                              'rounded-full px-3 py-1.5 text-xs font-black transition-all',
+                              bookingForm.bookingTime === slot.time
+                                ? 'bg-slate-900 text-white'
+                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                            )}
+                          >
+                            {slot.time}
+                          </button>
+                        ))}
+                    </div>
+                  ) : bookingForm.employeeId && bookingForm.bookingDate ? (
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
+                      No suggested slots for this service. You can still type a manual time.
+                    </p>
+                  ) : null}
                 </div>
                 <div className="md:col-span-2 space-y-2">
                   <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">Notes (Optional)</label>

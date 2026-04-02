@@ -58,6 +58,10 @@ export function PaymentMethodModal({
     : 'Registrar el pago restante y cerrar la sesión';
 
   const hasAmountChanged = amount !== undefined && Math.abs(parseFloat(adjustedAmount) - amount) > 0.01;
+  const parsedAmount = parseFloat(adjustedAmount || '0');
+  const confirmLabel = mode === 'deposit'
+    ? `Cobrar ${Number.isFinite(parsedAmount) ? `€${parsedAmount.toFixed(2)}` : 'depósito'}`
+    : `Confirmar cobro final de ${Number.isFinite(parsedAmount) ? `€${parsedAmount.toFixed(2)}` : 'pago'}`;
 
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center bg-neutral-900/80 backdrop-blur-md p-4">
@@ -200,7 +204,7 @@ export function PaymentMethodModal({
               disabled={isProcessing || (hasAmountChanged && !paymentNotes.trim())}
               className="flex-1 py-4 md:py-5 text-[10px] md:text-xs font-black uppercase tracking-[0.2em] shadow-lg shadow-neutral-200"
             >
-              {isProcessing ? 'Procesando...' : 'Confirmar'}
+              {isProcessing ? 'Procesando...' : confirmLabel}
             </Button>
           </div>
 
@@ -209,9 +213,9 @@ export function PaymentMethodModal({
             <button
               onClick={() => handleConfirm(true)}
               disabled={isProcessing}
-              className="w-full py-3.5 md:py-4 text-[8px] md:text-[9px] font-black text-amber-600 bg-amber-50 rounded-xl hover:bg-amber-100 transition-all uppercase tracking-[0.2em] border border-amber-100/50"
+              className="w-full rounded-xl border-2 border-slate-300 bg-white py-3.5 text-[9px] font-black uppercase tracking-[0.2em] text-slate-700 transition-all hover:border-slate-500 hover:bg-slate-50 md:py-4 md:text-[10px]"
             >
-              Registrar sin cobrar depósito
+              Guardar sin cobrar
             </button>
           )}
         </div>
