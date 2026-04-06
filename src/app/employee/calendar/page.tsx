@@ -388,6 +388,11 @@ export default function EmployeeCalendarPage() {
       alert('Por favor completa todos los campos requeridos');
       return;
     }
+    const emailTrim = bookingForm.clientEmail?.trim() || '';
+    if (!emailTrim || !emailTrim.includes('@')) {
+      alert('Introduce un email válido del cliente para enviar la confirmación.');
+      return;
+    }
     if (isSlotInPast(bookingForm.bookingDate, bookingForm.bookingTime)) {
       alert('Cannot create a booking in the past.');
       return;
@@ -1874,7 +1879,9 @@ export default function EmployeeCalendarPage() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <label className="block text-xs font-black text-neutral-400 uppercase tracking-widest">Email (Opcional)</label>
+                  <label className="block text-xs font-black text-neutral-400 uppercase tracking-widest">
+                    Email (requerido para confirmación)
+                  </label>
                   <input
                     type="email"
                     value={bookingForm.clientEmail}
@@ -1982,7 +1989,14 @@ export default function EmployeeCalendarPage() {
               </button>
               <button
                 onClick={handleCreateBooking}
-                disabled={bookingSaving || !bookingForm.clientName || !bookingForm.serviceId || !bookingForm.bookingDate || !bookingForm.bookingTime}
+                disabled={
+                  bookingSaving ||
+                  !bookingForm.clientName ||
+                  !bookingForm.clientEmail?.trim() ||
+                  !bookingForm.serviceId ||
+                  !bookingForm.bookingDate ||
+                  !bookingForm.bookingTime
+                }
                 className="px-12 py-4 text-sm font-black text-white bg-neutral-900 rounded-2xl hover:bg-accent-600 hover:scale-[1.02] active:scale-[0.98] transition-all shadow-[0_10px_24px_rgba(230,57,70,0.2)] uppercase tracking-[0.2em] disabled:opacity-30 disabled:grayscale"
               >
                 {bookingSaving ? 'GUARDANDO...' : 'CONFIRMAR RESERVA'}

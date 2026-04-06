@@ -246,17 +246,21 @@ export async function POST(request: NextRequest) {
     if (!service || !employee) {
       console.error('Service or employee not found for email notification');
     } else {
-      // Send confirmation email to client (async, don't wait)
-      sendBookingConfirmation({
-        clientName: data.clientName,
-        clientEmail: data.clientEmail,
-        serviceName: isConsultation ? `Consulta Gratuita - ${service.serviceName}` : service.serviceName,
-        employeeName: `${employee.firstName} ${employee.lastName}`,
-        bookingDate: data.bookingDate,
-        bookingTime: data.bookingTime,
-        duration: isConsultation && data.consultationDuration ? data.consultationDuration : service.duration,
-        price: isConsultation ? '0' : servicePrice.toString(),
-      }).catch((error) => console.error('Error sending confirmation email:', error));
+      const clientEmailTrimmed = data.clientEmail?.trim() || '';
+      if (clientEmailTrimmed) {
+        sendBookingConfirmation({
+          clientName: data.clientName,
+          clientEmail: clientEmailTrimmed,
+          serviceName: isConsultation ? `Consulta Gratuita - ${service.serviceName}` : service.serviceName,
+          employeeName: `${employee.firstName} ${employee.lastName}`,
+          bookingDate: data.bookingDate,
+          bookingTime: data.bookingTime,
+          duration: isConsultation && data.consultationDuration ? data.consultationDuration : service.duration,
+          price: isConsultation ? '0' : servicePrice.toString(),
+        }).catch((error) => console.error('Error sending confirmation email:', error));
+      } else {
+        console.warn('[email] skip confirmation: no client email', bookingId);
+      }
 
       // Send notification email to employee (async, don't wait)
       // NOTE: Resend free tier can only send to verified email (unujulian@gmail.com)

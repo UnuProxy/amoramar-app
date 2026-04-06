@@ -1,5 +1,4 @@
 import { Resend } from 'resend';
-
 // Lazy initialization of Resend (only when needed)
 let resend: Resend | null = null;
 
