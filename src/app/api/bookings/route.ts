@@ -204,6 +204,8 @@ export async function POST(request: NextRequest) {
       consultationDuration: isConsultation ? data.consultationDuration : undefined,
     });
 
+    // Skip WhatsApp only for unpaid client online bookings (pending deposit). Staff manual bookings
+    // (createdByRole !== 'client') still enqueue, including allowUnpaid.
     const shouldEnqueueWhatsApp = isConsultation || !allowUnpaid || createdByRole !== 'client';
 
     if (shouldEnqueueWhatsApp) {

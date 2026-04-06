@@ -24,12 +24,16 @@ const db = () => getAdminDb();
 
 const jobDocId = (bookingId: string, type: WhatsAppJobType) => `${bookingId}_${type}`;
 
-const safeE164 = (phone?: string): string => {
+/**
+ * WhatsApp Cloud API requires `to` as international digits only — no "+", spaces, or punctuation.
+ * Accepts values like "+34 692 688 348", "+34692688348", "34692688348".
+ * Stored on jobs as digits-only; length must fit E.164 (7–15 digits).
+ */
+const normalizeWhatsAppRecipientDigits = (phone?: string): string => {
   if (!phone) return '';
-  const trimmed = phone.trim();
-  if (!trimmed) return '';
-  if (trimmed.startsWith('+')) return trimmed;
-  return '';
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length < 7 || digits.length > 15) return '';
+  return digits;
 };
 
 const bookingStartAt = (booking: Pick<Booking, 'bookingDate' | 'bookingTime'>): Date | null => {
@@ -64,7 +68,7 @@ const createJobPayload = (
 ): JobDoc => ({
   bookingId: booking.id,
   type,
-  toPhoneE164: safeE164(booking.clientPhoneE164 || booking.clientPhone),
+  toPhoneE164: normalizeWhatsAppRecipientDigits(booking.clientPhoneE164 || booking.clientPhone),
   templateName: type === 'WHATSAPP_CONFIRMATION' ? 'booking_confirmed_new' : 'booking_reminder_24h',
   lang: getLanguageCode(),
   vars: buildVars(booking),
@@ -75,15 +79,25 @@ const createJobPayload = (
   updatedAt: Timestamp.now(),
 });
 
+const confirmationJobIsAlreadyHandled = async (bookingId: string): Promise<boolean> => {
+  const confirmationRef = db().collection('notification_jobs').doc(jobDocId(bookingId, 'WHATSAPP_CONFIRMATION'));
+  const snap = await confirmationRef.get();
+  if (!snap.exists) return false;
+  const st = (snap.data() as JobDoc | undefined)?.status;
+  return st === 'queued' || st === 'processing' || st === 'sent';
+};
+
 export const enqueueWhatsAppJobsForConfirmedBooking = async (booking: Booking): Promise<void> => {
   const isConfirmed = booking.status === 'confirmed';
   if (!isConfirmed) return;
 
   const optIn = booking.whatsappOptIn ?? true;
-  const toPhoneE164 = safeE164(booking.clientPhoneE164 || booking.clientPhone);
+  const toPhoneE164 = normalizeWhatsAppRecipientDigits(booking.clientPhoneE164 || booking.clientPhone);
   const startAt = bookingStartAt(booking);
 
   if (!optIn || !toPhoneE164 || !startAt) return;
+
+  if (await confirmationJobIsAlreadyHandled(booking.id)) return;
 
   const now = Timestamp.now();
   let reminderDueMillis = startAt.getTime() - 24 * 60 * 60 * 1000;
@@ -100,6 +114,14 @@ export const enqueueWhatsAppJobsForConfirmedBooking = async (booking: Booking): 
   batch.set(reminderRef, createJobPayload(booking, 'WHATSAPP_REMINDER_24H', reminderDue), { merge: true });
 
   await batch.commit();
+
+  // Vercel cron only runs in production; localhost never hits /api/notifications/whatsapp/process.
+  // Flush due jobs in-process so confirmations send immediately in dev and without cron delay in prod.
+  try {
+    await processDueWhatsAppJobs(25);
+  } catch (err) {
+    console.error('processDueWhatsAppJobs after enqueue failed:', err);
+  }
 };
 
 const buildTemplateComponents = (vars: Record<string, string>) => {
@@ -133,9 +155,13 @@ const sendWhatsAppTemplate = async (
   }
 
   const url = `https://graph.facebook.com/${version}/${phoneNumberId}/messages`;
+  const toDigits = normalizeWhatsAppRecipientDigits(to);
+  if (!toDigits) {
+    throw new Error('WA send: invalid recipient phone (need 7–15 international digits).');
+  }
   const payload = {
     messaging_product: 'whatsapp',
-    to,
+    to: toDigits,
     type: 'template',
     template: {
       name: templateName,
