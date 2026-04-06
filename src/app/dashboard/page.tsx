@@ -483,6 +483,14 @@ export default function DashboardPage() {
       if (!response.ok || !json?.success) {
         throw new Error(json?.error || 'Could not create booking');
       }
+      const emailErr = json.data?.emailError as string | undefined;
+      if (json.data?.emailSent === false && emailErr) {
+        const hint =
+          emailErr === 'missing_client_email'
+            ? 'Falta el email del cliente.'
+            : 'Comprueba RESEND_API_KEY y RESEND_FROM_EMAIL en Vercel y el remitente en resend.com.';
+        alert(`Reserva guardada, pero el correo de confirmación no se envió.\n\n${emailErr}\n\n${hint}`);
+      }
       const newBooking: Booking = {
         id: json.data.id,
         salonId: 'default-salon-id',

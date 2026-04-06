@@ -12,8 +12,8 @@ function getResendClient(): Resend | null {
   return resend;
 }
 
-// Email sender configuration
-const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
+// Email sender: use RESEND_FROM_EMAIL as full "Name <email@domain.com>" or plain email (must be verified in Resend)
+const FROM_EMAIL = (process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev').trim();
 const SALON_NAME = 'Amoramar Spa';
 
 export interface BookingConfirmationData {
@@ -80,14 +80,18 @@ export async function sendBookingConfirmation(data: BookingConfirmationData): Pr
 
     const { data: emailData, error } = await resendClient.emails.send({
       from: FROM_EMAIL,
-      to: data.clientEmail,
+      to: data.clientEmail.trim(),
       subject: `✓ Reserva Confirmada - ${SALON_NAME}`,
       html: getBookingConfirmationTemplate(data),
     });
 
     if (error) {
-      console.error('Error sending confirmation email:', error);
-      return { success: false, error: error.message };
+      const msg =
+        typeof error === 'object' && error !== null && 'message' in error
+          ? String((error as { message: string }).message)
+          : JSON.stringify(error);
+      console.error('Resend confirmation error:', msg);
+      return { success: false, error: msg };
     }
 
     return { success: true };

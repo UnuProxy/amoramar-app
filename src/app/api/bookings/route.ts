@@ -6,6 +6,8 @@ import { getPaymentIntent } from '@/shared/lib/stripe';
 import { BookingScheduleValidationError, validateBookingSchedule } from '@/shared/lib/bookingAvailability';
 import { enqueueWhatsAppJobsForConfirmedBooking } from '@/shared/lib/whatsappJobs';
 
+export const runtime = 'nodejs';
+
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
@@ -243,12 +245,15 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    let emailSent: boolean | undefined;
+    let emailError: string | undefined;
+
     if (!service || !employee) {
       console.error('Service or employee not found for email notification');
     } else {
       const clientEmailTrimmed = data.clientEmail?.trim() || '';
       if (clientEmailTrimmed) {
-        sendBookingConfirmation({
+        const emailResult = await sendBookingConfirmation({
           clientName: data.clientName,
           clientEmail: clientEmailTrimmed,
           serviceName: isConsultation ? `Consulta Gratuita - ${service.serviceName}` : service.serviceName,
@@ -257,9 +262,16 @@ export async function POST(request: NextRequest) {
           bookingTime: data.bookingTime,
           duration: isConsultation && data.consultationDuration ? data.consultationDuration : service.duration,
           price: isConsultation ? '0' : servicePrice.toString(),
-        }).catch((error) => console.error('Error sending confirmation email:', error));
+        });
+        emailSent = emailResult.success;
+        emailError = emailResult.error;
+        if (!emailResult.success) {
+          console.error('[email] confirmation failed for booking', bookingId, emailResult.error);
+        }
       } else {
         console.warn('[email] skip confirmation: no client email', bookingId);
+        emailSent = false;
+        emailError = 'missing_client_email';
       }
 
       // Send notification email to employee (async, don't wait)
@@ -278,9 +290,15 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json<ApiResponse<{ id: string }>>({
+    return NextResponse.json<
+      ApiResponse<{ id: string; emailSent?: boolean; emailError?: string }>
+    >({
       success: true,
-      data: { id: bookingId },
+      data: {
+        id: bookingId,
+        ...(emailSent !== undefined && { emailSent }),
+        ...(emailError && { emailError }),
+      },
     });
   } catch (error: any) {
     if (error instanceof BookingScheduleValidationError) {
