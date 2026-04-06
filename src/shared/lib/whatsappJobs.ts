@@ -1,4 +1,4 @@
-import { FieldValue, Timestamp } from 'firebase-admin/firestore';
+import { FieldValue, Timestamp, type DocumentReference } from 'firebase-admin/firestore';
 import type { Booking } from '@/shared/lib/types';
 import { getAdminDb } from '@/shared/lib/firebaseAdmin';
 
@@ -89,13 +89,27 @@ const confirmationJobIsAlreadyHandled = async (bookingId: string): Promise<boole
 
 export const enqueueWhatsAppJobsForConfirmedBooking = async (booking: Booking): Promise<void> => {
   const isConfirmed = booking.status === 'confirmed';
-  if (!isConfirmed) return;
+  if (!isConfirmed) {
+    console.warn('[whatsapp] skip enqueue: booking status is not confirmed', booking.id);
+    return;
+  }
 
   const optIn = booking.whatsappOptIn ?? true;
   const toPhoneE164 = normalizeWhatsAppRecipientDigits(booking.clientPhoneE164 || booking.clientPhone);
   const startAt = bookingStartAt(booking);
 
-  if (!optIn || !toPhoneE164 || !startAt) return;
+  if (!optIn) {
+    console.warn('[whatsapp] skip enqueue: whatsapp opt-out', booking.id);
+    return;
+  }
+  if (!toPhoneE164) {
+    console.warn('[whatsapp] skip enqueue: phone missing or invalid (need 7–15 digits, e.g. +34 612…)', booking.id);
+    return;
+  }
+  if (!startAt) {
+    console.warn('[whatsapp] skip enqueue: invalid booking date/time', booking.id);
+    return;
+  }
 
   if (await confirmationJobIsAlreadyHandled(booking.id)) return;
 
@@ -115,12 +129,13 @@ export const enqueueWhatsAppJobsForConfirmedBooking = async (booking: Booking): 
 
   await batch.commit();
 
-  // Vercel cron only runs in production; localhost never hits /api/notifications/whatsapp/process.
-  // Flush due jobs in-process so confirmations send immediately in dev and without cron delay in prod.
+  // Process the confirmation doc by ref — a follow-up query can miss the new row briefly (Firestore),
+  // which caused production sends to never run when relying only on processDueWhatsAppJobs().
   try {
+    await processQueuedNotificationJobRef(confirmationRef);
     await processDueWhatsAppJobs(25);
   } catch (err) {
-    console.error('processDueWhatsAppJobs after enqueue failed:', err);
+    console.error('[whatsapp] process after enqueue failed:', err);
   }
 };
 
@@ -219,6 +234,54 @@ const getDueQueuedJobDocs = async (now: Timestamp, limit: number) => {
   }
 };
 
+/** Claim one queued job by ref, send template, update status (shared by cron and post-enqueue flush). */
+async function processQueuedNotificationJobRef(ref: DocumentReference): Promise<'sent' | 'failed' | 'skipped'> {
+  let claimed = false;
+
+  await db().runTransaction(async (tx) => {
+    const fresh = await tx.get(ref);
+    const data = fresh.data() as JobDoc | undefined;
+    if (!data || data.status !== 'queued') return;
+    tx.update(ref, { status: 'processing', updatedAt: Timestamp.now() });
+    claimed = true;
+  });
+
+  if (!claimed) return 'skipped';
+
+  const current = (await ref.get()).data() as JobDoc | undefined;
+  if (!current || current.status !== 'processing') return 'skipped';
+
+  try {
+    const runtimeLang = getLanguageCode();
+    await sendWhatsAppTemplate(
+      current.toPhoneE164,
+      current.templateName,
+      runtimeLang || current.lang || 'en_US',
+      current.vars || {}
+    );
+
+    await ref.update({
+      status: 'sent',
+      sentAt: Timestamp.now(),
+      lastError: FieldValue.delete(),
+      updatedAt: Timestamp.now(),
+    });
+    return 'sent';
+  } catch (error: any) {
+    const attempts = (current.attempts ?? 0) + 1;
+    const finalStatus = attempts >= 3 ? 'failed' : 'queued';
+    const errMsg = String(error?.message ?? error).slice(0, 1500);
+    console.error('[whatsapp] send failed:', ref.id, errMsg);
+    await ref.update({
+      status: finalStatus,
+      attempts,
+      lastError: errMsg,
+      updatedAt: Timestamp.now(),
+    });
+    return 'failed';
+  }
+}
+
 export const processDueWhatsAppJobs = async (limit = 25): Promise<{ processed: number; sent: number; failed: number }> => {
   const now = Timestamp.now();
   const queuedDocs = await getDueQueuedJobDocs(now, limit);
@@ -228,50 +291,9 @@ export const processDueWhatsAppJobs = async (limit = 25): Promise<{ processed: n
   let failed = 0;
 
   for (const doc of queuedDocs) {
-    const ref = doc.ref;
-    let claimed = false;
-
-    await db().runTransaction(async (tx) => {
-      const fresh = await tx.get(ref);
-      const data = fresh.data() as JobDoc | undefined;
-      if (!data || data.status !== 'queued') return;
-      tx.update(ref, { status: 'processing', updatedAt: Timestamp.now() });
-      claimed = true;
-    });
-
-    if (!claimed) continue;
-
-    const current = (await ref.get()).data() as JobDoc | undefined;
-    if (!current || current.status !== 'processing') continue;
-
-    try {
-      // Prefer current runtime language to recover queued jobs created with an outdated language code.
-      const runtimeLang = getLanguageCode();
-      await sendWhatsAppTemplate(
-        current.toPhoneE164,
-        current.templateName,
-        runtimeLang || current.lang || 'en_US',
-        current.vars || {}
-      );
-
-      await ref.update({
-        status: 'sent',
-        sentAt: Timestamp.now(),
-        lastError: FieldValue.delete(),
-        updatedAt: Timestamp.now(),
-      });
-      sent += 1;
-    } catch (error: any) {
-      const attempts = (current.attempts ?? 0) + 1;
-      const finalStatus = attempts >= 3 ? 'failed' : 'queued';
-      await ref.update({
-        status: finalStatus,
-        attempts,
-        lastError: String(error?.message ?? error).slice(0, 1500),
-        updatedAt: Timestamp.now(),
-      });
-      failed += 1;
-    }
+    const result = await processQueuedNotificationJobRef(doc.ref);
+    if (result === 'sent') sent += 1;
+    if (result === 'failed') failed += 1;
   }
 
   return {
