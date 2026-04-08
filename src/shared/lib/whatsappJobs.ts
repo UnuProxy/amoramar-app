@@ -22,6 +22,7 @@ type JobDoc = {
   updatedAt: Timestamp;
   lastError?: string;
   sentAt?: Timestamp;
+  providerMessageId?: string;
 };
 
 const db = () => getAdminDb();
@@ -195,7 +196,7 @@ const sendWhatsAppTemplate = async (
   templateName: string,
   lang: string,
   vars: Record<string, string>
-) => {
+): Promise<string | undefined> => {
   const token = process.env.META_ACCESS_TOKEN;
   const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
   const version = process.env.WHATSAPP_GRAPH_VERSION || 'v21.0';
@@ -236,6 +237,7 @@ const sendWhatsAppTemplate = async (
   if (!response.ok) {
     throw new Error(`WA send failed ${response.status}: ${JSON.stringify(json)}`);
   }
+  return json?.messages?.[0]?.id;
 };
 
 const isMissingIndexError = (error: unknown): boolean => {
@@ -296,13 +298,17 @@ async function processQueuedNotificationJobRef(ref: DocumentReference): Promise<
     let lastErr: unknown = null;
     for (const candidate of candidates) {
       try {
-        await sendWhatsAppTemplate(
+        const providerMessageId = await sendWhatsAppTemplate(
           current.toPhoneE164,
           current.templateName,
           candidate,
           current.vars || {}
         );
         sent = true;
+        await ref.update({
+          providerMessageId: providerMessageId || null,
+          updatedAt: Timestamp.now(),
+        });
         break;
       } catch (err) {
         lastErr = err;
