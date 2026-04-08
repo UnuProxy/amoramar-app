@@ -59,7 +59,18 @@ const buildVars = (booking: Booking): Record<string, string> => ({
   location: getLocationLabel(),
 });
 
-const getLanguageCode = (): string => process.env.WHATSAPP_TEMPLATE_LANG || 'en_US';
+const normalizeTemplateLang = (lang?: string): string => {
+  const raw = (lang || '').trim();
+  if (!raw) return 'en_US';
+  const lc = raw.toLowerCase();
+  // Common shorthand values configured in envs.
+  if (lc === 'en') return 'en_US';
+  if (lc === 'es') return 'es_ES';
+  if (lc === 'pt') return 'pt_BR';
+  return raw;
+};
+
+const getLanguageCode = (): string => normalizeTemplateLang(process.env.WHATSAPP_TEMPLATE_LANG);
 
 const createJobPayload = (
   booking: Booking,
@@ -253,10 +264,11 @@ async function processQueuedNotificationJobRef(ref: DocumentReference): Promise<
 
   try {
     const runtimeLang = getLanguageCode();
+    const effectiveLang = normalizeTemplateLang(current.lang || runtimeLang || 'en_US');
     await sendWhatsAppTemplate(
       current.toPhoneE164,
       current.templateName,
-      runtimeLang || current.lang || 'en_US',
+      effectiveLang,
       current.vars || {}
     );
 
