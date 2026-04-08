@@ -72,6 +72,28 @@ const normalizeTemplateLang = (lang?: string): string => {
 
 const getLanguageCode = (): string => normalizeTemplateLang(process.env.WHATSAPP_TEMPLATE_LANG);
 
+const buildLanguageFallbacks = (lang: string): string[] => {
+  const primary = normalizeTemplateLang(lang);
+  const out: string[] = [];
+  const pushUnique = (v?: string) => {
+    if (!v) return;
+    if (!out.includes(v)) out.push(v);
+  };
+
+  pushUnique(primary);
+  const lower = primary.toLowerCase();
+  if (lower === 'en_us') pushUnique('en');
+  if (lower === 'es_es') pushUnique('es');
+  if (lower === 'pt_br') pushUnique('pt');
+
+  if (!primary.includes('_') && primary.length === 2) {
+    if (primary === 'en') pushUnique('en_US');
+    if (primary === 'es') pushUnique('es_ES');
+    if (primary === 'pt') pushUnique('pt_BR');
+  }
+  return out;
+};
+
 const createJobPayload = (
   booking: Booking,
   type: WhatsAppJobType,
@@ -193,7 +215,7 @@ const sendWhatsAppTemplate = async (
     type: 'template',
     template: {
       name: templateName,
-      language: { code: lang || 'en_US' },
+      language: { code: normalizeTemplateLang(lang) || 'en_US' },
       components: buildTemplateComponents(vars),
     },
   };
@@ -266,13 +288,24 @@ async function processQueuedNotificationJobRef(ref: DocumentReference): Promise<
 
   try {
     const runtimeLang = getLanguageCode();
-    const effectiveLang = normalizeTemplateLang(current.lang || runtimeLang || 'en_US');
-    await sendWhatsAppTemplate(
-      current.toPhoneE164,
-      current.templateName,
-      effectiveLang,
-      current.vars || {}
-    );
+    const candidates = buildLanguageFallbacks(current.lang || runtimeLang || 'en_US');
+    let sent = false;
+    let lastErr: unknown = null;
+    for (const candidate of candidates) {
+      try {
+        await sendWhatsAppTemplate(
+          current.toPhoneE164,
+          current.templateName,
+          candidate,
+          current.vars || {}
+        );
+        sent = true;
+        break;
+      } catch (err) {
+        lastErr = err;
+      }
+    }
+    if (!sent) throw lastErr;
 
     await ref.update({
       status: 'sent',
