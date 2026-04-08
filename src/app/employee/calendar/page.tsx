@@ -426,13 +426,9 @@ export default function EmployeeCalendarPage() {
       });
       const json = await res.json();
       if (json.success) {
-        const emailErr = json.data?.emailError as string | undefined;
-        if (json.data?.emailSent === false && emailErr) {
-          const hint =
-            emailErr === 'missing_client_email'
-              ? 'Falta el email del cliente.'
-              : 'Comprueba RESEND_API_KEY y RESEND_FROM_EMAIL en el servidor (Vercel) y que el remitente esté verificado en resend.com.';
-          alert(`Reserva guardada, pero el correo de confirmación no se envió.\n\n${emailErr}\n\n${hint}`);
+        const waErr = json.data?.whatsappError as string | undefined;
+        if (waErr) {
+          alert(`Reserva guardada, pero WhatsApp no se envió.\n\n${waErr}`);
         }
         if (employee && selectedServiceId) {
           await loadCalendarData(employee.id, selectedServiceId, calendarStartDate);

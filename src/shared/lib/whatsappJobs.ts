@@ -145,8 +145,10 @@ export const enqueueWhatsAppJobsForConfirmedBooking = async (booking: Booking): 
   try {
     await processQueuedNotificationJobRef(confirmationRef);
     await processDueWhatsAppJobs(25);
-  } catch (err) {
-    console.error('[whatsapp] process after enqueue failed:', err);
+  } catch (err: any) {
+    const msg = String(err?.message ?? err ?? 'unknown whatsapp enqueue processing error');
+    console.error('[whatsapp] process after enqueue failed:', msg);
+    throw new Error(`[whatsapp] ${msg}`);
   }
 };
 

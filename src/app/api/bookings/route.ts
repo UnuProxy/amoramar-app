@@ -7,6 +7,7 @@ import { BookingScheduleValidationError, validateBookingSchedule } from '@/share
 import { enqueueWhatsAppJobsForConfirmedBooking } from '@/shared/lib/whatsappJobs';
 
 export const runtime = 'nodejs';
+const EMAIL_CONFIRMATIONS_ENABLED = process.env.ENABLE_BOOKING_EMAILS === 'true';
 
 export async function GET(request: NextRequest) {
   try {
@@ -210,7 +211,10 @@ export async function POST(request: NextRequest) {
     // (createdByRole !== 'client') still enqueue, including allowUnpaid.
     const shouldEnqueueWhatsApp = isConsultation || !allowUnpaid || createdByRole !== 'client';
 
+    let whatsappAttempted = false;
+    let whatsappError: string | undefined;
     if (shouldEnqueueWhatsApp) {
+      whatsappAttempted = true;
       try {
         await enqueueWhatsAppJobsForConfirmedBooking({
           id: bookingId,
@@ -241,7 +245,8 @@ export async function POST(request: NextRequest) {
           updatedAt: new Date(),
         });
       } catch (whatsAppError) {
-        console.error('Failed to enqueue WhatsApp jobs:', whatsAppError);
+        whatsappError = String((whatsAppError as any)?.message || whatsAppError);
+        console.error('Failed to enqueue WhatsApp jobs:', whatsappError);
       }
     }
 
@@ -251,27 +256,32 @@ export async function POST(request: NextRequest) {
     if (!service || !employee) {
       console.error('Service or employee not found for email notification');
     } else {
-      const clientEmailTrimmed = data.clientEmail?.trim() || '';
-      if (clientEmailTrimmed) {
-        const emailResult = await sendBookingConfirmation({
-          clientName: data.clientName,
-          clientEmail: clientEmailTrimmed,
-          serviceName: isConsultation ? `Consulta Gratuita - ${service.serviceName}` : service.serviceName,
-          employeeName: `${employee.firstName} ${employee.lastName}`,
-          bookingDate: data.bookingDate,
-          bookingTime: data.bookingTime,
-          duration: isConsultation && data.consultationDuration ? data.consultationDuration : service.duration,
-          price: isConsultation ? '0' : servicePrice.toString(),
-        });
-        emailSent = emailResult.success;
-        emailError = emailResult.error;
-        if (!emailResult.success) {
-          console.error('[email] confirmation failed for booking', bookingId, emailResult.error);
-        }
-      } else {
-        console.warn('[email] skip confirmation: no client email', bookingId);
+      if (!EMAIL_CONFIRMATIONS_ENABLED) {
         emailSent = false;
-        emailError = 'missing_client_email';
+        emailError = 'email_confirmations_paused';
+      } else {
+        const clientEmailTrimmed = data.clientEmail?.trim() || '';
+        if (clientEmailTrimmed) {
+          const emailResult = await sendBookingConfirmation({
+            clientName: data.clientName,
+            clientEmail: clientEmailTrimmed,
+            serviceName: isConsultation ? `Consulta Gratuita - ${service.serviceName}` : service.serviceName,
+            employeeName: `${employee.firstName} ${employee.lastName}`,
+            bookingDate: data.bookingDate,
+            bookingTime: data.bookingTime,
+            duration: isConsultation && data.consultationDuration ? data.consultationDuration : service.duration,
+            price: isConsultation ? '0' : servicePrice.toString(),
+          });
+          emailSent = emailResult.success;
+          emailError = emailResult.error;
+          if (!emailResult.success) {
+            console.error('[email] confirmation failed for booking', bookingId, emailResult.error);
+          }
+        } else {
+          console.warn('[email] skip confirmation: no client email', bookingId);
+          emailSent = false;
+          emailError = 'missing_client_email';
+        }
       }
 
       // Send notification email to employee (async, don't wait)
@@ -291,11 +301,13 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json<
-      ApiResponse<{ id: string; emailSent?: boolean; emailError?: string }>
+      ApiResponse<{ id: string; emailSent?: boolean; emailError?: string; whatsappAttempted?: boolean; whatsappError?: string }>
     >({
       success: true,
       data: {
         id: bookingId,
+        ...(whatsappAttempted && { whatsappAttempted }),
+        ...(whatsappError && { whatsappError }),
         ...(emailSent !== undefined && { emailSent }),
         ...(emailError && { emailError }),
       },
