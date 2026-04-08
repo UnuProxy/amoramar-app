@@ -251,6 +251,8 @@ export async function POST(request: NextRequest) {
         whatsappError = String((whatsAppError as any)?.message || whatsAppError);
         console.error('Failed to enqueue WhatsApp jobs:', whatsappError);
       }
+    } else {
+      whatsappError = `skipped:policy_unpaid_client_booking (createdByRole=${createdByRole}, allowUnpaid=${allowUnpaid})`;
     }
 
     let emailSent: boolean | undefined;
@@ -309,7 +311,7 @@ export async function POST(request: NextRequest) {
       success: true,
       data: {
         id: bookingId,
-        ...(whatsappAttempted && { whatsappAttempted }),
+        whatsappAttempted,
         ...(whatsappError && { whatsappError }),
         ...(emailSent !== undefined && { emailSent }),
         ...(emailError && { emailError }),
