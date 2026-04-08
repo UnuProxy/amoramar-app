@@ -66,11 +66,7 @@ const buildVars = (booking: Booking): Record<string, string> => ({
 const normalizeTemplateLang = (lang?: string): string => {
   const raw = (lang || '').trim();
   if (!raw) return 'en_US';
-  const lc = raw.toLowerCase();
-  // Common shorthand values configured in envs.
-  if (lc === 'en') return 'en_US';
-  if (lc === 'es') return 'es_ES';
-  if (lc === 'pt') return 'pt_BR';
+  // Keep configured locale as-is (e.g. "en"), and rely on fallback retry logic below.
   return raw;
 };
 
