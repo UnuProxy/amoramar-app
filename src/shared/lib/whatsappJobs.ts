@@ -3,6 +3,10 @@ import type { Booking } from '@/shared/lib/types';
 import { getAdminDb } from '@/shared/lib/firebaseAdmin';
 
 export type WhatsAppJobType = 'WHATSAPP_CONFIRMATION' | 'WHATSAPP_REMINDER_24H';
+export type WhatsAppEnqueueResult = {
+  queued: boolean;
+  skippedReason?: string;
+};
 
 type JobDoc = {
   bookingId: string;
@@ -120,11 +124,11 @@ const confirmationJobIsAlreadyHandled = async (bookingId: string): Promise<boole
   return st === 'queued' || st === 'processing' || st === 'sent';
 };
 
-export const enqueueWhatsAppJobsForConfirmedBooking = async (booking: Booking): Promise<void> => {
+export const enqueueWhatsAppJobsForConfirmedBooking = async (booking: Booking): Promise<WhatsAppEnqueueResult> => {
   const isConfirmed = booking.status === 'confirmed';
   if (!isConfirmed) {
     console.warn('[whatsapp] skip enqueue: booking status is not confirmed', booking.id);
-    return;
+    return { queued: false, skippedReason: 'status_not_confirmed' };
   }
 
   const optIn = booking.whatsappOptIn ?? true;
@@ -133,18 +137,20 @@ export const enqueueWhatsAppJobsForConfirmedBooking = async (booking: Booking): 
 
   if (!optIn) {
     console.warn('[whatsapp] skip enqueue: whatsapp opt-out', booking.id);
-    return;
+    return { queued: false, skippedReason: 'opt_out' };
   }
   if (!toPhoneE164) {
     console.warn('[whatsapp] skip enqueue: phone missing or invalid (need 7–15 digits, e.g. +34 612…)', booking.id);
-    return;
+    return { queued: false, skippedReason: 'invalid_phone' };
   }
   if (!startAt) {
     console.warn('[whatsapp] skip enqueue: invalid booking date/time', booking.id);
-    return;
+    return { queued: false, skippedReason: 'invalid_datetime' };
   }
 
-  if (await confirmationJobIsAlreadyHandled(booking.id)) return;
+  if (await confirmationJobIsAlreadyHandled(booking.id)) {
+    return { queued: false, skippedReason: 'already_handled' };
+  }
 
   const now = Timestamp.now();
   let reminderDueMillis = startAt.getTime() - 24 * 60 * 60 * 1000;
@@ -172,6 +178,7 @@ export const enqueueWhatsAppJobsForConfirmedBooking = async (booking: Booking): 
     console.error('[whatsapp] process after enqueue failed:', msg);
     throw new Error(`[whatsapp] ${msg}`);
   }
+  return { queued: true };
 };
 
 const buildTemplateComponents = (vars: Record<string, string>) => {

@@ -216,7 +216,7 @@ export async function POST(request: NextRequest) {
     if (shouldEnqueueWhatsApp) {
       whatsappAttempted = true;
       try {
-        await enqueueWhatsAppJobsForConfirmedBooking({
+        const waResult = await enqueueWhatsAppJobsForConfirmedBooking({
           id: bookingId,
           salonId,
           employeeId: data.employeeId,
@@ -244,6 +244,9 @@ export async function POST(request: NextRequest) {
           createdAt: new Date(),
           updatedAt: new Date(),
         });
+        if (!waResult.queued && waResult.skippedReason) {
+          whatsappError = `skipped:${waResult.skippedReason}`;
+        }
       } catch (whatsAppError) {
         whatsappError = String((whatsAppError as any)?.message || whatsAppError);
         console.error('Failed to enqueue WhatsApp jobs:', whatsappError);
