@@ -1,22 +1,9 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter, Playfair_Display } from 'next/font/google';
 import './globals.css';
 import { AuthProvider } from '@/shared/context/AuthContext';
 import { LanguageProvider } from '@/shared/context/LanguageContext';
 import { LanguageToggle } from '@/shared/components/LanguageToggle';
 import { SITE_URL } from '@/lib/constants';
-
-const inter = Inter({
-  subsets: ['latin'],
-  variable: '--font-inter',
-  display: 'swap',
-});
-
-const playfair = Playfair_Display({
-  subsets: ['latin'],
-  variable: '--font-playfair',
-  display: 'swap',
-});
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -60,7 +47,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={`${inter.variable} ${playfair.variable} font-sans bg-background text-primary-900`}>
+      <body className="font-sans bg-background text-primary-900">
         <LanguageProvider>
           <AuthProvider>
             {children}

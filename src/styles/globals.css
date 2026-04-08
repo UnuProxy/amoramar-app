@@ -9,6 +9,8 @@
   --aa-white: #FFFFFF;
   --aa-cappuccino: #8A6F58;
   --aa-cappuccino-dark: #4A3D34;
+  --font-sans: "Avenir Next", "Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-display: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
 }
 
 /* Prevent horizontal overflow on all pages */
@@ -17,7 +19,7 @@ html, body {
   max-width: 100vw;
   background: var(--aa-ivory-cool);
   color: var(--aa-cappuccino-dark);
-  font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  font-family: var(--font-sans);
 }
 
 html {
@@ -30,7 +32,7 @@ html {
 }
 
 .font-display {
-  font-family: var(--font-playfair), Georgia, 'Times New Roman', serif;
+  font-family: var(--font-display);
 }
 
 @layer utilities {

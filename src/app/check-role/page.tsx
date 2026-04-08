@@ -82,7 +82,7 @@ export default function CheckRolePage() {
                       <div className="mt-4 p-3 bg-yellow-100 border border-yellow-400 rounded">
                         <p className="font-semibold text-yellow-800">⚠️ You are NOT logged in as owner!</p>
                         <p className="text-sm mt-2 text-yellow-700">
-                          To delete employees, you need role='owner'.
+                          To delete employees, you need <code>role=&apos;owner&apos;</code>.
                         </p>
                         <p className="text-sm mt-2 text-yellow-700">
                           Current role: <strong>{userDoc.role || 'undefined'}</strong>
@@ -107,7 +107,7 @@ export default function CheckRolePage() {
                     Path: users/{user.id}
                   </p>
                   <p className="text-sm mt-2 text-red-700">
-                    This user document needs to be created with role='owner'.
+                    This user document needs to be created with <code>role=&apos;owner&apos;</code>.
                   </p>
                 </div>
               )
@@ -124,7 +124,7 @@ export default function CheckRolePage() {
               <li>Go to Firestore Database</li>
               <li>Navigate to <code className="bg-white px-2 py-1 rounded">users</code> collection</li>
               <li>Find document with ID: <code className="bg-white px-2 py-1 rounded">{user?.id || 'your-user-id'}</code></li>
-              <li>Edit the document and set: <code className="bg-white px-2 py-1 rounded">role: "owner"</code></li>
+              <li>Edit the document and set: <code className="bg-white px-2 py-1 rounded">role: &quot;owner&quot;</code></li>
               <li>Refresh this page to verify</li>
             </ol>
           </div>

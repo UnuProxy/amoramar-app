@@ -694,7 +694,9 @@ export default function EmployeeBookingsPage() {
                   {booking.notes && (
                     <div className="md:w-64 bg-neutral-50 p-6 rounded-2xl border border-neutral-100">
                       <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest mb-2">Notas Especiales</p>
-                      <p className="text-xs text-neutral-600 font-bold italic line-clamp-2">"{booking.notes}"</p>
+                      <p className="text-xs text-neutral-600 font-bold italic line-clamp-2">
+                        <q>{booking.notes}</q>
+                      </p>
                     </div>
                   )}
 
