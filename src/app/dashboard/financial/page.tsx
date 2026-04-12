@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useCallback, useEffect, useState, useMemo } from 'react';
 import { auth } from '@/shared/lib/firebase';
 import { Loading } from '@/shared/components/Loading';
 import { getBookings, getServices, getExpenses, getEmployees } from '@/shared/lib/firestore';
 import { calculateBookingTotals } from '@/shared/lib/booking-utils';
-import type { Booking, Service, Expense, Employee, ExpenseCategory, ExpenseFrequency } from '@/shared/lib/types';
+import { uploadExpenseReceipt, deleteStorageFileByUrl } from '@/shared/lib/storage';
+import type { Booking, Service, Expense, Employee, ExpenseCategory, ExpenseFrequency, ManualRevenue } from '@/shared/lib/types';
 import { formatCurrency, cn } from '@/shared/lib/utils';
 import { useLanguage } from '@/shared/context/LanguageContext';
 
@@ -31,6 +32,7 @@ export default function FinancialDashboard() {
   const [services, setServices] = useState<Service[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [manualRevenues, setManualRevenues] = useState<ManualRevenue[]>([]);
   const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState<DateRange>('month');
   const [payoutMonth, setPayoutMonth] = useState<string>(() => new Date().toISOString().slice(0, 7));
@@ -38,7 +40,14 @@ export default function FinancialDashboard() {
   const [expenseCategoryFilter, setExpenseCategoryFilter] = useState<'all' | ExpenseCategory>('all');
   const [expenseStartDateFilter, setExpenseStartDateFilter] = useState('');
   const [expenseEndDateFilter, setExpenseEndDateFilter] = useState('');
+  const [expensePage, setExpensePage] = useState(1);
+  const [expensePageSize, setExpensePageSize] = useState(50);
   const [showAddExpense, setShowAddExpense] = useState(false);
+  const [showAddRevenue, setShowAddRevenue] = useState(false);
+  const [expenseReceiptFile, setExpenseReceiptFile] = useState<File | null>(null);
+  const [savingExpense, setSavingExpense] = useState(false);
+  const [savingRevenue, setSavingRevenue] = useState(false);
+  const [expandedRevenueItems, setExpandedRevenueItems] = useState<string[]>([]);
   const [payoutDetail, setPayoutDetail] = useState<{
     employee: Employee;
     bookings: Booking[];
@@ -68,6 +77,18 @@ export default function FinancialDashboard() {
     notes: '',
   });
 
+  const [newManualRevenue, setNewManualRevenue] = useState<{
+    serviceName: string;
+    amount: string;
+    date: string;
+    notes: string;
+  }>({
+    serviceName: '',
+    amount: '',
+    date: new Date().toISOString().split('T')[0],
+    notes: '',
+  });
+
   const copy =
     language === 'es'
       ? {
@@ -78,6 +99,7 @@ export default function FinancialDashboard() {
           oneYear: '1 ANO',
           allTime: 'TODO EL TIEMPO',
           addExpense: 'Anadir gasto',
+          addRevenue: 'Anadir ingreso',
           grossIncome: 'Ingreso bruto',
           bookings: 'RESERVAS',
           totalExpenses: 'Gastos totales',
@@ -102,6 +124,21 @@ export default function FinancialDashboard() {
           invoices: 'FACTURAS',
           noExpenses: 'Sin gastos',
           recentExpenses: 'Gastos recientes',
+          manualRevenue: 'Ingresos manuales',
+          noManualRevenue: 'No hay ingresos manuales',
+          manualRevenueHelp: 'Servicios cobrados fuera del sistema de reservas.',
+          manualRevenueEntries: 'ingresos manuales',
+          revenueServiceName: 'Servicio / Concepto',
+          revenueDate: 'Fecha',
+          revenueNotes: 'Notas',
+          newRevenue: 'Nuevo ingreso',
+          registerRevenue: 'Registrar ingreso',
+          savingRevenue: 'Guardando...',
+          errorAddingRevenue: 'Error al anadir el ingreso.',
+          confirmDeleteRevenue: 'Estas seguro de que quieres eliminar este ingreso?',
+          placeholderRevenueConcept: 'SERVICIO EXTERNO, BONO, VENTA...',
+          expand: 'Expandir',
+          collapse: 'Ver menos',
           expensesWord: 'GASTOS',
           dateVendor: 'Fecha / Proveedor',
           description: 'Descripcion',
@@ -115,6 +152,12 @@ export default function FinancialDashboard() {
           toDate: 'Hasta',
           matchingExpenses: 'gastos encontrados',
           noMatchingExpenses: 'No hay gastos con esos filtros.',
+          showing: 'Mostrando',
+          of: 'de',
+          page: 'Pagina',
+          previous: 'Anterior',
+          next: 'Siguiente',
+          perPage: 'por pagina',
           date: 'Fecha',
           paymentDetails: 'Detalles de pagos',
           totalRevenueDeposit: 'Ingresos totales (deposito 50%)',
@@ -129,12 +172,19 @@ export default function FinancialDashboard() {
           concept: 'Concepto',
           amountEuro: 'Importe (EUR)',
           vendorOptional: 'Proveedor (opcional)',
+          receiptOptional: 'Recibo (opcional)',
+          uploadReceipt: 'Subir recibo',
+          changeReceipt: 'Cambiar recibo',
+          receiptReady: 'Archivo listo',
+          viewReceipt: 'Ver recibo',
+          removeReceipt: 'Quitar',
           fillRequiredFields: 'Completa los campos obligatorios.',
           errorAddingExpense: 'Error al anadir el gasto.',
           confirmDeleteExpense: 'Estas seguro de que quieres eliminar este gasto?',
           placeholderConcept: 'ALQUILER, PRODUCTOS...',
           cancel: 'Cancelar',
           registerExpense: 'Registrar gasto',
+          savingExpense: 'Guardando...',
         }
       : {
           title: 'Financials',
@@ -144,6 +194,7 @@ export default function FinancialDashboard() {
           oneYear: '1 YEAR',
           allTime: 'ALL TIME',
           addExpense: 'Add Expense',
+          addRevenue: 'Add Revenue',
           grossIncome: 'Gross Income',
           bookings: 'BOOKINGS',
           totalExpenses: 'Total Expenses',
@@ -168,6 +219,21 @@ export default function FinancialDashboard() {
           invoices: 'INVOICES',
           noExpenses: 'No expenses',
           recentExpenses: 'Recent Expenses',
+          manualRevenue: 'Manual Revenue',
+          noManualRevenue: 'No manual revenue yet',
+          manualRevenueHelp: 'Services charged outside the booking system.',
+          manualRevenueEntries: 'manual revenue entries',
+          revenueServiceName: 'Service / Concept',
+          revenueDate: 'Date',
+          revenueNotes: 'Notes',
+          newRevenue: 'New revenue',
+          registerRevenue: 'Register Revenue',
+          savingRevenue: 'Saving...',
+          errorAddingRevenue: 'Error adding revenue.',
+          confirmDeleteRevenue: 'Are you sure you want to delete this revenue entry?',
+          placeholderRevenueConcept: 'EXTERNAL SERVICE, PACKAGE, SALE...',
+          expand: 'Expand',
+          collapse: 'Show less',
           expensesWord: 'EXPENSES',
           dateVendor: 'Date / Vendor',
           description: 'Description',
@@ -181,6 +247,12 @@ export default function FinancialDashboard() {
           toDate: 'To',
           matchingExpenses: 'matching expenses',
           noMatchingExpenses: 'No expenses match these filters.',
+          showing: 'Showing',
+          of: 'of',
+          page: 'Page',
+          previous: 'Previous',
+          next: 'Next',
+          perPage: 'per page',
           date: 'Date',
           paymentDetails: 'Payment details',
           totalRevenueDeposit: 'Total Revenue (50% Deposit)',
@@ -195,12 +267,19 @@ export default function FinancialDashboard() {
           concept: 'Concept',
           amountEuro: 'Amount (€)',
           vendorOptional: 'Vendor (Optional)',
+          receiptOptional: 'Receipt (Optional)',
+          uploadReceipt: 'Upload receipt',
+          changeReceipt: 'Change receipt',
+          receiptReady: 'File ready',
+          viewReceipt: 'View receipt',
+          removeReceipt: 'Remove',
           fillRequiredFields: 'Please fill in required fields.',
           errorAddingExpense: 'Error adding expense.',
           confirmDeleteExpense: 'Are you sure you want to delete this expense?',
           placeholderConcept: 'RENT, PRODUCTS...',
           cancel: 'Cancel',
           registerExpense: 'Register Expense',
+          savingExpense: 'Saving...',
         };
 
   const expenseCategories = useMemo(
@@ -217,7 +296,7 @@ export default function FinancialDashboard() {
     loadData();
   }, []);
 
-  const overlayOpen = showAddExpense || Boolean(payoutDetail);
+  const overlayOpen = showAddExpense || showAddRevenue || Boolean(payoutDetail);
 
   useEffect(() => {
     if (overlayOpen) {
@@ -242,6 +321,29 @@ export default function FinancialDashboard() {
       setServices(servicesData);
       setEmployees(employeesData);
       setExpenses(expensesData);
+
+      try {
+        const token = await auth?.currentUser?.getIdToken();
+        if (!token) {
+          setManualRevenues([]);
+        } else {
+          const response = await fetch('/api/manual-revenues', {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+          const payload = await response.json();
+          if (response.ok && payload.success) {
+            setManualRevenues(payload.data || []);
+          } else {
+            console.warn('Manual revenue unavailable:', payload.error);
+            setManualRevenues([]);
+          }
+        }
+      } catch (manualRevenueError) {
+        console.warn('Error loading manual revenue:', manualRevenueError);
+        setManualRevenues([]);
+      }
     } catch (error) {
       console.error('Error loading financial data:', error);
     } finally {
@@ -249,30 +351,28 @@ export default function FinancialDashboard() {
     }
   };
 
-  const getServicePrice = (serviceId: string): number => {
+  const getServicePrice = useCallback((serviceId: string): number => {
     const service = services.find((s) => s.id === serviceId);
     if (!service) return 0;
     return typeof service.price === 'number' ? service.price : parseFloat(String(service.price || 0));
-  };
+  }, [services]);
 
-  const getBookingAmount = (booking: Booking): number => {
+  const getBookingAmount = useCallback((booking: Booking): number => {
     const servicePrice = getServicePrice(booking.serviceId);
-    const additionalServicesTotal = (booking.additionalServices || []).reduce((sum, item) => sum + item.price, 0);
-    const totalPrice = servicePrice + additionalServicesTotal;
-    const depositAmount = booking.depositAmount !== undefined ? booking.depositAmount / 100 : totalPrice * 0.5;
-    const hasDepositPaid = booking.depositPaid === true || booking.paymentStatus === 'deposit_paid' || booking.paymentStatus === 'paid';
-    const isFullyPaid = booking.paymentStatus === 'paid' && (booking.finalPaymentReceived === true || booking.status === 'completed');
     const employee = employees.find((e) => e.id === booking.employeeId);
+    const totals = calculateBookingTotals(booking, {
+      id: booking.serviceId,
+      serviceName: booking.serviceName || '',
+      price: servicePrice,
+    } as Service);
     
     // For self-employed, we only collect 50% deposit (the other 50% is their business)
     if (employee?.employmentType === 'self-employed') {
-      return hasDepositPaid ? depositAmount : 0;
+      return totals.depositPaidValue;
     }
 
-    if (isFullyPaid) return totalPrice;
-    if (hasDepositPaid) return depositAmount;
-    return 0;
-  };
+    return totals.collectedAmount;
+  }, [employees, getServicePrice]);
 
   // Date range filtering (confirmed or completed bookings for accurate revenue)
   const { startDate, endDate } = useMemo(() => {
@@ -325,6 +425,10 @@ export default function FinancialDashboard() {
     return expenses.filter((e) => e.date >= startDate && e.date <= endDate);
   }, [expenses, startDate, endDate]);
 
+  const filteredManualRevenues = useMemo(() => {
+    return manualRevenues.filter((item) => item.date >= startDate && item.date <= endDate);
+  }, [manualRevenues, startDate, endDate]);
+
   const manageableExpenses = useMemo(() => {
     const search = expenseSearchTerm.trim().toLowerCase();
 
@@ -356,6 +460,33 @@ export default function FinancialDashboard() {
       return searchableText.includes(search);
     });
   }, [filteredExpenses, expenseCategoryFilter, expenseEndDateFilter, expenseSearchTerm, expenseStartDateFilter]);
+
+  useEffect(() => {
+    setExpensePage(1);
+  }, [expenseSearchTerm, expenseCategoryFilter, expenseStartDateFilter, expenseEndDateFilter, dateRange]);
+
+  const expensePagination = useMemo(() => {
+    const totalItems = manageableExpenses.length;
+    const totalPages = Math.max(1, Math.ceil(totalItems / expensePageSize));
+    const currentPage = Math.min(expensePage, totalPages);
+    const startIndex = totalItems === 0 ? 0 : (currentPage - 1) * expensePageSize;
+    const endIndex = Math.min(startIndex + expensePageSize, totalItems);
+
+    return {
+      totalItems,
+      totalPages,
+      currentPage,
+      startIndex,
+      endIndex,
+      items: manageableExpenses.slice(startIndex, endIndex),
+    };
+  }, [manageableExpenses, expensePage, expensePageSize]);
+
+  useEffect(() => {
+    if (expensePage !== expensePagination.currentPage) {
+      setExpensePage(expensePagination.currentPage);
+    }
+  }, [expensePage, expensePagination.currentPage]);
 
   // Month-specific window for therapist payouts
   const { payoutStartDate, payoutEndDate } = useMemo(() => {
@@ -394,7 +525,9 @@ export default function FinancialDashboard() {
 
   // Calculate financials
   const financials = useMemo(() => {
-    const totalRevenue = filteredBookings.reduce((sum, booking) => sum + getBookingAmount(booking), 0);
+    const bookingRevenue = filteredBookings.reduce((sum, booking) => sum + getBookingAmount(booking), 0);
+    const manualRevenueTotal = filteredManualRevenues.reduce((sum, item) => sum + item.amount, 0);
+    const totalRevenue = bookingRevenue + manualRevenueTotal;
 
     const totalExpenses = filteredExpenses.reduce((sum, expense) => sum + expense.amount, 0);
 
@@ -422,6 +555,7 @@ export default function FinancialDashboard() {
           service,
           revenue,
           bookingsCount: serviceBookings.length,
+          countLabel: copy.bookings,
           percentage: totalRevenue > 0 ? (revenue / totalRevenue) * 100 : 0,
         };
       })
@@ -438,9 +572,32 @@ export default function FinancialDashboard() {
         service: { id: 'unknown', serviceName: 'Unknown / Deleted Service', price: 0 } as any,
         revenue: unknownRevenue,
         bookingsCount: unknownServiceBookings.length,
+        countLabel: copy.bookings,
         percentage: totalRevenue > 0 ? (unknownRevenue / totalRevenue) * 100 : 0,
       });
     }
+
+    const manualRevenueByService = filteredManualRevenues.reduce<Record<string, { revenue: number; count: number }>>((acc, item) => {
+      const key = item.serviceName.trim() || copy.serviceFallback;
+      if (!acc[key]) {
+        acc[key] = { revenue: 0, count: 0 };
+      }
+      acc[key].revenue += item.amount;
+      acc[key].count += 1;
+      return acc;
+    }, {});
+
+    Object.entries(manualRevenueByService).forEach(([serviceName, entry]) => {
+      revenueByService.push({
+        service: { id: `manual-${serviceName}`, serviceName, price: 0 } as any,
+        revenue: entry.revenue,
+        bookingsCount: entry.count,
+        countLabel: copy.manualRevenueEntries,
+        percentage: totalRevenue > 0 ? (entry.revenue / totalRevenue) * 100 : 0,
+      });
+    });
+
+    revenueByService.sort((a, b) => b.revenue - a.revenue);
 
     // Revenue by Employee
     const revenueByEmployee = employees
@@ -485,7 +642,7 @@ export default function FinancialDashboard() {
       payoutByEmployee,
       payoutTotalRevenue,
     };
-  }, [filteredBookings, filteredExpenses, services, employees, payoutBookings, expenseCategories]);
+  }, [filteredBookings, filteredExpenses, filteredManualRevenues, services, employees, payoutBookings, expenseCategories, getBookingAmount, copy.bookings, copy.manualRevenueEntries, copy.serviceFallback]);
 
   const getOwnerAuthHeaders = async () => {
     const token = await auth?.currentUser?.getIdToken();
@@ -499,20 +656,65 @@ export default function FinancialDashboard() {
     };
   };
 
+  const handleAddManualRevenue = async () => {
+    if (!newManualRevenue.serviceName || !newManualRevenue.amount) {
+      alert(copy.fillRequiredFields);
+      return;
+    }
+
+    try {
+      setSavingRevenue(true);
+      const headers = await getOwnerAuthHeaders();
+      const response = await fetch('/api/manual-revenues', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          ...newManualRevenue,
+          amount: parseFloat(newManualRevenue.amount),
+        }),
+      });
+      const payload = await response.json();
+
+      if (response.ok && payload.success) {
+        await loadData();
+        setShowAddRevenue(false);
+        setNewManualRevenue({
+          serviceName: '',
+          amount: '',
+          date: new Date().toISOString().split('T')[0],
+          notes: '',
+        });
+      } else {
+        throw new Error(payload.error || copy.errorAddingRevenue);
+      }
+    } catch (error: any) {
+      console.error('Error adding manual revenue:', error);
+      alert(error?.message || copy.errorAddingRevenue);
+    } finally {
+      setSavingRevenue(false);
+    }
+  };
+
   const handleAddExpense = async () => {
     if (!newExpense.name || !newExpense.amount) {
       alert(copy.fillRequiredFields);
       return;
     }
 
+    let receiptUrl: string | undefined;
     try {
+      setSavingExpense(true);
       const headers = await getOwnerAuthHeaders();
+      if (expenseReceiptFile) {
+        receiptUrl = await uploadExpenseReceipt(expenseReceiptFile, newExpense.date);
+      }
       const response = await fetch('/api/expenses', {
         method: 'POST',
         headers,
         body: JSON.stringify({
           ...newExpense,
           amount: parseFloat(newExpense.amount),
+          receiptUrl,
         }),
       });
       const payload = await response.json();
@@ -531,12 +733,21 @@ export default function FinancialDashboard() {
           vendor: '',
           notes: '',
         });
+        setExpenseReceiptFile(null);
       } else {
+        if (receiptUrl) {
+          await deleteStorageFileByUrl(receiptUrl);
+        }
         throw new Error(payload.error || copy.errorAddingExpense);
       }
     } catch (error: any) {
+      if (receiptUrl) {
+        await deleteStorageFileByUrl(receiptUrl);
+      }
       console.error('Error adding expense:', error);
       alert(error?.message || copy.errorAddingExpense);
+    } finally {
+      setSavingExpense(false);
     }
   };
 
@@ -544,6 +755,7 @@ export default function FinancialDashboard() {
     if (!confirm(copy.confirmDeleteExpense)) return;
 
     try {
+      const expense = expenses.find((item) => item.id === id);
       const headers = await getOwnerAuthHeaders();
       const response = await fetch(`/api/expenses/${id}`, {
         method: 'DELETE',
@@ -552,6 +764,9 @@ export default function FinancialDashboard() {
       const payload = await response.json();
 
       if (response.ok && payload.success) {
+        if (expense?.receiptUrl) {
+          await deleteStorageFileByUrl(expense.receiptUrl);
+        }
         await loadData();
       } else {
         throw new Error(payload.error || 'Error al eliminar el gasto');
@@ -560,6 +775,34 @@ export default function FinancialDashboard() {
       console.error('Error deleting expense:', error);
       alert(error?.message || 'Error al eliminar el gasto');
     }
+  };
+
+  const handleDeleteManualRevenue = async (id: string) => {
+    if (!confirm(copy.confirmDeleteRevenue)) return;
+
+    try {
+      const headers = await getOwnerAuthHeaders();
+      const response = await fetch(`/api/manual-revenues/${id}`, {
+        method: 'DELETE',
+        headers,
+      });
+      const payload = await response.json();
+
+      if (response.ok && payload.success) {
+        await loadData();
+      } else {
+        throw new Error(payload.error || copy.errorAddingRevenue);
+      }
+    } catch (error: any) {
+      console.error('Error deleting manual revenue:', error);
+      alert(error?.message || copy.errorAddingRevenue);
+    }
+  };
+
+  const toggleRevenueItemExpansion = (itemId: string) => {
+    setExpandedRevenueItems((prev) =>
+      prev.includes(itemId) ? prev.filter((id) => id !== itemId) : [...prev, itemId]
+    );
   };
 
   const openPayoutModal = (employeeId: string) => {
@@ -616,7 +859,20 @@ export default function FinancialDashboard() {
           </select>
 
           <button
-            onClick={() => setShowAddExpense(true)}
+            onClick={() => setShowAddRevenue(true)}
+            className="px-8 py-4 bg-white border border-slate-200 text-slate-700 text-[10px] font-black uppercase tracking-[0.2em] rounded-2xl hover:border-sky-500 hover:text-sky-600 transition-all shadow-sm flex items-center gap-3"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" />
+            </svg>
+            {copy.addRevenue}
+          </button>
+
+          <button
+            onClick={() => {
+              setExpenseReceiptFile(null);
+              setShowAddExpense(true);
+            }}
             className="px-8 py-4 bg-slate-800 text-white text-[10px] font-black uppercase tracking-[0.2em] rounded-2xl hover:bg-sky-600 hover:-translate-y-0.5 transition-all shadow-xl shadow-slate-900/10 flex items-center gap-3"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -634,8 +890,10 @@ export default function FinancialDashboard() {
           <div className="absolute top-0 right-0 w-32 h-32 bg-sky-50 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-700 opacity-50" />
           <div className="relative text-center w-full px-4">
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-4">{copy.grossIncome}</p>
-            <p className="text-4xl font-black text-slate-800 tracking-tight leading-none whitespace-nowrap">{formatCurrency(financials.totalRevenue)}</p>
-            <p className="text-[10px] font-black text-sky-500 uppercase tracking-widest mt-4">{filteredBookings.length} {copy.bookings}</p>
+            <p className="mx-auto max-w-full text-[clamp(1.5rem,2vw,2.75rem)] font-black text-slate-800 tracking-tight leading-none whitespace-nowrap text-center">
+              {formatCurrency(financials.totalRevenue)}
+            </p>
+            <p className="text-[10px] font-black text-sky-500 uppercase tracking-widest mt-4">{filteredBookings.length + filteredManualRevenues.length} {copy.transactions}</p>
           </div>
         </div>
 
@@ -644,7 +902,9 @@ export default function FinancialDashboard() {
           <div className="absolute top-0 right-0 w-32 h-32 bg-sky-50 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-700 opacity-50" />
           <div className="relative text-center w-full px-4">
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-4">{copy.totalExpenses}</p>
-            <p className="text-4xl font-black text-slate-800 tracking-tight leading-none whitespace-nowrap">{formatCurrency(financials.totalExpenses)}</p>
+            <p className="mx-auto max-w-full text-[clamp(1.5rem,2vw,2.75rem)] font-black text-slate-800 tracking-tight leading-none whitespace-nowrap text-center">
+              {formatCurrency(financials.totalExpenses)}
+            </p>
             <p className="text-[10px] font-black text-sky-500 uppercase tracking-widest mt-4">{filteredExpenses.length} {copy.expensesWord}</p>
           </div>
         </div>
@@ -657,7 +917,9 @@ export default function FinancialDashboard() {
           <div className="absolute top-0 right-0 w-32 h-32 bg-white/40 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-700" />
           <div className="relative text-center w-full px-4">
             <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-4">{copy.netProfit}</p>
-            <p className="text-4xl font-black text-slate-900 tracking-tight leading-none whitespace-nowrap">{formatCurrency(financials.netProfit)}</p>
+            <p className="mx-auto max-w-full text-[clamp(1.5rem,2vw,2.75rem)] font-black text-slate-900 tracking-tight leading-none whitespace-nowrap text-center">
+              {formatCurrency(financials.netProfit)}
+            </p>
             <p className="text-[10px] font-black text-sky-600 uppercase tracking-widest mt-4">{copy.finalResult}</p>
           </div>
         </div>
@@ -667,7 +929,9 @@ export default function FinancialDashboard() {
           <div className="absolute top-0 right-0 w-32 h-32 bg-sky-50 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-700 opacity-50" />
           <div className="relative text-center w-full px-4">
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-4">{copy.margin}</p>
-            <p className="text-4xl font-black text-slate-800 tracking-tight leading-none whitespace-nowrap">{financials.profitMargin.toFixed(1)}%</p>
+            <p className="mx-auto max-w-full text-[clamp(1.5rem,2vw,2.75rem)] font-black text-slate-800 tracking-tight leading-none whitespace-nowrap text-center">
+              {financials.profitMargin.toFixed(1)}%
+            </p>
             <p className="text-[10px] font-black text-sky-500 uppercase tracking-widest mt-4">{copy.profitability}</p>
           </div>
         </div>
@@ -686,31 +950,59 @@ export default function FinancialDashboard() {
               <div className="text-center py-12 text-slate-200 font-bold uppercase tracking-widest text-[10px]">{copy.noDataAvailable}</div>
             ) : (
               <div className="space-y-8">
-                {financials.revenueByService.map((item, index) => (
-                  <div key={item.service.id} className="group">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-white font-black text-sm shadow-md">
-                          {index + 1}
+                {financials.revenueByService.map((item, index) => {
+                  const shouldShowToggle = item.service.serviceName.length > 70;
+                  const isExpanded = expandedRevenueItems.includes(item.service.id);
+
+                  return (
+                    <div key={item.service.id} className="group">
+                      <div className="grid grid-cols-[auto,minmax(0,1fr)] lg:grid-cols-[auto,minmax(0,1fr),auto] items-start gap-x-4 gap-y-3 mb-4">
+                        <div className="flex items-start gap-4 min-w-0 lg:col-span-2">
+                          <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-white font-black text-sm shadow-md">
+                            {index + 1}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p
+                              className="text-lg font-black text-slate-800 uppercase tracking-tighter leading-[1.05] break-words"
+                              style={
+                                shouldShowToggle && !isExpanded
+                                  ? {
+                                      display: '-webkit-box',
+                                      WebkitBoxOrient: 'vertical',
+                                      WebkitLineClamp: 4,
+                                      overflow: 'hidden',
+                                    }
+                                  : undefined
+                              }
+                            >
+                              {item.service.serviceName}
+                            </p>
+                            {shouldShowToggle && (
+                              <button
+                                type="button"
+                                onClick={() => toggleRevenueItemExpansion(item.service.id)}
+                                className="mt-2 text-[10px] font-black uppercase tracking-[0.2em] text-sky-600 hover:text-sky-700 transition-colors"
+                              >
+                                {isExpanded ? copy.collapse : copy.expand}
+                              </button>
+                            )}
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">{item.bookingsCount} {item.countLabel || copy.bookings}</p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-lg font-black text-slate-800 uppercase tracking-tighter leading-none">{item.service.serviceName}</p>
-                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">{item.bookingsCount} {copy.bookings}</p>
+                        <div className="text-right self-start whitespace-nowrap pl-2 col-start-2 justify-self-end lg:col-start-auto">
+                          <p className="text-base sm:text-lg xl:text-xl font-black text-sky-600 tabular-nums leading-none">{formatCurrency(item.revenue)}</p>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">{item.percentage.toFixed(0)}{copy.ofTotal}</p>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <p className="text-xl font-black text-sky-600 tabular-nums leading-none">{formatCurrency(item.revenue)}</p>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">{item.percentage.toFixed(0)}{copy.ofTotal}</p>
+                      <div className="w-full bg-sky-50 rounded-full h-1 overflow-hidden">
+                        <div
+                          className="h-full bg-sky-500 rounded-full transition-all duration-1000 shadow-[0_0_10px_rgba(197,160,89,0.3)]"
+                          style={{ width: `${item.percentage}%` }}
+                        />
                       </div>
                     </div>
-                    <div className="w-full bg-sky-50 rounded-full h-1 overflow-hidden">
-                      <div
-                        className="h-full bg-sky-500 rounded-full transition-all duration-1000 shadow-[0_0_10px_rgba(197,160,89,0.3)]"
-                        style={{ width: `${item.percentage}%` }}
-                      />
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -842,6 +1134,65 @@ export default function FinancialDashboard() {
         </div>
       </div>
 
+      <div className="bg-white border border-slate-100 rounded-[48px] overflow-hidden shadow-sm">
+        <div className="px-10 py-8 border-b border-slate-100 bg-slate-50/30 space-y-2">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <h2 className="text-sm font-black text-slate-800 tracking-[0.3em] uppercase">{copy.manualRevenue}</h2>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.25em]">
+              {filteredManualRevenues.length} {copy.manualRevenueEntries}
+            </p>
+          </div>
+          <p className="text-xs text-slate-500">{copy.manualRevenueHelp}</p>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="bg-slate-50/50">
+                <th className="px-10 py-6 text-left text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">{copy.revenueDate}</th>
+                <th className="px-10 py-6 text-left text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">{copy.revenueServiceName}</th>
+                <th className="px-10 py-6 text-left text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">{copy.revenueNotes}</th>
+                <th className="px-10 py-6 text-right text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">{copy.amount}</th>
+                <th className="px-10 py-6 text-right text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">{copy.action}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {filteredManualRevenues.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-10 py-12 text-center text-sm font-semibold text-slate-400">
+                    {copy.noManualRevenue}
+                  </td>
+                </tr>
+              ) : filteredManualRevenues.map((item) => (
+                <tr key={item.id} className="hover:bg-slate-50 transition-all group">
+                  <td className="px-10 py-8">
+                    <div className="text-lg font-black text-slate-800 uppercase tracking-tighter leading-none">
+                      {new Date(item.date + 'T00:00:00').toLocaleDateString(displayLocale, { day: 'numeric', month: 'short' })}
+                    </div>
+                  </td>
+                  <td className="px-10 py-8">
+                    <div className="text-sm font-bold text-slate-700 uppercase tracking-widest">{item.serviceName}</div>
+                  </td>
+                  <td className="px-10 py-8 text-sm text-slate-500">{item.notes || '—'}</td>
+                  <td className="px-10 py-8 text-right">
+                    <p className="text-xl font-black text-sky-600 tabular-nums">{formatCurrency(item.amount)}</p>
+                  </td>
+                  <td className="px-10 py-8 text-right">
+                    <button
+                      onClick={() => handleDeleteManualRevenue(item.id)}
+                      className="w-10 h-10 bg-slate-50 text-slate-300 rounded-xl hover:bg-rose-600 hover:text-white transition-all flex items-center justify-center mx-auto lg:ml-auto lg:mr-0"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       {/* Recent Expenses Table */}
       <div className="bg-white border border-slate-100 rounded-[48px] overflow-hidden shadow-sm">
         <div className="px-10 py-8 border-b border-slate-100 bg-slate-50/30 space-y-5">
@@ -889,6 +1240,46 @@ export default function FinancialDashboard() {
           </div>
         </div>
         <div className="overflow-x-auto">
+          <div className="flex flex-col gap-4 border-b border-slate-100 px-6 sm:px-10 py-5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">
+              {expensePagination.totalItems === 0
+                ? `${copy.showing} 0 ${copy.of} 0`
+                : `${copy.showing} ${expensePagination.startIndex + 1}-${expensePagination.endIndex} ${copy.of} ${expensePagination.totalItems}`}
+            </div>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <label className="flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+                <span>{copy.perPage}</span>
+                <select
+                  value={expensePageSize}
+                  onChange={(event) => setExpensePageSize(Number(event.target.value))}
+                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 outline-none transition-all focus:border-sky-400"
+                >
+                  {[25, 50, 100, 250].map((size) => (
+                    <option key={size} value={size}>{size}</option>
+                  ))}
+                </select>
+              </label>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setExpensePage((prev) => Math.max(1, prev - 1))}
+                  disabled={expensePagination.currentPage === 1}
+                  className="rounded-xl border border-slate-200 px-4 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-slate-600 transition-all hover:border-slate-400 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {copy.previous}
+                </button>
+                <div className="min-w-[120px] text-center text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+                  {copy.page} {expensePagination.currentPage} / {expensePagination.totalPages}
+                </div>
+                <button
+                  onClick={() => setExpensePage((prev) => Math.min(expensePagination.totalPages, prev + 1))}
+                  disabled={expensePagination.currentPage === expensePagination.totalPages}
+                  className="rounded-xl border border-slate-200 px-4 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-slate-600 transition-all hover:border-slate-400 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {copy.next}
+                </button>
+              </div>
+            </div>
+          </div>
           <table className="w-full">
             <thead>
               <tr className="bg-slate-50/50">
@@ -900,13 +1291,13 @@ export default function FinancialDashboard() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {manageableExpenses.length === 0 ? (
+              {expensePagination.totalItems === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-10 py-12 text-center text-sm font-semibold text-slate-400">
                     {copy.noMatchingExpenses}
                   </td>
                 </tr>
-              ) : manageableExpenses.map((expense) => {
+              ) : expensePagination.items.map((expense) => {
                 const category = expenseCategories.find((c) => c.value === expense.category);
                 return (
                   <tr key={expense.id} className="hover:bg-slate-50 transition-all group">
@@ -918,6 +1309,16 @@ export default function FinancialDashboard() {
                     </td>
                     <td className="px-10 py-8">
                       <div className="text-sm font-bold text-slate-700 uppercase tracking-widest">{expense.name}</div>
+                      {expense.receiptUrl && (
+                        <a
+                          href={expense.receiptUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-2 inline-flex text-[10px] font-black uppercase tracking-[0.2em] text-sky-600 hover:text-sky-800"
+                        >
+                          {copy.viewReceipt}
+                        </a>
+                      )}
                     </td>
                     <td className="px-10 py-8">
                       <span className="px-4 py-2 rounded-2xl bg-slate-100 text-slate-500 text-[10px] font-black uppercase tracking-[0.2em]">
@@ -1049,6 +1450,89 @@ export default function FinancialDashboard() {
         </div>
       )}
 
+      {showAddRevenue && (
+        <div className="fixed inset-0 z-[100] flex items-start sm:items-center justify-center bg-slate-800/90 backdrop-blur-xl p-4">
+          <div className="w-full max-w-2xl bg-white rounded-[32px] sm:rounded-[40px] shadow-2xl overflow-hidden border-2 border-white/20 max-h-[90vh] flex flex-col">
+            <div className="px-6 sm:px-12 py-6 sm:py-10 flex items-center justify-between border-b border-slate-100">
+              <div>
+                <h2 className="text-3xl font-black text-slate-800 tracking-tighter uppercase">{copy.newRevenue}</h2>
+                <p className="text-slate-500 font-bold uppercase tracking-widest text-xs mt-1">{copy.manualRevenueHelp}</p>
+              </div>
+              <button
+                onClick={() => setShowAddRevenue(false)}
+                className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 hover:bg-slate-800 hover:text-white transition-all flex items-center justify-center"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="p-6 sm:p-12 space-y-8 flex-1 min-h-0 overflow-y-auto">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-2">
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">{copy.revenueServiceName}</label>
+                  <input
+                    type="text"
+                    value={newManualRevenue.serviceName}
+                    onChange={(e) => setNewManualRevenue({ ...newManualRevenue, serviceName: e.target.value })}
+                    className="w-full px-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-2xl text-slate-800 font-bold focus:border-sky-500 transition-all outline-none"
+                    placeholder={copy.placeholderRevenueConcept}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">{copy.amountEuro}</label>
+                  <input
+                    type="number"
+                    value={newManualRevenue.amount}
+                    onChange={(e) => setNewManualRevenue({ ...newManualRevenue, amount: e.target.value })}
+                    className="w-full px-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-2xl text-slate-800 font-bold focus:border-sky-500 transition-all outline-none"
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-8">
+                <div className="space-y-2">
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">{copy.revenueDate}</label>
+                  <input
+                    type="date"
+                    value={newManualRevenue.date}
+                    onChange={(e) => setNewManualRevenue({ ...newManualRevenue, date: e.target.value })}
+                    className="w-full px-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-2xl text-slate-800 font-bold focus:border-sky-500 transition-all outline-none"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">{copy.revenueNotes}</label>
+                  <textarea
+                    value={newManualRevenue.notes}
+                    onChange={(e) => setNewManualRevenue({ ...newManualRevenue, notes: e.target.value })}
+                    rows={4}
+                    className="w-full px-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-2xl text-slate-800 font-medium focus:border-sky-500 transition-all outline-none resize-none"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="px-6 sm:px-12 py-6 sm:py-8 bg-slate-50 border-t border-slate-100 flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-4">
+              <button
+                onClick={() => setShowAddRevenue(false)}
+                className="px-8 py-4 text-sm font-bold text-slate-400 uppercase tracking-widest hover:text-slate-800 transition-colors"
+              >
+                {copy.cancel}
+              </button>
+              <button
+                onClick={handleAddManualRevenue}
+                disabled={savingRevenue}
+                className="px-12 py-4 text-sm font-black text-white bg-slate-800 rounded-2xl hover:bg-sky-600 hover:scale-[1.02] active:scale-[0.98] transition-all shadow-xl uppercase tracking-[0.2em] disabled:opacity-60 disabled:hover:bg-slate-800 disabled:hover:scale-100"
+              >
+                {savingRevenue ? copy.savingRevenue : copy.registerRevenue}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Add Expense Modal - Clean & Focused */}
       {showAddExpense && (
         <div className="fixed inset-0 z-[100] flex items-start sm:items-center justify-center bg-slate-800/90 backdrop-blur-xl p-4">
@@ -1059,7 +1543,10 @@ export default function FinancialDashboard() {
                 <p className="text-slate-500 font-bold uppercase tracking-widest text-xs mt-1">{copy.salonOperations}</p>
               </div>
               <button
-                onClick={() => setShowAddExpense(false)}
+                onClick={() => {
+                  setShowAddExpense(false);
+                  setExpenseReceiptFile(null);
+                }}
                 className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 hover:bg-slate-800 hover:text-white transition-all flex items-center justify-center"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1126,20 +1613,57 @@ export default function FinancialDashboard() {
                   placeholder="NOMBRE DEL PROVEEDOR"
                 />
               </div>
+              <div className="space-y-3">
+                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">{copy.receiptOptional}</label>
+                <div className="rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 p-5">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-slate-700 break-all">
+                        {expenseReceiptFile ? `${copy.receiptReady}: ${expenseReceiptFile.name}` : copy.uploadReceipt}
+                      </p>
+                      <p className="mt-1 text-xs font-medium text-slate-400">JPG, PNG o PDF. Max 10MB.</p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <label className="cursor-pointer rounded-xl bg-white px-4 py-3 text-[10px] font-black uppercase tracking-[0.2em] text-slate-700 shadow-sm ring-1 ring-slate-200 transition-all hover:ring-slate-400">
+                        {expenseReceiptFile ? copy.changeReceipt : copy.uploadReceipt}
+                        <input
+                          type="file"
+                          accept="image/*,application/pdf"
+                          className="hidden"
+                          onChange={(event) => setExpenseReceiptFile(event.target.files?.[0] || null)}
+                        />
+                      </label>
+                      {expenseReceiptFile && (
+                        <button
+                          type="button"
+                          onClick={() => setExpenseReceiptFile(null)}
+                          className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 hover:text-slate-700"
+                        >
+                          {copy.removeReceipt}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div className="px-6 sm:px-12 py-6 sm:py-8 bg-slate-50 border-t border-slate-100 flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-4">
               <button
-                onClick={() => setShowAddExpense(false)}
+                onClick={() => {
+                  setShowAddExpense(false);
+                  setExpenseReceiptFile(null);
+                }}
                 className="px-8 py-4 text-sm font-bold text-slate-400 uppercase tracking-widest hover:text-slate-800 transition-colors"
               >
                 {copy.cancel}
               </button>
               <button
                 onClick={handleAddExpense}
-                className="px-12 py-4 text-sm font-black text-white bg-slate-800 rounded-2xl hover:bg-rose-600 hover:scale-[1.02] active:scale-[0.98] transition-all shadow-xl shadow-rose-200 uppercase tracking-[0.2em]"
+                disabled={savingExpense}
+                className="px-12 py-4 text-sm font-black text-white bg-slate-800 rounded-2xl hover:bg-rose-600 hover:scale-[1.02] active:scale-[0.98] transition-all shadow-xl shadow-rose-200 uppercase tracking-[0.2em] disabled:opacity-60 disabled:hover:bg-slate-800 disabled:hover:scale-100"
               >
-                {copy.registerExpense}
+                {savingExpense ? copy.savingExpense : copy.registerExpense}
               </button>
             </div>
           </div>

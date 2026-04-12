@@ -3,6 +3,17 @@ import firebaseApp from './firebase';
 
 const storage = getStorage(firebaseApp!);
 
+const getStoragePathFromUrl = (fileUrl: string): string | null => {
+  const baseUrl = 'https://firebasestorage.googleapis.com/v0/b/';
+  if (!fileUrl.startsWith(baseUrl)) {
+    return null;
+  }
+
+  const pathStart = fileUrl.indexOf('/o/') + 3;
+  const pathEnd = fileUrl.indexOf('?');
+  return decodeURIComponent(fileUrl.substring(pathStart, pathEnd));
+};
+
 /**
  * Upload an employee profile image to Firebase Storage
  * @param file - The image file to upload
@@ -45,26 +56,59 @@ export const uploadEmployeeProfileImage = async (
 };
 
 /**
+ * Upload an expense receipt to Firebase Storage
+ * Accepts images and PDF files up to 10MB.
+ */
+export const uploadExpenseReceipt = async (
+  file: File,
+  expenseDate: string
+): Promise<string> => {
+  try {
+    const isImage = file.type.startsWith('image/');
+    const isPdf = file.type === 'application/pdf';
+    if (!isImage && !isPdf) {
+      throw new Error('El archivo debe ser una imagen o un PDF');
+    }
+
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+      throw new Error('El archivo debe ser menor a 10MB');
+    }
+
+    const timestamp = Date.now();
+    const safeDate = expenseDate || new Date().toISOString().split('T')[0];
+    const extension = file.name.split('.').pop();
+    const filename = `expenses/${safeDate}/receipt-${timestamp}.${extension}`;
+
+    const storageRef = ref(storage, filename);
+    const snapshot = await uploadBytes(storageRef, file);
+    return await getDownloadURL(snapshot.ref);
+  } catch (error: any) {
+    console.error('Error uploading expense receipt:', error);
+    throw new Error(error.message || 'Error al subir el recibo');
+  }
+};
+
+/**
  * Delete an employee profile image from Firebase Storage
  * @param imageUrl - The URL of the image to delete
  */
-export const deleteEmployeeProfileImage = async (imageUrl: string): Promise<void> => {
+export const deleteStorageFileByUrl = async (imageUrl: string): Promise<void> => {
   try {
-    // Extract the path from the URL
-    const baseUrl = 'https://firebasestorage.googleapis.com/v0/b/';
-    if (!imageUrl.startsWith(baseUrl)) {
+    const path = getStoragePathFromUrl(imageUrl);
+    if (!path) {
       return; // Not a Firebase Storage URL
     }
-
-    const pathStart = imageUrl.indexOf('/o/') + 3;
-    const pathEnd = imageUrl.indexOf('?');
-    const path = decodeURIComponent(imageUrl.substring(pathStart, pathEnd));
 
     const storageRef = ref(storage, path);
     await deleteObject(storageRef);
   } catch (error) {
-    console.error('Error deleting profile image:', error);
+    console.error('Error deleting storage file:', error);
     // Don't throw - deletion failure shouldn't block other operations
   }
+};
+
+export const deleteEmployeeProfileImage = async (imageUrl: string): Promise<void> => {
+  await deleteStorageFileByUrl(imageUrl);
 };
 

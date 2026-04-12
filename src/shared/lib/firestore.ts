@@ -41,6 +41,7 @@ import type {
   Salon,
   BlockedSlot,
   Expense,
+  ManualRevenue,
   ServiceCatalogConfig,
 } from './types';
 import { DEFAULT_SALON_ID, getDefaultServiceCatalogConfig } from './serviceCatalog';
@@ -1083,4 +1084,45 @@ export const updateExpense = async (id: string, data: Partial<Expense>): Promise
 export const deleteExpense = async (id: string): Promise<void> => {
   const docRef = doc(expensesCollection(), id);
   await deleteDoc(docRef);
+};
+
+// ============================================
+// MANUAL REVENUE COLLECTION
+// ============================================
+
+const manualRevenueCollection = () => {
+  const dbInstance = checkDb();
+  if (!dbInstance) throw new Error('Firestore not initialized');
+  return collection(dbInstance, 'manualRevenue');
+};
+
+export const getManualRevenues = async (salonId?: string, startDate?: string, endDate?: string): Promise<ManualRevenue[]> => {
+  const constraints: QueryConstraint[] = [];
+
+  if (salonId) {
+    constraints.push(where('salonId', '==', salonId));
+  }
+
+  if (startDate) {
+    constraints.push(where('date', '>=', startDate));
+  }
+
+  if (endDate) {
+    constraints.push(where('date', '<=', endDate));
+  }
+
+  constraints.push(orderBy('date', 'desc'));
+
+  const q = query(manualRevenueCollection(), ...constraints);
+  const querySnapshot = await getDocs(q);
+
+  return querySnapshot.docs.map((doc) => {
+    const data = doc.data() as Record<string, any>;
+    return {
+      id: doc.id,
+      ...data,
+      createdAt: timestampToDate(data.createdAt),
+      updatedAt: timestampToDate(data.updatedAt),
+    } as ManualRevenue;
+  });
 };

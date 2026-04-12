@@ -44,6 +44,16 @@ export function calculateBookingTotals(booking: Booking, service?: Service) {
     booking.finalPaymentReceived === true ||
     (booking.paymentStatus === 'paid' && (!hasDepositWorkflow || booking.status === 'completed'));
   const outstanding = isFullyPaid ? 0 : Math.max(0, totalPrice - depositPaidValue);
+  const closingAmount = isFullyPaid
+    ? (booking.finalPaymentAmount !== undefined ? booking.finalPaymentAmount : Math.max(0, totalPrice - depositPaidValue))
+    : 0;
+  const collectedAmount = booking.paymentStatus === 'refunded'
+    ? 0
+    : isFullyPaid
+      ? hasDepositWorkflow
+        ? depositPaidValue + closingAmount
+        : (booking.finalPaymentAmount !== undefined ? booking.finalPaymentAmount : totalPrice)
+      : depositPaidValue;
 
   return {
     basePrice,
@@ -51,6 +61,8 @@ export function calculateBookingTotals(booking: Booking, service?: Service) {
     totalPrice,
     depositPaidValue,
     outstanding,
-    isFullyPaid
+    isFullyPaid,
+    closingAmount,
+    collectedAmount,
   };
 }

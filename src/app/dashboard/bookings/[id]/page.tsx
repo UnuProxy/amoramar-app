@@ -5,11 +5,12 @@ import { useParams } from 'next/navigation';
 import { getBooking, getEmployee, getService, updateBooking, getClientByEmail, updateClient, createClient, getClients, getServices } from '@/shared/lib/firestore';
 import { Loading } from '@/shared/components/Loading';
 import { Button } from '@/shared/components/Button';
+import { ClosingSaleModal } from '@/shared/components/ClosingSaleModal';
 import { AuditTrailPanel } from '@/shared/components/AuditTrailPanel';
 import { formatDate, formatTime, formatCurrency, cn } from '@/shared/lib/utils';
-import { trackStatusChange, trackNoShow, addModificationToBooking } from '@/shared/lib/audit-trail';
+import { trackStatusChange, trackNoShow, trackPaymentReceived, addModificationToBooking } from '@/shared/lib/audit-trail';
 import { calculateBookingTotals } from '@/shared/lib/booking-utils';
-import type { Booking, Client, Employee, Service, AdditionalServiceItem } from '@/shared/lib/types';
+import type { Booking, Client, Employee, Service, AdditionalServiceItem, PaymentMethod } from '@/shared/lib/types';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/shared/hooks/useAuth';
 
@@ -37,6 +38,8 @@ export default function BookingDetailPage() {
   const [newBookingDate, setNewBookingDate] = useState('');
   const [newBookingTime, setNewBookingTime] = useState('');
   const [updatingDateTime, setUpdatingDateTime] = useState(false);
+  const [showClosingSaleModal, setShowClosingSaleModal] = useState(false);
+  const [processingPayment, setProcessingPayment] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -305,6 +308,53 @@ export default function BookingDetailPage() {
     }
   };
 
+  const handleConfirmFinalPayment = async (paymentMethod: PaymentMethod, finalAmount: number, notes: string) => {
+    if (!booking || !user) return;
+
+    try {
+      setProcessingPayment(true);
+
+      const auditContext = {
+        userId: user.id,
+        userName: user.email?.split('@')[0] || 'Admin',
+        userRole: user.role,
+      };
+
+      const modifications = [...(booking.modifications || [])];
+      if (booking.status !== 'completed') {
+        modifications.push(trackStatusChange(auditContext, booking.status, 'completed'));
+      }
+      modifications.push(trackPaymentReceived(auditContext, finalAmount, paymentMethod));
+
+      const updates: Partial<Booking> = {
+        status: 'completed',
+        paymentStatus: 'paid',
+        depositPaid: true,
+        finalPaymentReceived: true,
+        finalPaymentAmount: finalAmount,
+        finalPaymentMethod: paymentMethod,
+        finalPaymentReceivedAt: new Date(),
+        finalPaymentReceivedBy: user.id,
+        finalPaymentReceivedByName: auditContext.userName,
+        completedBy: user.id,
+        completedByName: auditContext.userName,
+        completedByRole: user.role,
+        completedAt: new Date(),
+        paymentNotes: notes || undefined,
+        modifications,
+      };
+
+      await updateBooking(booking.id, updates);
+      setBooking({ ...booking, ...updates });
+      setShowClosingSaleModal(false);
+    } catch (error) {
+      console.error('Error closing sale:', error);
+      alert('No se pudo cerrar la venta');
+    } finally {
+      setProcessingPayment(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -321,13 +371,11 @@ export default function BookingDetailPage() {
   const hasDepositOnly =
     !paymentTotals.isFullyPaid &&
     (booking.paymentStatus === 'deposit_paid' || booking.depositPaid === true || booking.paymentStatus === 'paid');
-  const paidAmount = booking.paymentStatus === 'refunded'
+  const paymentSummaryAmount = booking.paymentStatus === 'refunded'
     ? 0
     : paymentTotals.isFullyPaid
-      ? paymentTotals.totalPrice
-      : hasDepositOnly
-        ? paymentTotals.depositPaidValue
-        : 0;
+      ? paymentTotals.collectedAmount
+      : paymentTotals.outstanding;
 
   const getCreatedByLabel = (target: Booking) => {
     const createdName = target.createdByName?.trim();
@@ -391,7 +439,7 @@ export default function BookingDetailPage() {
           <div className="flex items-center justify-between">
             <span className="text-xl font-black text-emerald-800">{getPaymentLabel(booking)}</span>
             <span className="px-3 py-1 text-[11px] font-black rounded-full bg-emerald-100 text-emerald-800">
-              {formatCurrency(paidAmount)}
+              {formatCurrency(paymentSummaryAmount)}
             </span>
           </div>
           <p className="text-sm text-emerald-700 mt-2">
@@ -401,7 +449,7 @@ export default function BookingDetailPage() {
               ? 'Sin saldo pendiente'
               : hasDepositOnly
               ? `Restante: ${formatCurrency(paymentTotals.outstanding)}`
-              : 'Depósito pendiente'}
+              : `Pendiente por cobrar: ${formatCurrency(paymentTotals.outstanding)}`}
           </p>
         </div>
         <div className="p-4 rounded-2xl bg-gradient-to-br from-rose-50 to-white border border-rose-100">
@@ -885,10 +933,10 @@ export default function BookingDetailPage() {
             {booking.status === 'confirmed' && (
               <Button
                 variant="primary"
-                onClick={() => handleStatusChange('completed')}
+                onClick={() => setShowClosingSaleModal(true)}
                 className="text-sm"
               >
-                ✓ Marcar Completada
+                Cerrar Venta
               </Button>
             )}
             <Button
@@ -932,6 +980,16 @@ export default function BookingDetailPage() {
         </div>
         <AuditTrailPanel modifications={booking?.modifications || []} />
       </div>
+
+      <ClosingSaleModal
+        isOpen={showClosingSaleModal}
+        onClose={() => setShowClosingSaleModal(false)}
+        booking={booking}
+        services={availableServices.length > 0 ? availableServices : service ? [service] : []}
+        currentUserId={user?.id}
+        onConfirm={handleConfirmFinalPayment}
+        isProcessing={processingPayment}
+      />
     </div>
   );
 }

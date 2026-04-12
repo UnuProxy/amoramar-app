@@ -5,10 +5,10 @@ import { useForm } from 'react-hook-form';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/shared/components/Button';
 import { Input } from '@/shared/components/Input';
+import { auth, getSecondaryAuth } from '@/shared/lib/firebase';
 import { createEmployee, updateEmployee, createUser, getEmployeeServices, getServices, createEmployeeService, deleteEmployeeService, deleteEmployee, getServiceCatalogConfig } from '@/shared/lib/firestore';
 import { uploadEmployeeProfileImage, deleteEmployeeProfileImage } from '@/shared/lib/storage';
 import { createUserWithEmailAndPassword, signOut } from 'firebase/auth';
-import { getSecondaryAuth } from '@/shared/lib/firebase';
 import type { Employee, EmployeeFormData, EmploymentType, Service } from '@/shared/lib/types';
 import { useLanguage } from '@/shared/context/LanguageContext';
 import { useAuth } from '@/shared/hooks/useAuth';
@@ -42,11 +42,13 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
   const [servicesLoading, setServicesLoading] = useState(false);
   const [catalogConfig, setCatalogConfig] = useState<ServiceCatalogConfig>(getDefaultServiceCatalogConfig());
+  const [hasLinkedCredentials, setHasLinkedCredentials] = useState<boolean>(Boolean(employee?.userId));
+  const [isGeneratingCredentials, setIsGeneratingCredentials] = useState(false);
 
   const copy =
     language === 'es'
       ? {
-          accountCreated: 'Cuenta creada',
+          credentialsGenerated: 'Credenciales generadas',
           tempPasswordHelp: 'Entrega esta contrasena temporal al empleado. Se le pedira cambiarla al iniciar sesion por primera vez.',
           copy: 'Copiar',
           goToEmployees: 'Ir a empleados',
@@ -60,11 +62,19 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
           selected: 'seleccionados',
           updateEmployee: 'Actualizar empleado',
           createEmployee: 'Crear empleado',
+          generateCredentials: 'Generar credenciales',
+          regenerateCredentials: 'Regenerar credenciales',
+          credentialsLinked: 'Este empleado ya tiene acceso de inicio de sesion.',
+          credentialsMissing: 'Este empleado aun no tiene credenciales de acceso.',
+          credentialsLinkedHelp: 'Puedes generar una nueva contrasena temporal cuando quieras. Se le pedira cambiarla en el siguiente inicio de sesion.',
+          credentialsMissingHelp: 'Genera un usuario y una contrasena temporal para que pueda entrar en su panel.',
+          credentialsNeedEmail: 'Añade un email válido para poder generar credenciales.',
+          credentialsOwnerConflict: 'Este perfil está vinculado a una cuenta de administrador y no se puede regenerar desde aquí.',
           cancel: 'Cancelar',
           deleteEmployee: 'Eliminar empleado',
         }
       : {
-          accountCreated: 'Account Created',
+          credentialsGenerated: 'Credentials Generated',
           tempPasswordHelp: 'Give this temporary password to the employee. They will be asked to change it on first login.',
           copy: 'Copy',
           goToEmployees: 'Go to Employees',
@@ -78,6 +88,14 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
           selected: 'selected',
           updateEmployee: 'Update Employee',
           createEmployee: 'Create Employee',
+          generateCredentials: 'Generate Credentials',
+          regenerateCredentials: 'Regenerate Credentials',
+          credentialsLinked: 'This employee already has login access.',
+          credentialsMissing: 'This employee does not have login credentials yet.',
+          credentialsLinkedHelp: 'You can generate a new temporary password whenever you want. They will be required to change it on next login.',
+          credentialsMissingHelp: 'Create a user and temporary password so they can access their panel.',
+          credentialsNeedEmail: 'Add a valid email before generating credentials.',
+          credentialsOwnerConflict: 'This profile is linked to an admin account and cannot be regenerated here.',
           cancel: 'Cancel',
           deleteEmployee: 'Delete Employee',
         };
@@ -85,6 +103,8 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
   const {
     register,
     handleSubmit,
+    getValues,
+    trigger,
     formState: { errors },
   } = useForm<EmployeeFormData>({
     defaultValues: employee
@@ -227,6 +247,105 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
     }
   };
 
+  const createEmployeeLoginAccount = async (data: EmployeeFormData) => {
+    const tempPassword = Math.random().toString(36).slice(-10) + 'Aa1!';
+    const secondaryAuth = getSecondaryAuth();
+    if (!secondaryAuth) {
+      throw new Error('Firebase is not configured to create users. Check your .env.local');
+    }
+
+    const email = data.email.trim().toLowerCase();
+    const userCredential = await createUserWithEmailAndPassword(
+      secondaryAuth,
+      email,
+      tempPassword
+    );
+
+    await createUser(
+      {
+        email,
+        role: 'employee',
+        firstName: data.firstName.trim(),
+        lastName: data.lastName.trim(),
+        phone: data.phone?.trim() || undefined,
+        mustChangePassword: true,
+        isActive: true,
+      },
+      userCredential.user.uid
+    );
+
+    await signOut(secondaryAuth).catch(() => {});
+
+    return {
+      userId: userCredential.user.uid,
+      tempPassword,
+      email,
+    };
+  };
+
+  const getOwnerAuthHeaders = async () => {
+    const token = await auth?.currentUser?.getIdToken();
+    if (!token) {
+      throw new Error('Debes iniciar sesion como administrador para gestionar credenciales.');
+    }
+
+    return {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    };
+  };
+
+  const handleGenerateCredentials = async () => {
+    if (!employee) return;
+
+    setError(null);
+    const isValid = await trigger(['firstName', 'lastName', 'email', 'phone']);
+    if (!isValid) return;
+
+    const data = getValues();
+    if (!data.email?.trim()) {
+      setError(copy.credentialsNeedEmail);
+      return;
+    }
+
+    setIsGeneratingCredentials(true);
+    try {
+      const headers = await getOwnerAuthHeaders();
+      const response = await fetch(`/api/employees/${employee.id}/credentials`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          email: data.email.trim().toLowerCase(),
+          firstName: data.firstName,
+          lastName: data.lastName,
+          phone: data.phone,
+        }),
+      });
+      const payload = await response.json();
+      if (!response.ok || !payload.success) {
+        throw new Error(payload.error || 'Error generating employee credentials');
+      }
+
+      setHasLinkedCredentials(true);
+      setGeneratedPassword(payload.data.temporaryPassword);
+    } catch (err: any) {
+      const code = err?.code || err?.message || '';
+      if (code.includes('auth/email-already-in-use')) {
+        setError('This email is already registered. Use a different email for this employee.');
+      } else if (code.includes('auth/invalid-email')) {
+        setError('The email is not valid. Please verify and try again.');
+      } else if (code.includes('auth/weak-password')) {
+        setError('The generated password does not meet requirements. Please try again.');
+      } else if (String(code).includes('non-employee account')) {
+        setError(copy.credentialsOwnerConflict);
+      } else {
+        setError(err?.message || 'Error generating employee credentials');
+      }
+    } finally {
+      setIsGeneratingCredentials(false);
+    }
+  };
+
   const onSubmit = async (data: EmployeeFormData) => {
     setError(null);
     setIsLoading(true);
@@ -257,6 +376,7 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
         await updateEmployee(employee.id, {
           firstName: data.firstName,
           lastName: data.lastName,
+          email: data.email.trim().toLowerCase(),
           bio: data.bio || undefined,
           profileImage: profileImageUrl,
           phone: data.phone,
@@ -272,41 +392,15 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
         await syncEmployeeServices(employee.id);
       } else {
         // Create new employee with user account
-        const tempPassword = Math.random().toString(36).slice(-10) + 'Aa1!';
-
-        const secondaryAuth = getSecondaryAuth();
-        if (!secondaryAuth) {
-          throw new Error('Firebase is not configured to create users. Check your .env.local');
-        }
-
-        const userCredential = await createUserWithEmailAndPassword(
-          secondaryAuth,
-          data.email,
-          tempPassword
-        );
-
-        // Create user record
-        await createUser(
-          {
-            email: data.email,
-            role: 'employee',
-            phone: data.phone,
-            mustChangePassword: true,
-            isActive: true,
-          },
-          userCredential.user.uid
-        );
-
-        // Sign out from the secondary auth instance so the owner session stays active
-        await signOut(secondaryAuth).catch(() => {});
+        const { userId, tempPassword, email } = await createEmployeeLoginAccount(data);
 
         // Create employee record first
         const employeeId = await createEmployee({
-          userId: userCredential.user.uid,
+          userId,
           salonId,
           firstName: data.firstName,
           lastName: data.lastName,
-          email: data.email,
+          email,
           phone: data.phone,
           bio: data.bio || undefined,
           profileImage: undefined, // Will update after upload if image exists
@@ -419,7 +513,7 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
 
       {generatedPassword && (
         <div className="p-3 sm:p-4 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-900">
-          <p className="text-xs sm:text-sm font-semibold mb-2">{copy.accountCreated}</p>
+          <p className="text-xs sm:text-sm font-semibold mb-2">{copy.credentialsGenerated}</p>
           <p className="text-xs sm:text-sm">{copy.tempPasswordHelp}</p>
           <div className="mt-3 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
             <code className="px-3 py-2 rounded-md bg-white border border-emerald-200 text-emerald-800 font-semibold text-xs sm:text-sm break-all">
@@ -448,6 +542,28 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
         </div>
       )}
 
+      {employee && (
+        <div className="p-3 sm:p-4 rounded-lg border border-slate-200 bg-slate-50 text-slate-700">
+          <p className="text-xs sm:text-sm font-semibold mb-1">
+            {hasLinkedCredentials ? copy.credentialsLinked : copy.credentialsMissing}
+          </p>
+          <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs sm:text-sm text-slate-500">
+              {hasLinkedCredentials ? copy.credentialsLinkedHelp : copy.credentialsMissingHelp}
+            </p>
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleGenerateCredentials}
+              isLoading={isGeneratingCredentials}
+              className="w-full sm:w-auto"
+            >
+              {hasLinkedCredentials ? copy.regenerateCredentials : copy.generateCredentials}
+            </Button>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Input
           label="FIRST NAME"
@@ -465,7 +581,7 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee }) => {
         <Input
           label="EMAIL"
           type="email"
-          disabled={!!employee}
+          disabled={!!employee && hasLinkedCredentials}
           {...register('email', {
             required: 'Email is required',
             pattern: {

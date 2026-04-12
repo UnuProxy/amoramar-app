@@ -5,10 +5,12 @@ import { useParams, useRouter } from 'next/navigation';
 import { getBooking, getEmployee, getService, updateBooking, getEmployees } from '@/shared/lib/firestore';
 import { Loading } from '@/shared/components/Loading';
 import { Button } from '@/shared/components/Button';
+import { ClosingSaleModal } from '@/shared/components/ClosingSaleModal';
 import { AuditTrailPanel } from '@/shared/components/AuditTrailPanel';
 import { formatDate, formatTime, formatCurrency, cn } from '@/shared/lib/utils';
-import { trackStatusChange, trackNoShow, addModificationToBooking } from '@/shared/lib/audit-trail';
-import type { Booking, Employee, Service } from '@/shared/lib/types';
+import { trackStatusChange, trackNoShow, trackPaymentReceived, addModificationToBooking } from '@/shared/lib/audit-trail';
+import { calculateBookingTotals } from '@/shared/lib/booking-utils';
+import type { Booking, Employee, Service, PaymentMethod } from '@/shared/lib/types';
 import { useAuth } from '@/shared/hooks/useAuth';
 
 export default function EmployeeBookingDetailPage() {
@@ -21,6 +23,8 @@ export default function EmployeeBookingDetailPage() {
   const [service, setService] = useState<Service | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentEmployee, setCurrentEmployee] = useState<Employee | null>(null);
+  const [showClosingSaleModal, setShowClosingSaleModal] = useState(false);
+  const [processingPayment, setProcessingPayment] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -128,10 +132,62 @@ export default function EmployeeBookingDetailPage() {
   };
 
   const getPaymentLabel = (booking: Booking) => {
-    if (booking.paymentStatus === 'paid' || booking.depositPaid) return 'Pagado';
+    if (booking.paymentStatus === 'paid') return 'Pagado completo';
+    if (booking.depositPaid) return 'Depósito pagado';
     if (booking.paymentStatus === 'refunded') return 'Reembolsado';
     if (booking.paymentStatus === 'failed') return 'Fallido';
     return 'Pendiente';
+  };
+
+  const handleConfirmFinalPayment = async (paymentMethod: PaymentMethod, finalAmount: number, notes: string) => {
+    if (!booking || !user) return;
+
+    try {
+      setProcessingPayment(true);
+
+      const closerName = currentEmployee
+        ? `${currentEmployee.firstName} ${currentEmployee.lastName}`
+        : user.email?.split('@')[0] || 'Employee';
+
+      const auditContext = {
+        userId: user.id,
+        userName: closerName,
+        userRole: user.role,
+      };
+
+      const modifications = [...(booking.modifications || [])];
+      if (booking.status !== 'completed') {
+        modifications.push(trackStatusChange(auditContext, booking.status, 'completed'));
+      }
+      modifications.push(trackPaymentReceived(auditContext, finalAmount, paymentMethod));
+
+      const updates: Partial<Booking> = {
+        status: 'completed',
+        paymentStatus: 'paid',
+        depositPaid: true,
+        finalPaymentReceived: true,
+        finalPaymentAmount: finalAmount,
+        finalPaymentMethod: paymentMethod,
+        finalPaymentReceivedAt: new Date(),
+        finalPaymentReceivedBy: user.id,
+        finalPaymentReceivedByName: closerName,
+        completedBy: user.id,
+        completedByName: closerName,
+        completedByRole: user.role,
+        completedAt: new Date(),
+        paymentNotes: notes || undefined,
+        modifications,
+      };
+
+      await updateBooking(booking.id, updates);
+      setBooking({ ...booking, ...updates });
+      setShowClosingSaleModal(false);
+    } catch (error) {
+      console.error('Error closing sale:', error);
+      alert('No se pudo cerrar la venta');
+    } finally {
+      setProcessingPayment(false);
+    }
   };
 
   if (loading) {
@@ -146,7 +202,16 @@ export default function EmployeeBookingDetailPage() {
     );
   }
 
-  const totalPrice = service?.price || 0;
+  const paymentTotals = calculateBookingTotals(booking, service);
+  const hasDepositOnly =
+    !paymentTotals.isFullyPaid &&
+    (booking.paymentStatus === 'deposit_paid' || booking.depositPaid === true || booking.paymentStatus === 'paid');
+  const totalPrice = paymentTotals.totalPrice;
+  const paymentSummaryAmount = booking.paymentStatus === 'refunded'
+    ? 0
+    : paymentTotals.isFullyPaid
+      ? paymentTotals.collectedAmount
+      : paymentTotals.outstanding;
 
   return (
     <div className="max-w-[1400px] mx-auto space-y-8 pb-12 p-6">
@@ -177,7 +242,19 @@ export default function EmployeeBookingDetailPage() {
           <p className="text-xs uppercase tracking-[0.25em] text-emerald-700 mb-2">Pago</p>
           <div className="flex items-center justify-between">
             <span className="text-xl font-black text-emerald-800">{getPaymentLabel(booking)}</span>
+            <span className="px-3 py-1 text-[11px] font-black rounded-full bg-emerald-100 text-emerald-800">
+              {formatCurrency(paymentSummaryAmount)}
+            </span>
           </div>
+          <p className="text-sm text-emerald-700 mt-2">
+            {booking.paymentStatus === 'refunded'
+              ? 'Depósito reembolsado'
+              : paymentTotals.isFullyPaid
+              ? 'Sin saldo pendiente'
+              : hasDepositOnly
+              ? `Restante: ${formatCurrency(paymentTotals.outstanding)}`
+              : `Pendiente por cobrar: ${formatCurrency(paymentTotals.outstanding)}`}
+          </p>
         </div>
         <div className="p-4 rounded-2xl bg-gradient-to-br from-blue-50 to-white border border-blue-100">
           <p className="text-xs uppercase tracking-[0.25em] text-blue-700 mb-2">Precio</p>
@@ -253,10 +330,10 @@ export default function EmployeeBookingDetailPage() {
             {booking.status === 'confirmed' && (
               <Button
                 variant="primary"
-                onClick={() => handleStatusChange('completed')}
+                onClick={() => setShowClosingSaleModal(true)}
                 className="text-sm"
               >
-                ✓ Marcar Completada
+                Cerrar Venta
               </Button>
             )}
             <Button
@@ -300,6 +377,16 @@ export default function EmployeeBookingDetailPage() {
         </div>
         <AuditTrailPanel modifications={booking?.modifications || []} />
       </div>
+
+      <ClosingSaleModal
+        isOpen={showClosingSaleModal}
+        onClose={() => setShowClosingSaleModal(false)}
+        booking={booking}
+        services={[service]}
+        currentUserId={user?.id}
+        onConfirm={handleConfirmFinalPayment}
+        isProcessing={processingPayment}
+      />
     </div>
   );
 }

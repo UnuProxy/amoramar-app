@@ -81,6 +81,17 @@ export interface Expense {
   updatedAt: Date;
 }
 
+export interface ManualRevenue {
+  id: string;
+  salonId: string;
+  serviceName: string;
+  amount: number; // in euros
+  date: string; // YYYY-MM-DD
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 // Employee Types
 export type EmployeeStatus = 'active' | 'inactive';
 export type EmploymentType = 'employee' | 'self-employed'; // employee = regular employee, self-employed = autónomo
