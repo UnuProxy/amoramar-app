@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { Suspense, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { BrandLogo } from '@/shared/components/BrandLogo';
@@ -25,7 +25,7 @@ function formatDisplayDate(dateStr: string, language: 'es' | 'en') {
   }).format(parsed);
 }
 
-export default function BookingSuccessPage() {
+function BookingSuccessContent() {
   const searchParams = useSearchParams();
   const { user } = useAuth();
   const { language } = useLanguage();
@@ -207,5 +207,13 @@ export default function BookingSuccessPage() {
         mode={authMode}
       />
     </>
+  );
+}
+
+export default function BookingSuccessPage() {
+  return (
+    <Suspense fallback={null}>
+      <BookingSuccessContent />
+    </Suspense>
   );
 }
