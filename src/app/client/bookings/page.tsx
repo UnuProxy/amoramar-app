@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { getBookings, getServices, getEmployees, getClient, updateBooking } from '@/shared/lib/firestore';
 import { Loading } from '@/shared/components/Loading';
@@ -12,6 +13,8 @@ import { getLocalizedServiceDescription } from '@/shared/lib/serviceLocalization
 
 export default function ClientBookingsPage() {
   const { user } = useAuth();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -40,8 +43,13 @@ export default function ClientBookingsPage() {
   const stripeRef = useRef<Stripe | null>(null);
   const elementsRef = useRef<StripeElements | null>(null);
   const cardElementRef = useRef<StripeCardElement | null>(null);
+  const paymentRequestRef = useRef<any>(null);
+  const paymentRequestButtonRef = useRef<any>(null);
+  const handledRebookIdRef = useRef<string | null>(null);
   const cardMountId = 'client-booking-card-element';
+  const paymentRequestMountId = 'client-booking-wallet-element';
   const stripePublicKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '';
+  const [walletLabel, setWalletLabel] = useState<string | null>(null);
 
   // Fetch services and employees immediately (like the homepage does)
   useEffect(() => {
@@ -193,6 +201,211 @@ export default function ClientBookingsPage() {
   }, [bookingStep, showNewBookingModal, cardMountId]);
 
   useEffect(() => {
+    const walletAmount = depositAmount ?? Math.round((selectedService?.price || 0) * 50);
+    if (!showNewBookingModal || bookingStep !== 3 || !stripePublicKey || !walletAmount || !user) {
+      setWalletLabel(null);
+      if (paymentRequestButtonRef.current) {
+        paymentRequestButtonRef.current.unmount();
+        paymentRequestButtonRef.current = null;
+      }
+      paymentRequestRef.current = null;
+      return;
+    }
+
+    const clientName = clientData
+      ? `${clientData.firstName} ${clientData.lastName}`
+      : user.email?.split('@')[0] || 'Client';
+    const clientEmail = user.email || '';
+    const clientPhone = clientData?.phone || '';
+
+    let isActive = true;
+
+    const setupPaymentRequest = async () => {
+      if (!stripeRef.current) {
+        stripeRef.current = await loadStripe(stripePublicKey);
+      }
+      if (!stripeRef.current) return;
+      if (!elementsRef.current) {
+        elementsRef.current = stripeRef.current.elements();
+      }
+      if (!elementsRef.current) return;
+
+      if (paymentRequestButtonRef.current) {
+        paymentRequestButtonRef.current.unmount();
+        paymentRequestButtonRef.current = null;
+      }
+
+      const paymentRequest = stripeRef.current.paymentRequest({
+        country: 'ES',
+        currency: 'eur',
+        total: {
+          label: selectedService?.serviceName || 'Booking deposit',
+          amount: walletAmount,
+        },
+        requestPayerName: true,
+        requestPayerEmail: true,
+        requestPayerPhone: true,
+      });
+
+      const wallet = await paymentRequest.canMakePayment();
+      if (!isActive || !wallet) {
+        setWalletLabel(null);
+        return;
+      }
+
+      const nextWalletLabel = wallet.applePay ? 'Apple Pay' : wallet.googlePay ? 'Google Pay' : 'Fast checkout';
+      setWalletLabel(nextWalletLabel);
+      paymentRequestRef.current = paymentRequest;
+
+      paymentRequest.on('paymentmethod', async (event: any) => {
+        setSubmitting(true);
+        setPaymentLoading(true);
+        setPaymentError(null);
+
+        try {
+          if (!selectedService) {
+            throw new Error('No se ha seleccionado un servicio.');
+          }
+
+          const ensureIntent = async () => {
+            if (clientSecret && paymentIntentId && depositAmount) {
+              return { clientSecret, paymentIntentId, amount: depositAmount };
+            }
+            const response = await fetch('/api/payments/create-intent', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                serviceId: selectedService.id,
+                bookingDate: formData.date,
+                bookingTime: formData.time,
+                clientName,
+                clientEmail,
+                depositPercentage: 50,
+              }),
+            });
+            const result = await response.json();
+            if (!result.success) {
+              throw new Error(result.error || 'No se pudo iniciar el pago');
+            }
+            setClientSecret(result.data.clientSecret);
+            setPaymentIntentId(result.data.paymentIntentId);
+            setDepositAmount(result.data.amount);
+            return result.data as { clientSecret: string; paymentIntentId: string; amount: number };
+          };
+
+          const intent = await ensureIntent();
+          const initialResult = await stripeRef.current!.confirmCardPayment(
+            intent.clientSecret,
+            {
+              payment_method: event.paymentMethod.id,
+            },
+            { handleActions: false }
+          );
+
+          if (initialResult.error || !initialResult.paymentIntent) {
+            event.complete('fail');
+            throw new Error(initialResult.error?.message || 'El pago no pudo completarse');
+          }
+
+          event.complete('success');
+
+          let confirmedPaymentIntent = initialResult.paymentIntent;
+          if (confirmedPaymentIntent.status === 'requires_action') {
+            const actionResult = await stripeRef.current!.confirmCardPayment(intent.clientSecret);
+            if (actionResult.error || !actionResult.paymentIntent) {
+              throw new Error(actionResult.error?.message || 'El pago requiere una autenticación adicional.');
+            }
+            confirmedPaymentIntent = actionResult.paymentIntent;
+          }
+
+          if (confirmedPaymentIntent.status !== 'succeeded') {
+            throw new Error('El pago no se completó. Inténtalo de nuevo.');
+          }
+
+          const bookingData: BookingFormData = {
+            serviceId: selectedService.id,
+            employeeId: formData.employeeId,
+            bookingDate: formData.date,
+            bookingTime: formData.time,
+            clientName,
+            clientEmail,
+            clientPhone,
+            paymentIntentId: confirmedPaymentIntent.id,
+          };
+
+          const response = await fetch('/api/bookings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(bookingData),
+          });
+
+          const result = await response.json();
+          if (!result.success) {
+            throw new Error(result.error || 'No se pudo crear la reserva');
+          }
+
+          if (user?.id) {
+            const updatedBookings = await getBookings();
+            const clientBookings = updatedBookings.filter((booking) => booking.clientEmail === user.email);
+            setBookings(clientBookings);
+          }
+          closeNewBooking();
+          alert('Booking created successfully!');
+        } catch (error: any) {
+          console.error('Wallet booking error:', error);
+          setPaymentError(error.message || 'Error al procesar el pago');
+        } finally {
+          setSubmitting(false);
+          setPaymentLoading(false);
+        }
+      });
+
+      const button = elementsRef.current.create('paymentRequestButton', {
+        paymentRequest,
+        style: {
+          paymentRequestButton: {
+            type: 'book',
+            theme: 'dark',
+            height: '48px',
+          },
+        },
+      });
+
+      paymentRequestButtonRef.current = button;
+      button.mount(`#${paymentRequestMountId}`);
+    };
+
+    setupPaymentRequest().catch((error) => {
+      console.error('Error setting up wallet payment:', error);
+      if (isActive) setWalletLabel(null);
+    });
+
+    return () => {
+      isActive = false;
+      if (paymentRequestButtonRef.current) {
+        paymentRequestButtonRef.current.unmount();
+        paymentRequestButtonRef.current = null;
+      }
+      paymentRequestRef.current = null;
+    };
+  }, [
+    showNewBookingModal,
+    bookingStep,
+    stripePublicKey,
+    depositAmount,
+    selectedService?.id,
+    selectedService?.price,
+    selectedService?.serviceName,
+    formData.date,
+    formData.time,
+    formData.employeeId,
+    clientData,
+    user,
+    clientSecret,
+    paymentIntentId,
+  ]);
+
+  useEffect(() => {
     setClientSecret(null);
     setPaymentIntentId(null);
     setDepositAmount(null);
@@ -205,10 +418,16 @@ export default function ClientBookingsPage() {
     setDepositAmount(null);
     setPaymentError(null);
     setPaymentLoading(false);
+    setWalletLabel(null);
     if (cardElementRef.current) {
       cardElementRef.current.destroy();
       cardElementRef.current = null;
     }
+    if (paymentRequestButtonRef.current) {
+      paymentRequestButtonRef.current.unmount();
+      paymentRequestButtonRef.current = null;
+    }
+    paymentRequestRef.current = null;
   };
 
   const handleCancelBooking = async () => {
@@ -261,6 +480,28 @@ export default function ClientBookingsPage() {
     setSelectedService(null);
     setSelectedEmployee(null);
     setFormData({ date: '', time: '', employeeId: '' });
+    resetPaymentState();
+  };
+
+  const startRebooking = (booking: Booking) => {
+    const service = getService(booking.serviceId);
+    if (!service) {
+      alert('Este servicio ya no está disponible. Por favor, elige otro.');
+      return;
+    }
+
+    const preferredEmployee = employees.find((employee) => employee.id === booking.employeeId) || null;
+
+    setShowNewBookingModal(true);
+    setSelectedService(service);
+    setSelectedEmployee(preferredEmployee);
+    setBookingStep(preferredEmployee ? 3 : 2);
+    setFormData({
+      date: '',
+      time: '',
+      employeeId: preferredEmployee?.id || '',
+    });
+    setAvailableSlots([]);
     resetPaymentState();
   };
 
@@ -400,6 +641,19 @@ export default function ClientBookingsPage() {
     return true;
   }, [bookingStep, selectedService, formData]);
 
+  useEffect(() => {
+    const rebookId = searchParams.get('rebook');
+    if (!rebookId || loading) return;
+    if (handledRebookIdRef.current === rebookId) return;
+
+    const bookingToRepeat = bookings.find((booking) => booking.id === rebookId);
+    if (!bookingToRepeat) return;
+
+    handledRebookIdRef.current = rebookId;
+    startRebooking(bookingToRepeat);
+    router.replace('/client/bookings');
+  }, [searchParams, loading, bookings, router, employees]);
+
   if (loading) {
     return <Loading />;
   }
@@ -525,6 +779,12 @@ export default function ClientBookingsPage() {
                     <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest mb-1">Inversión</p>
                     <p className="text-3xl font-black text-neutral-900 tabular-nums">{formatCurrency(service?.price || 0)}</p>
                   </div>
+                  <button
+                    onClick={() => startRebooking(booking)}
+                    className="px-6 py-4 rounded-[20px] bg-rose-600 text-white text-[10px] font-black uppercase tracking-[0.2em] hover:bg-neutral-900 transition-all shadow-lg"
+                  >
+                    Repetir
+                  </button>
                   <button
                     onClick={() => {
                       setSelectedBooking(booking);
@@ -753,6 +1013,22 @@ export default function ClientBookingsPage() {
                         {depositDisplay || '—'}
                       </span>
                     </div>
+                    {walletLabel && (
+                      <div className="space-y-3">
+                        <p className="text-xs font-bold text-neutral-500">{walletLabel}</p>
+                        <div
+                          id={paymentRequestMountId}
+                          className="min-h-12 overflow-hidden rounded-[16px]"
+                        />
+                        <div className="flex items-center gap-3">
+                          <div className="h-px flex-1 bg-neutral-200" />
+                          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-400">
+                            o tarjeta
+                          </span>
+                          <div className="h-px flex-1 bg-neutral-200" />
+                        </div>
+                      </div>
+                    )}
                     {stripePublicKey ? (
                       <div
                         id={cardMountId}

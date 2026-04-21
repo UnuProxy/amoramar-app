@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import Link from 'next/link';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { getBookings, getEmployees, getServices } from '@/shared/lib/firestore';
 import type { Booking, Employee, Service } from '@/shared/lib/types';
 import { formatTime, cn } from '@/shared/lib/utils';
@@ -509,6 +510,7 @@ interface BookingCardProps {
   booking: Booking;
   serviceName: string;
   employeeName: string;
+  detailHref: string;
   compact?: boolean;
 }
 
@@ -516,10 +518,18 @@ const BookingCard: React.FC<BookingCardProps> = ({
   booking,
   serviceName,
   employeeName,
+  detailHref,
   compact = false,
 }) => {
   const { t } = useLanguage();
   const now = new Date();
+  const isFullyPaid =
+    booking.finalPaymentReceived === true ||
+    booking.paymentStatus === 'paid';
+  const effectiveStatus: Booking['status'] =
+    booking.status !== 'cancelled' && isFullyPaid
+      ? 'completed'
+      : booking.status;
   const getStatusConfig = (status: Booking['status']) => {
     switch (status) {
       case 'confirmed':
@@ -534,9 +544,6 @@ const BookingCard: React.FC<BookingCardProps> = ({
   };
 
   const getPaymentStatus = () => {
-    const isFullyPaid =
-      booking.finalPaymentReceived === true ||
-      (booking.paymentStatus === 'paid' && (booking.requiresDeposit !== true || booking.status === 'completed'));
     const hasDepositOnly =
       !isFullyPaid &&
       (booking.paymentStatus === 'deposit_paid' || booking.depositPaid === true || booking.paymentStatus === 'paid');
@@ -562,23 +569,21 @@ const BookingCard: React.FC<BookingCardProps> = ({
     return t('client');
   };
 
-  const isFullyPaid =
-    booking.finalPaymentReceived === true ||
-    (booking.paymentStatus === 'paid' && (booking.requiresDeposit !== true || booking.status === 'completed'));
   const bookingStart = new Date(`${booking.bookingDate}T${booking.bookingTime}:00`);
   const isPastBooking = !Number.isNaN(bookingStart.getTime()) && bookingStart.getTime() < now.getTime();
   const hasPendingPaymentWarning =
+    effectiveStatus !== 'completed' &&
     booking.status !== 'cancelled' &&
     booking.paymentStatus !== 'refunded' &&
     !isFullyPaid &&
     isPastBooking;
-  const status = getStatusConfig(booking.status);
+  const status = getStatusConfig(effectiveStatus);
   const payment = getPaymentStatus();
 
   if (compact) {
     return (
       <Link
-        href={`/dashboard/bookings/${booking.id}`}
+        href={detailHref}
         className={cn(
           "group flex items-center gap-3 p-3 lg:p-4 bg-white rounded-xl border hover:shadow-md transition-all active:bg-slate-50",
           hasPendingPaymentWarning
@@ -670,7 +675,7 @@ const BookingCard: React.FC<BookingCardProps> = ({
       {/* Footer */}
       <div className="px-4 lg:px-5 pb-4 lg:pb-5">
         <Link
-          href={`/dashboard/bookings/${booking.id}`}
+          href={detailHref}
           className="flex items-center justify-center gap-2 w-full py-2.5 lg:py-3 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 rounded-xl text-sm font-semibold text-slate-700 transition-colors"
         >
           {t('view_details')}
@@ -942,25 +947,113 @@ const FiltersContent: React.FC<FiltersContentProps> = ({
 
 export default function BookingsPage() {
   const { t, language } = useLanguage();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Date & View State
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [calendarMonth, setCalendarMonth] = useState<Date>(new Date());
-  const [viewMode, setViewMode] = useState<ViewMode>('day');
+  const [selectedDate, setSelectedDate] = useState<Date>(() => {
+    const dateParam = searchParams.get('date');
+    if (dateParam) {
+      const parsed = new Date(`${dateParam}T12:00:00`);
+      if (!Number.isNaN(parsed.getTime())) return parsed;
+    }
+    return new Date();
+  });
+  const [calendarMonth, setCalendarMonth] = useState<Date>(() => {
+    const monthParam = searchParams.get('month');
+    if (monthParam && /^\d{4}-\d{2}$/.test(monthParam)) {
+      const parsed = new Date(`${monthParam}-01T12:00:00`);
+      if (!Number.isNaN(parsed.getTime())) return parsed;
+    }
+    return new Date();
+  });
+  const [viewMode, setViewMode] = useState<ViewMode>(() => (searchParams.get('view') === 'week' ? 'week' : 'day'));
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showFiltersDrawer, setShowFiltersDrawer] = useState(false);
   const [showCalendarDrawer, setShowCalendarDrawer] = useState(false);
 
   // Filters
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [employeeFilter, setEmployeeFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(() => {
+    const statusParam = searchParams.get('status');
+    return statusParam === 'pending' || statusParam === 'confirmed' || statusParam === 'completed' || statusParam === 'cancelled' || statusParam === 'no-show'
+      ? statusParam
+      : 'all';
+  });
+  const [searchTerm, setSearchTerm] = useState(() => searchParams.get('q') || '');
+  const [employeeFilter, setEmployeeFilter] = useState<string>(() => searchParams.get('employee') || 'all');
 
   const hasActiveFilters = statusFilter !== 'all' || employeeFilter !== 'all' || searchTerm !== '';
+
+  useEffect(() => {
+    const dateParam = searchParams.get('date');
+    const nextSelectedDate = dateParam ? new Date(`${dateParam}T12:00:00`) : new Date();
+    if (!Number.isNaN(nextSelectedDate.getTime()) && toDateKey(nextSelectedDate) !== toDateKey(selectedDate)) {
+      setSelectedDate(nextSelectedDate);
+    }
+
+    const monthParam = searchParams.get('month');
+    const nextCalendarMonth =
+      monthParam && /^\d{4}-\d{2}$/.test(monthParam)
+        ? new Date(`${monthParam}-01T12:00:00`)
+        : nextSelectedDate;
+    if (
+      !Number.isNaN(nextCalendarMonth.getTime()) &&
+      (nextCalendarMonth.getFullYear() !== calendarMonth.getFullYear() || nextCalendarMonth.getMonth() !== calendarMonth.getMonth())
+    ) {
+      setCalendarMonth(nextCalendarMonth);
+    }
+
+    const nextViewMode = searchParams.get('view') === 'week' ? 'week' : 'day';
+    if (nextViewMode !== viewMode) {
+      setViewMode(nextViewMode);
+    }
+
+    const nextStatus = searchParams.get('status');
+    const normalizedStatus: StatusFilter =
+      nextStatus === 'pending' || nextStatus === 'confirmed' || nextStatus === 'completed' || nextStatus === 'cancelled' || nextStatus === 'no-show'
+        ? nextStatus
+        : 'all';
+    if (normalizedStatus !== statusFilter) {
+      setStatusFilter(normalizedStatus);
+    }
+
+    const nextEmployee = searchParams.get('employee') || 'all';
+    if (nextEmployee !== employeeFilter) {
+      setEmployeeFilter(nextEmployee);
+    }
+
+    const nextSearchTerm = searchParams.get('q') || '';
+    if (nextSearchTerm !== searchTerm) {
+      setSearchTerm(nextSearchTerm);
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('date', toDateKey(selectedDate));
+    params.set('month', `${calendarMonth.getFullYear()}-${String(calendarMonth.getMonth() + 1).padStart(2, '0')}`);
+    params.set('view', viewMode);
+
+    if (statusFilter !== 'all') params.set('status', statusFilter);
+    else params.delete('status');
+
+    if (employeeFilter !== 'all') params.set('employee', employeeFilter);
+    else params.delete('employee');
+
+    if (searchTerm.trim()) params.set('q', searchTerm);
+    else params.delete('q');
+
+    const nextQuery = params.toString();
+    const currentQuery = searchParams.toString();
+    if (nextQuery !== currentQuery) {
+      router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, { scroll: false });
+    }
+  }, [selectedDate, calendarMonth, viewMode, statusFilter, employeeFilter, searchTerm, pathname, router, searchParams]);
 
   // Data Fetching
   useEffect(() => {
@@ -996,6 +1089,18 @@ export default function BookingsPage() {
       employees.find((e) => e.id === employeeId)?.firstName || t('employee'),
     [employees, t]
   );
+
+  const getEffectiveBookingStatus = useCallback((booking: Booking): Booking['status'] => {
+    const isFullyPaid =
+      booking.paymentStatus === 'paid' ||
+      booking.finalPaymentReceived === true;
+
+    if (booking.status !== 'cancelled' && isFullyPaid) {
+      return 'completed';
+    }
+
+    return booking.status;
+  }, []);
 
   // Booking counts by date
   const bookingCounts = useMemo(() => {
@@ -1040,7 +1145,7 @@ export default function BookingsPage() {
           return weekDays.includes(b.bookingDate);
         }
       })
-      .filter((b) => statusFilter === 'all' || b.status === statusFilter)
+      .filter((b) => statusFilter === 'all' || getEffectiveBookingStatus(b) === statusFilter)
       .filter((b) => employeeFilter === 'all' || b.employeeId === employeeFilter)
       .filter((b) => {
         if (!searchTerm.trim()) return true;
@@ -1058,7 +1163,7 @@ export default function BookingsPage() {
         }
         return a.bookingTime.localeCompare(b.bookingTime);
       });
-  }, [bookings, selectedDate, viewMode, statusFilter, employeeFilter, searchTerm, getServiceName, getEmployeeName]);
+  }, [bookings, selectedDate, viewMode, statusFilter, employeeFilter, searchTerm, getServiceName, getEmployeeName, getEffectiveBookingStatus]);
 
   // Group bookings by date
   const bookingsByDate = useMemo(() => {
@@ -1107,6 +1212,14 @@ export default function BookingsPage() {
     setEmployeeFilter('all');
     setSearchTerm('');
   };
+
+  const detailHrefForBooking = useCallback(
+    (bookingId: string) => {
+      const query = searchParams.toString();
+      return query ? `/dashboard/bookings/${bookingId}?returnTo=${encodeURIComponent(`${pathname}?${query}`)}` : `/dashboard/bookings/${bookingId}`;
+    },
+    [pathname, searchParams]
+  );
 
   // Keyboard navigation (desktop only)
   useEffect(() => {
@@ -1386,14 +1499,14 @@ export default function BookingsPage() {
                   <div className="w-px h-8 lg:h-10 bg-slate-200 flex-shrink-0" />
                   <div className="flex-shrink-0">
                     <div className="text-xl lg:text-2xl font-bold text-emerald-600">
-                      {filteredBookings.filter((b) => b.status === 'confirmed').length}
+                      {filteredBookings.filter((b) => getEffectiveBookingStatus(b) === 'confirmed').length}
                     </div>
                     <div className="text-[10px] lg:text-xs text-slate-500">{t('confirmed').toLowerCase()}</div>
                   </div>
                   <div className="w-px h-8 lg:h-10 bg-slate-200 flex-shrink-0" />
                   <div className="flex-shrink-0">
                     <div className="text-xl lg:text-2xl font-bold text-amber-600">
-                      {filteredBookings.filter((b) => b.status === 'pending').length}
+                      {filteredBookings.filter((b) => getEffectiveBookingStatus(b) === 'pending').length}
                     </div>
                     <div className="text-[10px] lg:text-xs text-slate-500">{t('pending').toLowerCase()}</div>
                   </div>
@@ -1428,6 +1541,7 @@ export default function BookingsPage() {
                         booking={booking}
                         serviceName={getServiceName(booking.serviceId)}
                         employeeName={getEmployeeName(booking.employeeId)}
+                        detailHref={detailHrefForBooking(booking.id)}
                       />
                     ))}
                   </div>
@@ -1530,6 +1644,7 @@ export default function BookingsPage() {
                                 booking={booking}
                                 serviceName={getServiceName(booking.serviceId)}
                                 employeeName={getEmployeeName(booking.employeeId)}
+                                detailHref={detailHrefForBooking(booking.id)}
                                 compact
                               />
                             ))}

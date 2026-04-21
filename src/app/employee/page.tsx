@@ -195,6 +195,7 @@ export default function EmployeeBookingsPage() {
 
     try {
       setProcessingPayment(true);
+      const hadDepositPaid = bookingToMarkPaid.depositPaid === true;
       
       const isFullPayment = employee?.employmentType === 'employee';
       
@@ -207,7 +208,7 @@ export default function EmployeeBookingsPage() {
         await updateBooking(bookingToMarkPaid.id, {
           status: 'completed',
           paymentStatus: 'paid',
-          depositPaid: true,
+          depositPaid: hadDepositPaid,
           finalPaymentReceived: true,
           finalPaymentAmount: finalAmount,
           finalPaymentMethod: paymentMethod,
@@ -226,7 +227,7 @@ export default function EmployeeBookingsPage() {
                 ...b, 
                 status: 'completed',
                 paymentStatus: 'paid',
-                depositPaid: true,
+                depositPaid: hadDepositPaid,
                 finalPaymentReceived: true, 
                 finalPaymentAmount: finalAmount, 
                 finalPaymentMethod: paymentMethod,
@@ -239,7 +240,7 @@ export default function EmployeeBookingsPage() {
         await updateBooking(bookingToMarkPaid.id, {
           status: 'completed',
           paymentStatus: 'paid',
-          depositPaid: true,
+          depositPaid: hadDepositPaid,
           finalPaymentMethod: paymentMethod,
           finalPaymentReceivedAt: new Date(),
           finalPaymentReceivedBy: user.id,
@@ -256,7 +257,7 @@ export default function EmployeeBookingsPage() {
                 ...b, 
                 status: 'completed',
                 paymentStatus: 'paid', 
-                depositPaid: true, 
+                depositPaid: hadDepositPaid, 
                 finalPaymentMethod: paymentMethod,
                 completedByName: closedByName,
                 paymentNotes: notes || undefined 
@@ -477,38 +478,45 @@ export default function EmployeeBookingsPage() {
     
     try {
       setProcessingFinalPayment(true);
+      const completedAt = new Date();
       
       const totalPrice = calculateTotalPrice();
       const depositAmount = (selectedBooking.depositAmount || 0) / 100; // Convert from cents to euros
       const finalAmount = totalPrice - depositAmount;
       
       await updateBooking(selectedBooking.id, {
+        status: 'completed',
         finalPaymentReceived: true,
         finalPaymentAmount: finalAmount,
         finalPaymentMethod: finalPaymentMethod,
-        finalPaymentReceivedAt: new Date(),
+        finalPaymentReceivedAt: completedAt,
         finalPaymentReceivedBy: user.id,
         paymentStatus: 'paid',
+        completedAt,
       });
       
       setSelectedBooking({
         ...selectedBooking,
+        status: 'completed',
         finalPaymentReceived: true,
         finalPaymentAmount: finalAmount,
         finalPaymentMethod: finalPaymentMethod,
-        finalPaymentReceivedAt: new Date(),
+        finalPaymentReceivedAt: completedAt,
         finalPaymentReceivedBy: user.id,
         paymentStatus: 'paid',
+        completedAt,
       });
       
       setBookings((prev) => prev.map((b) => 
         b.id === selectedBooking.id 
           ? { 
               ...b, 
+              status: 'completed',
               finalPaymentReceived: true, 
               finalPaymentAmount: finalAmount,
               finalPaymentMethod: finalPaymentMethod,
-              paymentStatus: 'paid'
+              paymentStatus: 'paid',
+              completedAt
             } 
           : b
       ));

@@ -51,6 +51,7 @@ export type ExpenseCategory =
   | 'rent' 
   | 'utilities' 
   | 'products' 
+  | 'nashi-argan'
   | 'supplies' 
   | 'staff' 
   | 'marketing' 

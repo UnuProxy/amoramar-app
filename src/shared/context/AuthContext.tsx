@@ -66,10 +66,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             try {
               // Create user document with the Firebase UID
               if (db) {
+                const inferredRole: UserRole = 'client';
+                const userEmail = firebaseUser.email?.trim() || '';
                 const userRef = doc(db, 'users', firebaseUser.uid);
                 await setDoc(userRef, {
-                  email: firebaseUser.email || '',
-                  role: 'owner', // Default to owner for first login - can be changed later
+                  email: userEmail,
+                  role: inferredRole,
                   isActive: true,
                   mustChangePassword: false,
                   createdAt: Timestamp.now(),

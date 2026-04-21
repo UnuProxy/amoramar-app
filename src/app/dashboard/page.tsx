@@ -9,14 +9,25 @@ import {
   getClientByEmail,
   getClients,
   getEmployees,
+  getServiceCatalogConfig,
   getServices,
   updateBooking,
   updateClient,
 } from '@/shared/lib/firestore';
 import { Loading } from '@/shared/components/Loading';
-import { cn, formatDate, formatTime } from '@/shared/lib/utils';
-import type { Booking, Client, Employee, Service, TimeSlot, PaymentMethod } from '@/shared/lib/types';
-import { compareServicesByDisplayOrder } from '@/shared/lib/serviceCatalog';
+import { cn, formatCurrency, formatDate, formatTime } from '@/shared/lib/utils';
+import type { Booking, Client, Employee, Service, ServiceCatalogConfig, TimeSlot, PaymentMethod } from '@/shared/lib/types';
+import {
+  DEFAULT_SALON_ID,
+  compareServicesByDisplayOrder,
+  getCatalogGroupLabel,
+  getCatalogSubgroupLabel,
+  getDefaultServiceCatalogConfig,
+  getServiceGroupId,
+  getServiceGroupLabel,
+  getServiceSubgroupId,
+  getServiceSubgroupLabel,
+} from '@/shared/lib/serviceCatalog';
 import { CurrentBookingPanel } from '@/shared/components/CurrentBookingPanel';
 import { PaymentMethodModal } from '@/shared/components/PaymentMethodModal';
 import { ClosingSaleModal } from '@/shared/components/ClosingSaleModal';
@@ -58,6 +69,7 @@ export default function DashboardPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [services, setServices] = useState<Service[]>([]);
+  const [catalogConfig, setCatalogConfig] = useState<ServiceCatalogConfig>(getDefaultServiceCatalogConfig());
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [clientSuggestionsOpen, setClientSuggestionsOpen] = useState(false);
@@ -102,7 +114,8 @@ export default function DashboardPage() {
   const [bookingSlotsLoading, setBookingSlotsLoading] = useState(false);
   const [bookingSlotsError, setBookingSlotsError] = useState<string | null>(null);
   const [serviceSearchTerm, setServiceSearchTerm] = useState('');
-  const [serviceSuggestionsOpen, setServiceSuggestionsOpen] = useState(false);
+  const [servicePickerOpen, setServicePickerOpen] = useState(false);
+  const [activeServiceGroupId, setActiveServiceGroupId] = useState<string | null>(null);
   const [bookingSaving, setBookingSaving] = useState(false);
   const [bookingRefreshKey, setBookingRefreshKey] = useState(0);
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -178,16 +191,21 @@ export default function DashboardPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [bookingsData, employeesData, servicesData, clientsData] = await Promise.all([
+        const [bookingsData, employeesData, servicesData, clientsData, catalogData] = await Promise.all([
           getBookings(),
           getEmployees(),
           getServices(),
           getClients(),
+          getServiceCatalogConfig(DEFAULT_SALON_ID).catch((error) => {
+            console.error('Error fetching service catalog:', error);
+            return getDefaultServiceCatalogConfig(DEFAULT_SALON_ID);
+          }),
         ]);
 
         setBookings(bookingsData);
         setEmployees(employeesData);
         setServices(servicesData);
+        setCatalogConfig(catalogData);
         setClients(clientsData);
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
@@ -292,20 +310,109 @@ export default function DashboardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bookingForm.serviceId, bookingForm.employeeId, bookingForm.bookingDate]);
 
-  useEffect(() => {
-    if (!bookingModalOpen) return;
-    const selectedService = services.find((service) => service.id === bookingForm.serviceId);
-    if (selectedService) {
-      setServiceSearchTerm(selectedService.serviceName);
-    }
-  }, [bookingForm.serviceId, services, bookingModalOpen]);
+  const selectedBookingService = useMemo(
+    () => services.find((service) => service.id === bookingForm.serviceId),
+    [services, bookingForm.serviceId]
+  );
 
-  const serviceMatches = useMemo(() => {
-    const term = serviceSearchTerm.trim().toLowerCase();
-    const sorted = [...services].sort(compareServicesByDisplayOrder);
-    if (!term) return sorted.slice(0, 12);
-    return sorted.filter((service) => service.serviceName.toLowerCase().includes(term)).slice(0, 30);
-  }, [services, serviceSearchTerm]);
+  const groupedBookingServices = useMemo(() => {
+    const normalizedSearch = serviceSearchTerm.trim().toLowerCase();
+    const sortedServices = [...services].sort(compareServicesByDisplayOrder);
+    const matchesServiceSearch = (service: Service) => {
+      if (!normalizedSearch) return true;
+
+      const serviceName = service.serviceName.toLowerCase();
+      const subgroupLabel = getServiceSubgroupLabel(service, catalogConfig, 'en').toLowerCase();
+      const groupLabel = getServiceGroupLabel(service, catalogConfig, 'en').toLowerCase();
+
+      return (
+        serviceName.includes(normalizedSearch) ||
+        subgroupLabel.includes(normalizedSearch) ||
+        groupLabel.includes(normalizedSearch)
+      );
+    };
+
+    const groupedSections = catalogConfig.groups.map((group) => {
+      const groupServices = sortedServices.filter((service) => {
+        if (getServiceGroupId(service) !== group.id) return false;
+        return matchesServiceSearch(service);
+      });
+
+      const subgroupSections = group.subgroups
+        .map((subgroup) => ({
+          id: subgroup.id,
+          label: getCatalogSubgroupLabel(subgroup, 'en'),
+          services: groupServices.filter((service) => getServiceSubgroupId(service) === subgroup.id),
+        }))
+        .filter((subgroup) => subgroup.services.length > 0);
+
+      const knownSubgroupIds = new Set(group.subgroups.map((subgroup) => subgroup.id));
+      const unlistedServices = groupServices.filter((service) => !knownSubgroupIds.has(getServiceSubgroupId(service)));
+      if (unlistedServices.length > 0) {
+        subgroupSections.push({
+          id: `${group.id}-unlisted`,
+          label: 'Other Services',
+          services: unlistedServices,
+        });
+      }
+
+      return {
+        id: group.id,
+        label: getCatalogGroupLabel(group, 'en'),
+        subgroups: subgroupSections,
+      };
+    });
+
+    const knownGroupIds = new Set(catalogConfig.groups.map((group) => group.id));
+    const uncataloguedServices = sortedServices.filter(
+      (service) => !knownGroupIds.has(getServiceGroupId(service)) && matchesServiceSearch(service)
+    );
+
+    if (uncataloguedServices.length > 0) {
+      groupedSections.push({
+        id: 'other-services',
+        label: 'Other',
+        subgroups: [
+          {
+            id: 'other-services-list',
+            label: 'Other Services',
+            services: uncataloguedServices,
+          },
+        ],
+      });
+    }
+
+    return normalizedSearch
+      ? groupedSections.filter((group) => group.subgroups.length > 0)
+      : groupedSections;
+  }, [services, serviceSearchTerm, catalogConfig]);
+
+  const activeServiceGroup = useMemo(
+    () => groupedBookingServices.find((group) => group.id === activeServiceGroupId) || null,
+    [groupedBookingServices, activeServiceGroupId]
+  );
+
+  const openServicePicker = () => {
+    setServiceSearchTerm('');
+    setActiveServiceGroupId(null);
+    setServicePickerOpen(true);
+  };
+
+  const closeServicePicker = () => {
+    setServicePickerOpen(false);
+    setActiveServiceGroupId(null);
+    setServiceSearchTerm('');
+  };
+
+  const handleSelectBookingService = (service: Service) => {
+    setBookingForm((prev) => ({
+      ...prev,
+      serviceId: service.id,
+      employeeId: '',
+      bookingTime: '',
+    }));
+    closeServicePicker();
+  };
 
   const openBookingModal = (
     client?: Partial<ClientData>,
@@ -323,11 +430,9 @@ export default function DashboardPage() {
     });
     setBookingSlots([]);
     setBookingSlotsError(null);
-    const defaultServiceName = defaults?.serviceId
-      ? services.find((service) => service.id === defaults.serviceId)?.serviceName || ''
-      : '';
-    setServiceSearchTerm(defaultServiceName);
-    setServiceSuggestionsOpen(false);
+    setServiceSearchTerm('');
+    setServicePickerOpen(false);
+    setActiveServiceGroupId(null);
     setBookingModalOpen(true);
     if (defaults?.serviceId) {
       loadEmployeesForService(defaults.serviceId, defaults.employeeId);
@@ -340,7 +445,8 @@ export default function DashboardPage() {
     setBookingSlotsError(null);
     setBookingSlotsLoading(false);
     setServiceSearchTerm('');
-    setServiceSuggestionsOpen(false);
+    setServicePickerOpen(false);
+    setActiveServiceGroupId(null);
     setBookingSaving(false);
   };
 
@@ -727,6 +833,7 @@ export default function DashboardPage() {
 
     try {
       setProcessingPayment(true);
+      const hadDepositPaid = bookingToMarkPaid.depositPaid === true;
       
       const bookingEmployee = employees.find(e => e.id === bookingToMarkPaid.employeeId);
       const isFullPayment = bookingEmployee?.employmentType === 'employee';
@@ -743,7 +850,7 @@ export default function DashboardPage() {
         await updateBooking(bookingToMarkPaid.id, {
           status: 'completed',
           paymentStatus: 'paid',
-          depositPaid: true,
+          depositPaid: hadDepositPaid,
           finalPaymentReceived: true,
           finalPaymentAmount: finalAmount,
           finalPaymentMethod: paymentMethod,
@@ -762,7 +869,7 @@ export default function DashboardPage() {
                 ...b, 
                 status: 'completed',
                 paymentStatus: 'paid',
-                depositPaid: true,
+                depositPaid: hadDepositPaid,
                 finalPaymentReceived: true,
                 finalPaymentAmount: finalAmount, 
                 finalPaymentMethod: paymentMethod,
@@ -775,7 +882,7 @@ export default function DashboardPage() {
         await updateBooking(bookingToMarkPaid.id, {
           status: 'completed',
           paymentStatus: 'paid',
-          depositPaid: true,
+          depositPaid: hadDepositPaid,
           finalPaymentMethod: paymentMethod,
           finalPaymentReceivedAt: new Date(),
           finalPaymentReceivedBy: closedByUserId,
@@ -792,7 +899,7 @@ export default function DashboardPage() {
                 ...b, 
                 status: 'completed',
                 paymentStatus: 'paid', 
-                depositPaid: true, 
+                depositPaid: hadDepositPaid, 
                 finalPaymentMethod: paymentMethod, 
                 completedByName: closedByName,
                 paymentNotes: notes || undefined 
@@ -1817,7 +1924,7 @@ export default function DashboardPage() {
         >
           <div
             className={cn(
-              'w-full max-w-4xl bg-white rounded-[40px] shadow-2xl overflow-hidden border-2 border-white/20 transform transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]',
+              'relative w-full max-w-4xl bg-white rounded-[40px] shadow-2xl overflow-hidden border-2 border-white/20 transform transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]',
               bookingModalOpen ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-3 scale-[0.97]'
             )}
           >
@@ -1928,67 +2035,17 @@ export default function DashboardPage() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 <div className="space-y-2">
                   <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">Service</label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value={serviceSearchTerm}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        setServiceSearchTerm(value);
-                        setServiceSuggestionsOpen(true);
-                        if (bookingForm.serviceId) {
-                          setBookingForm((prev) => ({ ...prev, serviceId: '', employeeId: '', bookingTime: '' }));
-                        }
-                      }}
-                      onFocus={() => setServiceSuggestionsOpen(true)}
-                      onBlur={() => setTimeout(() => setServiceSuggestionsOpen(false), 120)}
-                      placeholder="SEARCH SERVICE..."
-                      className="w-full px-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-2xl text-slate-900 font-black focus:border-sky-500 transition-all outline-none"
-                    />
-                    {serviceSuggestionsOpen && (
-                      <div className="absolute z-20 mt-2 w-full bg-white border-2 border-slate-200 rounded-2xl shadow-2xl overflow-hidden">
-                        {serviceMatches.length === 0 ? (
-                          <div className="px-4 py-4 text-center">
-                            <p className="text-sm font-bold text-slate-600">No services found</p>
-                            <p className="text-xs text-slate-400 mt-1">Try another keyword</p>
-                          </div>
-                        ) : (
-                          <div className="max-h-72 overflow-y-auto">
-                            {serviceMatches.map((service) => (
-                              <button
-                                key={service.id}
-                                type="button"
-                                onMouseDown={(e) => e.preventDefault()}
-                                onClick={() => {
-                                  setServiceSearchTerm(service.serviceName);
-                                  setServiceSuggestionsOpen(false);
-                                  setBookingForm((prev) => ({
-                                    ...prev,
-                                    serviceId: service.id,
-                                    employeeId: '',
-                                    bookingTime: '',
-                                  }));
-                                }}
-                                className={cn(
-                                  "w-full text-left px-4 py-3 border-b border-slate-100 last:border-b-0 hover:bg-slate-50 transition-colors",
-                                  bookingForm.serviceId === service.id && "bg-sky-50"
-                                )}
-                              >
-                                <div className="text-sm font-black text-slate-900 uppercase tracking-tight">
-                                  {service.serviceName}
-                                </div>
-                                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-1">
-                                  {typeof service.price === 'number' ? `€${service.price.toFixed(2)}` : 'SERVICE'}
-                                </div>
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                  {bookingForm.serviceId && (
-                    <p className="text-[10px] font-bold text-sky-600 uppercase tracking-widest">Service selected</p>
+                  <button
+                    type="button"
+                    onClick={openServicePicker}
+                    className="w-full px-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-2xl text-left text-slate-900 font-black hover:border-sky-300 focus:border-sky-500 transition-all outline-none"
+                  >
+                    {selectedBookingService ? selectedBookingService.serviceName : 'SEARCH SERVICE...'}
+                  </button>
+                  {selectedBookingService && (
+                    <p className="text-[10px] font-bold text-sky-600 uppercase tracking-widest">
+                      {getServiceGroupLabel(selectedBookingService, catalogConfig, 'en')} / {getServiceSubgroupLabel(selectedBookingService, catalogConfig, 'en')}
+                    </p>
                   )}
                 </div>
                 <div className="space-y-2">
@@ -2075,6 +2132,117 @@ export default function DashboardPage() {
                 </div>
               </div>
             </div>
+
+            {servicePickerOpen && (
+              <div className="absolute inset-0 z-20 flex items-center justify-center bg-slate-900/55 backdrop-blur-sm p-6">
+                <div className="w-full max-w-3xl max-h-[75vh] overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-2xl">
+                  <div className="flex items-center justify-between border-b border-slate-100 px-8 py-6">
+                    <div>
+                      <h3 className="text-xl font-black uppercase tracking-tight text-slate-900">
+                        {activeServiceGroup ? activeServiceGroup.label : 'Choose Service Group'}
+                      </h3>
+                      <p className="mt-1 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+                        {activeServiceGroup ? 'Choose a subgroup and service' : 'Step 1: choose one of the 4 groups'}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {activeServiceGroup && (
+                        <button
+                          type="button"
+                          onClick={() => setActiveServiceGroupId(null)}
+                          className="rounded-2xl bg-slate-100 px-4 py-3 text-[10px] font-black uppercase tracking-[0.2em] text-slate-600 hover:bg-slate-200"
+                        >
+                          Back
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={closeServicePicker}
+                        className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-100 text-slate-400 hover:bg-slate-900 hover:text-white transition-all"
+                      >
+                        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="border-b border-slate-100 px-8 py-5">
+                    <input
+                      type="text"
+                      value={serviceSearchTerm}
+                      onChange={(e) => setServiceSearchTerm(e.target.value)}
+                      placeholder="SEARCH SERVICE OR GROUP..."
+                      className="w-full rounded-2xl border-2 border-slate-100 bg-slate-50 px-6 py-4 text-sm font-bold text-slate-900 outline-none transition-all focus:border-sky-500"
+                    />
+                  </div>
+
+                  <div className="max-h-[calc(75vh-10rem)] overflow-y-auto p-8">
+                    {!activeServiceGroup ? (
+                      groupedBookingServices.length === 0 ? (
+                        <div className="py-12 text-center">
+                          <p className="text-sm font-bold text-slate-600">No services found</p>
+                          <p className="mt-1 text-xs text-slate-400">Try another keyword</p>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                          {groupedBookingServices.map((group) => (
+                            <button
+                              key={group.id}
+                              type="button"
+                              onClick={() => setActiveServiceGroupId(group.id)}
+                              className="rounded-[28px] border border-slate-200 bg-white p-6 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-sky-300 hover:shadow-lg"
+                            >
+                              <p className="text-lg font-black uppercase tracking-tight text-slate-900">{group.label}</p>
+                              <p className="mt-3 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+                                {group.subgroups.length} subgroup{group.subgroups.length === 1 ? '' : 's'}
+                              </p>
+                            </button>
+                          ))}
+                        </div>
+                      )
+                    ) : activeServiceGroup.subgroups.length === 0 ? (
+                      <div className="py-12 text-center">
+                        <p className="text-sm font-bold text-slate-600">No services found in this group</p>
+                        <p className="mt-1 text-xs text-slate-400">Go back and choose another group</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-6">
+                        {activeServiceGroup.subgroups.map((subgroup) => (
+                          <div key={subgroup.id} className="overflow-hidden rounded-[24px] border border-slate-200 bg-white">
+                            <div className="border-b border-slate-100 bg-slate-50 px-5 py-4">
+                              <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-500">
+                                {subgroup.label}
+                              </p>
+                            </div>
+                            <div>
+                              {subgroup.services.map((service) => (
+                                <button
+                                  key={service.id}
+                                  type="button"
+                                  onClick={() => handleSelectBookingService(service)}
+                                  className={cn(
+                                    'w-full border-t border-slate-100 px-5 py-4 text-left transition-colors first:border-t-0 hover:bg-slate-50',
+                                    bookingForm.serviceId === service.id && 'bg-sky-50'
+                                  )}
+                                >
+                                  <div className="text-sm font-black uppercase tracking-tight text-slate-900">
+                                    {service.serviceName}
+                                  </div>
+                                  <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
+                                    {formatCurrency(service.price)} · {service.duration} MIN
+                                  </div>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="px-12 py-8 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-4">
               <button

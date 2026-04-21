@@ -144,6 +144,7 @@ export default function EmployeeBookingDetailPage() {
 
     try {
       setProcessingPayment(true);
+      const hadDepositPaid = booking.depositPaid === true;
 
       const closerName = currentEmployee
         ? `${currentEmployee.firstName} ${currentEmployee.lastName}`
@@ -164,7 +165,7 @@ export default function EmployeeBookingDetailPage() {
       const updates: Partial<Booking> = {
         status: 'completed',
         paymentStatus: 'paid',
-        depositPaid: true,
+        depositPaid: hadDepositPaid,
         finalPaymentReceived: true,
         finalPaymentAmount: finalAmount,
         finalPaymentMethod: paymentMethod,

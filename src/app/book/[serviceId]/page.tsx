@@ -6,12 +6,13 @@ import { useAuth } from '@/shared/hooks/useAuth';
 import { Loading } from '@/shared/components/Loading';
 import { ClientAuthModal } from '@/shared/components/ClientAuthModal';
 import { AvailabilityCalendar } from '@/shared/components/AvailabilityCalendar';
+import { buildBookingSuccessUrl } from '@/shared/lib/bookingSuccess';
 import { formatCurrency, cn, getDateKeyInMadrid } from '@/shared/lib/utils';
 import type { Service, Employee, BookingFormData, Client } from '@/shared/lib/types';
 import { loadStripe, type Stripe, type StripeCardElement, type StripeElements } from '@stripe/stripe-js';
 import Link from 'next/link';
 import Image from 'next/image';
-import { getClient, getClientByEmail } from '@/shared/lib/firestore';
+import { getClient } from '@/shared/lib/firestore';
 import { BrandLogo } from '@/shared/components/BrandLogo';
 import { getLocalizedServiceDescription } from '@/shared/lib/serviceLocalization';
 
@@ -76,8 +77,12 @@ export default function DirectBookingPage() {
   const stripeRef = useRef<Stripe | null>(null);
   const elementsRef = useRef<StripeElements | null>(null);
   const cardElementRef = useRef<StripeCardElement | null>(null);
+  const paymentRequestRef = useRef<any>(null);
+  const paymentRequestButtonRef = useRef<any>(null);
   const cardMountId = 'direct-booking-card-element';
+  const paymentRequestMountId = 'direct-booking-wallet-element';
   const stripePublicKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '';
+  const [walletLabel, setWalletLabel] = useState<string | null>(null);
 
   // Fetch service details
   useEffect(() => {
@@ -141,12 +146,7 @@ export default function DirectBookingPage() {
     try {
       // First try to get client by user ID
       let client = await getClient(currentUser.id);
-      
-      // If not found by ID, try by email as fallback
-      if (!client && currentUser.email) {
-        client = await getClientByEmail(currentUser.email);
-      }
-      
+
       if (client) {
         setClientData(client);
         // Build name from firstName/lastName, handling null/undefined
@@ -283,6 +283,168 @@ export default function DirectBookingPage() {
       }
     };
   }, [bookingStep, cardMountId]);
+
+  useEffect(() => {
+    const walletAmount = depositAmount ?? Math.round((service?.price || 0) * 50);
+    if (bookingStep !== 3 || !stripePublicKey || !walletAmount) {
+      setWalletLabel(null);
+      if (paymentRequestButtonRef.current) {
+        paymentRequestButtonRef.current.unmount();
+        paymentRequestButtonRef.current = null;
+      }
+      paymentRequestRef.current = null;
+      return;
+    }
+
+    let isActive = true;
+
+    const setupPaymentRequest = async () => {
+      if (!stripeRef.current) {
+        stripeRef.current = await loadStripe(stripePublicKey);
+      }
+      if (!stripeRef.current) return;
+      if (!elementsRef.current) {
+        elementsRef.current = stripeRef.current.elements();
+      }
+      if (!elementsRef.current) return;
+
+      if (paymentRequestButtonRef.current) {
+        paymentRequestButtonRef.current.unmount();
+        paymentRequestButtonRef.current = null;
+      }
+
+      const paymentRequest = stripeRef.current.paymentRequest({
+        country: 'ES',
+        currency: 'eur',
+        total: {
+          label: service?.serviceName || 'Booking deposit',
+          amount: walletAmount,
+        },
+        requestPayerName: true,
+        requestPayerEmail: true,
+        requestPayerPhone: true,
+      });
+
+      const wallet = await paymentRequest.canMakePayment();
+      if (!isActive || !wallet) {
+        setWalletLabel(null);
+        return;
+      }
+
+      const nextWalletLabel = wallet.applePay ? 'Apple Pay' : wallet.googlePay ? 'Google Pay' : 'Fast checkout';
+      setWalletLabel(nextWalletLabel);
+      paymentRequestRef.current = paymentRequest;
+
+      paymentRequest.on('paymentmethod', async (event: any) => {
+        setSubmitting(true);
+        setPaymentLoading(true);
+        setPaymentError(null);
+
+        try {
+          const intent = await ensurePaymentIntent();
+          const initialResult = await stripeRef.current!.confirmCardPayment(
+            intent.clientSecret,
+            {
+              payment_method: event.paymentMethod.id,
+            },
+            { handleActions: false }
+          );
+
+          if (initialResult.error || !initialResult.paymentIntent) {
+            event.complete('fail');
+            throw new Error(initialResult.error?.message || 'El pago no pudo completarse');
+          }
+
+          event.complete('success');
+
+          let confirmedPaymentIntent = initialResult.paymentIntent;
+          if (confirmedPaymentIntent.status === 'requires_action') {
+            const actionResult = await stripeRef.current!.confirmCardPayment(intent.clientSecret);
+            if (actionResult.error || !actionResult.paymentIntent) {
+              throw new Error(actionResult.error?.message || 'El pago requiere una autenticación adicional.');
+            }
+            confirmedPaymentIntent = actionResult.paymentIntent;
+          }
+
+          if (confirmedPaymentIntent.status !== 'succeeded') {
+            throw new Error('El pago no se completó. Inténtalo de nuevo.');
+          }
+
+          const bookingData: BookingFormData = {
+            serviceId: service!.id,
+            employeeId: formData.employeeId,
+            bookingDate: formData.date,
+            bookingTime: formData.time,
+            clientName: formData.name,
+            clientEmail: formData.email,
+            clientPhone: formData.phone,
+            paymentIntentId: confirmedPaymentIntent.id,
+          };
+
+          const response = await fetch('/api/bookings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(bookingData),
+          });
+
+          const result = await response.json();
+          if (!result.success) {
+            throw new Error(result.error || 'No se pudo crear la reserva');
+          }
+
+          setPaymentError(null);
+          const selectedEmployee = serviceEmployees.find((employee) => employee.id === formData.employeeId);
+          router.push(
+            buildBookingSuccessUrl({
+              bookingId: result.data?.id,
+              serviceName: service?.serviceName,
+              employeeName: selectedEmployee
+                ? `${selectedEmployee.firstName} ${selectedEmployee.lastName}`.trim()
+                : undefined,
+              bookingDate: formData.date,
+              bookingTime: formData.time,
+              email: formData.email,
+              depositAmount: depositAmount ? depositAmount / 100 : service!.price * 0.5,
+              remainingBalance: service!.price - (depositAmount ? depositAmount / 100 : service!.price * 0.5),
+            })
+          );
+        } catch (err: any) {
+          console.error('Wallet booking error:', err);
+          setPaymentError(err.message || 'Error al procesar el pago');
+        } finally {
+          setSubmitting(false);
+          setPaymentLoading(false);
+        }
+      });
+
+      const button = elementsRef.current.create('paymentRequestButton', {
+        paymentRequest,
+        style: {
+          paymentRequestButton: {
+            type: 'book',
+            theme: 'dark',
+            height: '48px',
+          },
+        },
+      });
+      paymentRequestButtonRef.current = button;
+      button.mount(`#${paymentRequestMountId}`);
+    };
+
+    setupPaymentRequest().catch((err) => {
+      console.error('Error setting up wallet payment:', err);
+      if (isActive) setWalletLabel(null);
+    });
+
+    return () => {
+      isActive = false;
+      if (paymentRequestButtonRef.current) {
+        paymentRequestButtonRef.current.unmount();
+        paymentRequestButtonRef.current = null;
+      }
+      paymentRequestRef.current = null;
+    };
+  }, [bookingStep, stripePublicKey, depositAmount, service?.id, service?.price, service?.serviceName, formData.name, formData.email, formData.phone, formData.date, formData.time, formData.employeeId]);
 
   // Reset payment intent if selection changes
   useEffect(() => {
@@ -476,8 +638,22 @@ export default function DirectBookingPage() {
       const result = await response.json();
 
       if (result.success) {
-        setBookingSuccess(true);
         setPaymentError(null);
+        const selectedEmployee = serviceEmployees.find((employee) => employee.id === formData.employeeId);
+        router.push(
+          buildBookingSuccessUrl({
+            bookingId: result.data?.id,
+            serviceName: service.serviceName,
+            employeeName: selectedEmployee
+              ? `${selectedEmployee.firstName} ${selectedEmployee.lastName}`.trim()
+              : undefined,
+            bookingDate: formData.date,
+            bookingTime: formData.time,
+            email: formData.email,
+            depositAmount: depositAmount ? depositAmount / 100 : service.price * 0.5,
+            remainingBalance: service.price - (depositAmount ? depositAmount / 100 : service.price * 0.5),
+          })
+        );
       } else {
         throw new Error(result.error || 'No se pudo crear la reserva');
       }
@@ -1129,6 +1305,23 @@ export default function DirectBookingPage() {
                             </div>
                           </div>
                         </div>
+
+                        {walletLabel && (
+                          <div className="space-y-3">
+                            <p className="text-xs font-bold text-neutral-500">{walletLabel}</p>
+                            <div
+                              id={paymentRequestMountId}
+                              className="min-h-12 rounded-xl overflow-hidden"
+                            />
+                            <div className="flex items-center gap-3">
+                              <div className="h-px flex-1 bg-neutral-200" />
+                              <span className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.2em]">
+                                o tarjeta
+                              </span>
+                              <div className="h-px flex-1 bg-neutral-200" />
+                            </div>
+                          </div>
+                        )}
 
                         {stripePublicKey ? (
                           <div

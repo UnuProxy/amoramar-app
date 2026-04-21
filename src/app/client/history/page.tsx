@@ -188,7 +188,7 @@ export default function ClientHistoryPage() {
             <h3 className="text-4xl font-black text-white uppercase tracking-tighter">{stats.favoriteService}</h3>
           </div>
           <Link
-            href={stats.favoriteService ? `/book` : '/book'}
+            href="/client/bookings"
             className="px-10 py-5 bg-white text-black text-xs font-black uppercase tracking-[0.3em] rounded-2xl hover:bg-rose-600 hover:text-white transition-all inline-block"
           >
             Book Again
@@ -271,7 +271,7 @@ export default function ClientHistoryPage() {
 
                 <div className="flex items-center gap-6">
                   <Link
-                    href="/book"
+                    href={`/client/bookings?rebook=${booking.id}`}
                     className="px-8 py-4 rounded-2xl bg-rose-600 text-white text-[10px] font-black uppercase tracking-[0.2em] hover:bg-neutral-900 transition-all shadow-lg inline-block"
                   >
                     Book Again

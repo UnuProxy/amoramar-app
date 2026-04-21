@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/shared/hooks/useAuth';
-import { getClients } from '@/shared/lib/firestore';
+import { getClient } from '@/shared/lib/firestore';
 import { cn } from '@/shared/lib/utils';
 import { BrandLogo } from '@/shared/components/BrandLogo';
 import type { Client } from '@/shared/lib/types';
@@ -100,8 +100,7 @@ export const ClientSidebar: React.FC<ClientSidebarProps> = ({
       }
 
       try {
-        const clients = await getClients();
-        const foundClient = clients.find((c) => c.userId === user.id);
+        const foundClient = await getClient(user.id);
         if (foundClient) {
           setClient(foundClient);
         }

@@ -4,6 +4,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { Loading } from '@/shared/components/Loading';
 import { getBookings, getEmployees, getServices } from '@/shared/lib/firestore';
 import type { Booking, Employee, Service } from '@/shared/lib/types';
+import { calculateBookingTotals } from '@/shared/lib/booking-utils';
 import { formatCurrency, cn } from '@/shared/lib/utils';
 import { useLanguage } from '@/shared/context/LanguageContext';
 
@@ -37,6 +38,7 @@ export default function EndOfDayPage() {
   const [selectedDate, setSelectedDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
   const [filterMethod, setFilterMethod] = useState<'all' | EndOfDayMethod>('all');
   const [filterStaff, setFilterStaff] = useState<string>('all');
+  const [expandedTransactionIds, setExpandedTransactionIds] = useState<string[]>([]);
 
   const copy =
     language === 'es'
@@ -71,6 +73,8 @@ export default function EndOfDayPage() {
           closedBy: 'Cerro:',
           refundedBy: 'Reembolso:',
           selfEmployed: '50% (Autonomo)',
+          expand: 'Expandir',
+          collapse: 'Ver menos',
         }
       : {
           unspecified: 'Unspecified',
@@ -103,6 +107,8 @@ export default function EndOfDayPage() {
           closedBy: 'Closed:',
           refundedBy: 'Refunded:',
           selfEmployed: '50% (Self-employed)',
+          expand: 'Expand',
+          collapse: 'Show less',
         };
 
   useEffect(() => {
@@ -165,27 +171,7 @@ export default function EndOfDayPage() {
       const assignedStaffId = employee?.id || booking.employeeId || 'unassigned';
       const assignedStaffName =
         employee ? `${employee.firstName} ${employee.lastName}`.trim() : copy.unspecified;
-      const basePrice = service?.price || 0;
-      const additionalTotal = (booking.additionalServices || []).reduce((sum, item) => sum + item.price, 0);
-      const totalPrice = basePrice + additionalTotal;
-      const expectedDeposit = totalPrice * 0.5;
-      const rawDepositAmount = booking.depositAmount !== undefined ? booking.depositAmount / 100 : expectedDeposit;
-      const hasDepositWorkflow =
-        booking.requiresDeposit === true ||
-        Boolean(booking.paymentIntentId) ||
-        booking.paymentStatus === 'deposit_paid' ||
-        booking.paymentStatus === 'refunded' ||
-        (booking.depositPaid === true && booking.finalPaymentReceived !== true);
-      const depositAmount = hasDepositWorkflow
-        ? Math.min(rawDepositAmount > 0 ? rawDepositAmount : expectedDeposit, expectedDeposit)
-        : rawDepositAmount;
-      const isFullyPaid =
-        booking.finalPaymentReceived === true ||
-        (booking.paymentStatus === 'paid' && (!hasDepositWorkflow || booking.status === 'completed'));
-      const finalAmountFallback = Math.max(0, totalPrice - depositAmount);
-      const finalAmount = isFullyPaid
-        ? (booking.finalPaymentAmount !== undefined ? booking.finalPaymentAmount : finalAmountFallback)
-        : 0;
+      const { depositPaidValue: depositAmount, closingAmount: finalAmount } = calculateBookingTotals(booking, service);
 
       const createdAt = toDate(booking.createdAt);
       const finalPaymentAt = toDate(booking.finalPaymentReceivedAt);
@@ -212,11 +198,13 @@ export default function EndOfDayPage() {
       const refundMethod: EndOfDayMethod = booking.paymentIntentId ? 'online' : finalMethod;
 
       const hasDepositEvent =
-        booking.depositPaid === true ||
-        booking.paymentStatus === 'deposit_paid' ||
-        booking.paymentStatus === 'paid' ||
-        booking.paymentStatus === 'refunded' ||
-        Boolean(booking.paymentIntentId);
+        depositAmount > 0 &&
+        (
+          booking.depositPaid === true ||
+          booking.paymentStatus === 'deposit_paid' ||
+          booking.paymentStatus === 'refunded' ||
+          Boolean(booking.paymentIntentId)
+        );
 
       if (hasDepositEvent && createdAt) {
         rows.push({
@@ -288,6 +276,12 @@ export default function EndOfDayPage() {
       .filter((tx) => (filterMethod === 'all' ? true : tx.method === filterMethod))
       .filter((tx) => (filterStaff === 'all' ? true : tx.staffId === filterStaff));
   }, [allTransactions, selectedDate, filterMethod, filterStaff]);
+
+  const toggleTransactionExpansion = (transactionId: string) => {
+    setExpandedTransactionIds((prev) =>
+      prev.includes(transactionId) ? prev.filter((id) => id !== transactionId) : [...prev, transactionId]
+    );
+  };
 
   // Calculate totals
   const totals = useMemo(() => {
@@ -563,6 +557,8 @@ export default function EndOfDayPage() {
                       : tx.type === 'final_payment'
                       ? copy.finalPayment
                       : copy.refund;
+                  const shouldShowToggle = tx.serviceName.length > 70;
+                  const isExpanded = expandedTransactionIds.includes(tx.id);
                   return (
                     <tr key={tx.id} className="hover:bg-slate-50 transition-all group">
                       <td className="px-6 sm:px-10 py-6">
@@ -574,9 +570,30 @@ export default function EndOfDayPage() {
                         </div>
                       </td>
                       <td className="px-6 sm:px-10 py-6">
-                        <div className="text-sm font-bold text-slate-700 uppercase tracking-wide">
+                        <div
+                          className="text-sm font-bold text-slate-700 uppercase tracking-wide break-words"
+                          style={
+                            shouldShowToggle && !isExpanded
+                              ? {
+                                  display: '-webkit-box',
+                                  WebkitBoxOrient: 'vertical',
+                                  WebkitLineClamp: 4,
+                                  overflow: 'hidden',
+                                }
+                              : undefined
+                          }
+                        >
                           {tx.serviceName}
                         </div>
+                        {shouldShowToggle && (
+                          <button
+                            type="button"
+                            onClick={() => toggleTransactionExpansion(tx.id)}
+                            className="mt-2 text-[10px] font-black uppercase tracking-[0.2em] text-violet-600 hover:text-violet-700 transition-colors"
+                          >
+                            {isExpanded ? copy.collapse : copy.expand}
+                          </button>
+                        )}
                         {tx.employeeType === 'self-employed' && tx.type !== 'refund' && (
                           <span className="inline-block mt-1 px-2 py-0.5 text-[8px] font-black uppercase tracking-wider bg-amber-100 text-amber-700 rounded-md">
                             {copy.selfEmployed}

@@ -10,6 +10,8 @@ import {
 } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { auth, db } from '@/shared/lib/firebase';
+import { useAuth } from '@/shared/hooks/useAuth';
+import { getEmployeeByUserId } from '@/shared/lib/firestore';
 import { cn } from '@/shared/lib/utils';
 import { useDelayedRender } from '@/shared/hooks/useDelayedRender';
 
@@ -26,6 +28,7 @@ export const ClientAuthModal: React.FC<ClientAuthModalProps> = ({
   onSuccess,
   mode: initialMode = 'login',
 }) => {
+  const { refreshUser } = useAuth();
   const [mode, setMode] = useState<'login' | 'signup' | 'reset'>(initialMode);
   const transitionMs = 220;
   const shouldRender = useDelayedRender(isOpen, transitionMs);
@@ -236,13 +239,41 @@ export const ClientAuthModal: React.FC<ClientAuthModalProps> = ({
         );
 
         // Verify user is a client
-        const userDoc = await getDoc(doc(db, 'users', userCredential.user.uid));
-        if (!userDoc.exists() || userDoc.data()?.role !== 'client') {
+        const userRef = doc(db, 'users', userCredential.user.uid);
+        const userDoc = await getDoc(userRef);
+
+        if (!userDoc.exists()) {
+          await setDoc(userRef, {
+            email: userCredential.user.email || formData.email,
+            role: 'client',
+            isActive: true,
+            mustChangePassword: false,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          });
+        }
+
+        let normalizedUserDoc = await getDoc(userRef);
+        if (normalizedUserDoc.exists() && normalizedUserDoc.data()?.role !== 'client') {
+          const linkedEmployee = await getEmployeeByUserId(userCredential.user.uid);
+          if (!linkedEmployee && normalizedUserDoc.data()?.role === 'owner') {
+            await setDoc(userRef, {
+              role: 'client',
+              isActive: true,
+              mustChangePassword: false,
+              updatedAt: new Date(),
+            }, { merge: true });
+            normalizedUserDoc = await getDoc(userRef);
+          }
+        }
+
+        if (!normalizedUserDoc.exists() || normalizedUserDoc.data()?.role !== 'client') {
           await auth.signOut();
           setError('Esta cuenta no es válida. ¿Eres empleado? Usa el portal de empleados.');
           return;
         }
 
+        await refreshUser();
         onSuccess();
       }
     } catch (err: any) {

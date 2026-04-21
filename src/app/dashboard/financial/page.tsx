@@ -16,6 +16,7 @@ const EXPENSE_CATEGORIES: { value: ExpenseCategory; label: { en: string; es: str
   { value: 'rent', label: { en: 'Rent', es: 'Alquiler' }, icon: '🏠' },
   { value: 'utilities', label: { en: 'Utilities', es: 'Suministros' }, icon: '⚡' },
   { value: 'products', label: { en: 'Products', es: 'Productos' }, icon: '💄' },
+  { value: 'nashi-argan', label: { en: 'Nashi Argan', es: 'Nashi Argan' }, icon: '🧴' },
   { value: 'supplies', label: { en: 'Supplies', es: 'Materiales' }, icon: '📦' },
   { value: 'staff', label: { en: 'Staff', es: 'Personal' }, icon: '👥' },
   { value: 'marketing', label: { en: 'Marketing', es: 'Marketing' }, icon: '📢' },
@@ -24,6 +25,22 @@ const EXPENSE_CATEGORIES: { value: ExpenseCategory; label: { en: string; es: str
   { value: 'taxes', label: { en: 'Taxes', es: 'Impuestos' }, icon: '📋' },
   { value: 'maintenance', label: { en: 'Maintenance', es: 'Mantenimiento' }, icon: '🔨' },
   { value: 'other', label: { en: 'Other', es: 'Otros' }, icon: '📌' },
+];
+
+const EXPENSE_NAME_SUGGESTIONS = [
+  'Nashi Argan',
+  'Products Restock',
+  'Salon Supplies',
+  'Cleaning Products',
+  'Rent',
+];
+
+const MANUAL_REVENUE_SUGGESTIONS = [
+  'Nashi Argan',
+  'Retail Product Sale',
+  'External Service',
+  'Package Sale',
+  'Voucher Sale',
 ];
 
 export default function FinancialDashboard() {
@@ -1476,9 +1493,15 @@ export default function FinancialDashboard() {
                     type="text"
                     value={newManualRevenue.serviceName}
                     onChange={(e) => setNewManualRevenue({ ...newManualRevenue, serviceName: e.target.value })}
+                    list="manual-revenue-concepts"
                     className="w-full px-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-2xl text-slate-800 font-bold focus:border-sky-500 transition-all outline-none"
                     placeholder={copy.placeholderRevenueConcept}
                   />
+                  <datalist id="manual-revenue-concepts">
+                    {MANUAL_REVENUE_SUGGESTIONS.map((item) => (
+                      <option key={item} value={item} />
+                    ))}
+                  </datalist>
                 </div>
                 <div className="space-y-2">
                   <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">{copy.amountEuro}</label>
@@ -1563,9 +1586,15 @@ export default function FinancialDashboard() {
                     type="text"
                     value={newExpense.name}
                     onChange={(e) => setNewExpense({ ...newExpense, name: e.target.value })}
+                    list="expense-concepts"
                     className="w-full px-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-2xl text-slate-800 font-bold focus:border-rose-500 transition-all outline-none"
                     placeholder={copy.placeholderConcept}
                   />
+                  <datalist id="expense-concepts">
+                    {EXPENSE_NAME_SUGGESTIONS.map((item) => (
+                      <option key={item} value={item} />
+                    ))}
+                  </datalist>
                 </div>
                 <div className="space-y-2">
                   <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">{copy.category}</label>

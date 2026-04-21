@@ -10,6 +10,7 @@ import {
   getEmployeeServices,
   getServices,
   getService,
+  getServiceCatalogConfig,
   getClients,
   createBlockedSlot,
   updateBlockedSlot,
@@ -30,10 +31,22 @@ import type {
   DayOfWeek,
   Employee,
   Service,
+  ServiceCatalogConfig,
   TimeSlot,
   BookingFormData,
   PaymentMethod,
 } from '@/shared/lib/types';
+import {
+  DEFAULT_SALON_ID,
+  compareServicesByDisplayOrder,
+  getCatalogGroupLabel,
+  getCatalogSubgroupLabel,
+  getDefaultServiceCatalogConfig,
+  getServiceGroupId,
+  getServiceGroupLabel,
+  getServiceSubgroupId,
+  getServiceSubgroupLabel,
+} from '@/shared/lib/serviceCatalog';
 
 const dayNames: Record<string, string> = {
   monday: 'Lun',
@@ -265,6 +278,7 @@ export default function EmployeeCalendarPage() {
   const { user } = useAuth();
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [services, setServices] = useState<Service[]>([]);
+  const [catalogConfig, setCatalogConfig] = useState<ServiceCatalogConfig>(getDefaultServiceCatalogConfig());
   const [availability, setAvailability] = useState<Availability[]>([]);
   const [selectedServiceId, setSelectedServiceId] = useState<string | undefined>(undefined);
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -281,6 +295,8 @@ export default function EmployeeCalendarPage() {
   const [bookingModal, setBookingModal] = useState<BookingModalData>(null);
   const [newBookingOpen, setNewBookingOpen] = useState(false);
   const [bookingSaving, setBookingSaving] = useState(false);
+  const [serviceSearchTerm, setServiceSearchTerm] = useState('');
+  const [serviceSearchOpen, setServiceSearchOpen] = useState(false);
   const [bookingForm, setBookingForm] = useState<BookingFormData>({
     clientName: '',
     clientEmail: '',
@@ -364,11 +380,22 @@ export default function EmployeeCalendarPage() {
     setClientSearchOpen(false);
   };
 
+  const handleSelectBookingService = (service: Service) => {
+    setServiceSearchTerm(service.serviceName);
+    setServiceSearchOpen(false);
+    setBookingForm((prev) => ({
+      ...prev,
+      serviceId: service.id,
+      bookingTime: '',
+    }));
+  };
+
   const openNewBooking = (defaults: Partial<BookingFormData>) => {
     if (defaults.bookingDate && defaults.bookingTime && isSlotInPast(defaults.bookingDate, defaults.bookingTime)) {
       alert('Cannot book in a past time slot.');
       return;
     }
+    const defaultService = services.find((service) => service.id === (defaults.serviceId || selectedServiceId));
     setBookingForm({
       clientName: '',
       clientEmail: '',
@@ -379,6 +406,8 @@ export default function EmployeeCalendarPage() {
       bookingTime: defaults.bookingTime || '',
       notes: '',
     });
+    setServiceSearchTerm(defaultService?.serviceName || '');
+    setServiceSearchOpen(false);
     setNewBookingOpen(true);
     setClientSearchOpen(false);
   };
@@ -484,7 +513,7 @@ export default function EmployeeCalendarPage() {
         const bookingFilters = foundEmployee.salonId
           ? { salonId: foundEmployee.salonId }
           : { employeeId: foundEmployee.id };
-        const [employeeServices, allServices, clientsData, bookingClients] = await Promise.all([
+        const [employeeServices, allServices, clientsData, bookingClients, catalogData] = await Promise.all([
           getEmployeeServices(foundEmployee.id),
           getServices(),
           getClients().catch((error) => {
@@ -495,11 +524,16 @@ export default function EmployeeCalendarPage() {
             console.error('Error fetching client suggestions:', error);
             return [];
           }),
+          getServiceCatalogConfig(foundEmployee.salonId || DEFAULT_SALON_ID).catch((error) => {
+            console.error('Error fetching service catalog:', error);
+            return getDefaultServiceCatalogConfig(foundEmployee.salonId || DEFAULT_SALON_ID);
+          }),
         ]);
         const assignedServices = allServices.filter((s) =>
           employeeServices.some((es) => es.serviceId === s.id)
         );
         setServices(assignedServices);
+        setCatalogConfig(catalogData);
         const clientsFromProfiles = buildClientDirectoryFromProfiles(clientsData);
         const clientsFromBookings = buildClientDirectory(bookingClients);
         setClientDirectory(mergeClientDirectories(clientsFromProfiles, clientsFromBookings));
@@ -590,11 +624,84 @@ export default function EmployeeCalendarPage() {
   };
 
   const selectedService = services.find((service) => service.id === selectedServiceId);
+  const selectedBookingService = services.find((service) => service.id === bookingForm.serviceId);
   const slotDuration = selectedService?.duration || 30;
   const serviceDurationById = useMemo(
     () => new Map(services.map((service) => [service.id, service.duration])),
     [services]
   );
+  const normalizedServiceSearch = serviceSearchTerm.trim().toLowerCase();
+  const groupedBookingServices = useMemo(() => {
+    const sortedServices = [...services].sort(compareServicesByDisplayOrder);
+    const matchesServiceSearch = (service: Service) => {
+      if (!normalizedServiceSearch) return true;
+
+      const serviceName = service.serviceName.toLowerCase();
+      const subgroupLabel = getServiceSubgroupLabel(service, catalogConfig, 'en').toLowerCase();
+      const groupLabel = getServiceGroupLabel(service, catalogConfig, 'en').toLowerCase();
+
+      return (
+        serviceName.includes(normalizedServiceSearch) ||
+        subgroupLabel.includes(normalizedServiceSearch) ||
+        groupLabel.includes(normalizedServiceSearch)
+      );
+    };
+
+    const groupedSections = catalogConfig.groups.map((group) => {
+      const groupLabel = getCatalogGroupLabel(group, 'en');
+      const groupServices = sortedServices.filter((service) => {
+        if (getServiceGroupId(service) !== group.id) return false;
+        return matchesServiceSearch(service);
+      });
+
+      const subgroupSections = group.subgroups
+        .map((subgroup) => ({
+          id: subgroup.id,
+          label: getCatalogSubgroupLabel(subgroup, 'en'),
+          services: groupServices.filter((service) => getServiceSubgroupId(service) === subgroup.id),
+        }))
+        .filter((subgroup) => subgroup.services.length > 0);
+
+      const knownSubgroupIds = new Set(group.subgroups.map((subgroup) => subgroup.id));
+      const unlistedServices = groupServices.filter((service) => !knownSubgroupIds.has(getServiceSubgroupId(service)));
+      if (unlistedServices.length > 0) {
+        subgroupSections.push({
+          id: `${group.id}-unlisted`,
+          label: 'Other Services',
+          services: unlistedServices,
+        });
+      }
+
+      return {
+        id: group.id,
+        label: groupLabel,
+        subgroups: subgroupSections,
+      };
+    });
+
+    const knownGroupIds = new Set(catalogConfig.groups.map((group) => group.id));
+    const uncataloguedServices = sortedServices.filter(
+      (service) => !knownGroupIds.has(getServiceGroupId(service)) && matchesServiceSearch(service)
+    );
+
+    if (uncataloguedServices.length > 0) {
+      groupedSections.push({
+        id: 'other-services',
+        label: 'Other',
+        subgroups: [
+          {
+            id: 'other-services-list',
+            label: 'Other Services',
+            services: uncataloguedServices,
+          },
+        ],
+      });
+    }
+
+    return normalizedServiceSearch
+      ? groupedSections.filter((group) => group.subgroups.length > 0)
+      : groupedSections;
+  }, [services, catalogConfig, normalizedServiceSearch]);
 
   const getAvailabilitiesForDay = (day: DayOfWeek, date: string): Availability[] => {
     return availability.filter((a) => {
@@ -772,6 +879,7 @@ export default function EmployeeCalendarPage() {
 
     try {
       setProcessingPayment(true);
+      const hadDepositPaid = bookingToMarkPaid.depositPaid === true;
       
       const isFullPayment = employee?.employmentType === 'employee';
       
@@ -784,7 +892,7 @@ export default function EmployeeCalendarPage() {
         await updateBookingWithGuard(bookingToMarkPaid, {
           status: 'completed',
           paymentStatus: 'paid',
-          depositPaid: true,
+          depositPaid: hadDepositPaid,
           finalPaymentReceived: true,
           finalPaymentAmount: finalAmount,
           finalPaymentMethod: paymentMethod,
@@ -803,7 +911,7 @@ export default function EmployeeCalendarPage() {
                 ...b, 
                 status: 'completed',
                 paymentStatus: 'paid',
-                depositPaid: true,
+                depositPaid: hadDepositPaid,
                 finalPaymentReceived: true,
                 finalPaymentAmount: finalAmount, 
                 finalPaymentMethod: paymentMethod,
@@ -816,7 +924,7 @@ export default function EmployeeCalendarPage() {
         await updateBookingWithGuard(bookingToMarkPaid, {
           status: 'completed',
           paymentStatus: 'paid',
-          depositPaid: true,
+          depositPaid: hadDepositPaid,
           finalPaymentMethod: paymentMethod,
           finalPaymentReceivedAt: new Date(),
           finalPaymentReceivedBy: user.id,
@@ -833,7 +941,7 @@ export default function EmployeeCalendarPage() {
                 ...b, 
                 status: 'completed',
                 paymentStatus: 'paid', 
-                depositPaid: true, 
+                depositPaid: hadDepositPaid, 
                 finalPaymentMethod: paymentMethod,
                 completedByName: closedByName,
                 paymentNotes: notes || undefined 
@@ -1909,18 +2017,87 @@ export default function EmployeeCalendarPage() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 <div className="space-y-2">
                   <label className="block text-xs font-black text-neutral-400 uppercase tracking-widest">Service</label>
-                  <select
-                    value={bookingForm.serviceId}
-                    onChange={(e) => setBookingForm((prev) => ({ ...prev, serviceId: e.target.value, bookingTime: '' }))}
-                    className="w-full px-6 py-5 bg-neutral-50 border-2 border-neutral-100 rounded-2xl text-neutral-900 font-black focus:border-accent-500 transition-all outline-none appearance-none"
-                  >
-                    <option value="">SELECT</option>
-                    {services.map((service) => (
-                      <option key={service.id} value={service.id}>
-                        {service.serviceName.toUpperCase()}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={serviceSearchTerm}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setServiceSearchTerm(value);
+                        setServiceSearchOpen(true);
+                        setBookingForm((prev) => ({
+                          ...prev,
+                          serviceId: '',
+                          bookingTime: '',
+                        }));
+                      }}
+                      onFocus={() => setServiceSearchOpen(true)}
+                      onBlur={() => setTimeout(() => setServiceSearchOpen(false), 150)}
+                      className="w-full px-6 py-5 bg-neutral-50 border-2 border-neutral-100 rounded-2xl text-neutral-900 font-black focus:border-accent-500 transition-all outline-none uppercase"
+                      placeholder="SEARCH SERVICE..."
+                    />
+                    {serviceSearchOpen && (
+                      <div className="absolute left-0 right-0 mt-2 rounded-2xl border-2 border-neutral-200 bg-white shadow-2xl z-20 overflow-hidden">
+                        {groupedBookingServices.length === 0 ? (
+                          <div className="px-4 py-4 text-center">
+                            <p className="text-sm font-bold text-neutral-600">No services found</p>
+                            <p className="text-xs text-neutral-400 mt-1">Try another keyword</p>
+                          </div>
+                        ) : (
+                          <div className="max-h-80 overflow-y-auto">
+                            {groupedBookingServices.map((group) => (
+                              <div key={group.id} className="border-b border-neutral-100 last:border-b-0">
+                                <div className="px-4 py-3 bg-neutral-900 text-white">
+                                  <p className="text-[11px] font-black uppercase tracking-[0.2em]">{group.label}</p>
+                                </div>
+                                {group.subgroups.length === 0 ? (
+                                  <div className="px-4 py-3 text-[11px] font-bold text-neutral-400 uppercase tracking-[0.2em]">
+                                    No assigned services in this group
+                                  </div>
+                                ) : (
+                                  group.subgroups.map((subgroup) => (
+                                    <div key={subgroup.id} className="border-t border-neutral-100 first:border-t-0">
+                                      <div className="px-4 py-2 bg-neutral-50">
+                                        <p className="text-[10px] font-black text-neutral-500 uppercase tracking-[0.22em]">
+                                          {subgroup.label}
+                                        </p>
+                                      </div>
+                                      {subgroup.services.map((service) => (
+                                        <button
+                                          key={service.id}
+                                          type="button"
+                                          onMouseDown={(e) => {
+                                            e.preventDefault();
+                                            handleSelectBookingService(service);
+                                          }}
+                                          className={cn(
+                                            'w-full text-left px-4 py-3 border-t border-neutral-100 first:border-t-0 hover:bg-neutral-50 transition-colors',
+                                            bookingForm.serviceId === service.id && 'bg-accent-50'
+                                          )}
+                                        >
+                                          <div className="text-sm font-black text-neutral-900 uppercase tracking-tight">
+                                            {service.serviceName}
+                                          </div>
+                                          <div className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.2em] mt-1">
+                                            {formatCurrency(service.price)} · {service.duration} MIN
+                                          </div>
+                                        </button>
+                                      ))}
+                                    </div>
+                                  ))
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  {selectedBookingService && (
+                    <p className="text-[10px] font-black text-accent-600 uppercase tracking-[0.2em]">
+                      {getServiceGroupLabel(selectedBookingService, catalogConfig, 'en')} / {getServiceSubgroupLabel(selectedBookingService, catalogConfig, 'en')}
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <label className="block text-xs font-black text-neutral-400 uppercase tracking-widest">Date</label>

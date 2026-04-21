@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { getBooking, getEmployee, getService, updateBooking, getClientByEmail, updateClient, createClient, getClients, getServices } from '@/shared/lib/firestore';
 import { Loading } from '@/shared/components/Loading';
 import { Button } from '@/shared/components/Button';
@@ -16,6 +16,7 @@ import { useAuth } from '@/shared/hooks/useAuth';
 
 export default function BookingDetailPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const router = useRouter();
   const { user } = useAuth();
   const bookingId = params.id as string;
@@ -40,6 +41,7 @@ export default function BookingDetailPage() {
   const [updatingDateTime, setUpdatingDateTime] = useState(false);
   const [showClosingSaleModal, setShowClosingSaleModal] = useState(false);
   const [processingPayment, setProcessingPayment] = useState(false);
+  const returnTo = searchParams.get('returnTo') || '/dashboard/bookings';
 
   useEffect(() => {
     const fetchData = async () => {
@@ -313,6 +315,7 @@ export default function BookingDetailPage() {
 
     try {
       setProcessingPayment(true);
+      const hadDepositPaid = booking.depositPaid === true;
 
       const auditContext = {
         userId: user.id,
@@ -329,7 +332,7 @@ export default function BookingDetailPage() {
       const updates: Partial<Booking> = {
         status: 'completed',
         paymentStatus: 'paid',
-        depositPaid: true,
+        depositPaid: hadDepositPaid,
         finalPaymentReceived: true,
         finalPaymentAmount: finalAmount,
         finalPaymentMethod: paymentMethod,
@@ -418,7 +421,7 @@ export default function BookingDetailPage() {
           <h1 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">Detalles de la Reserva</h1>
           <p className="text-slate-500 text-sm font-medium">Ficha completa del cliente y la cita</p>
         </div>
-        <Button variant="outline" onClick={() => router.push('/dashboard/bookings')}>
+        <Button variant="outline" onClick={() => router.push(returnTo)}>
           Volver
         </Button>
       </div>
