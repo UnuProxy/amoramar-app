@@ -54,20 +54,20 @@ export default function ClientDashboard() {
     .reduce((sum, b) => sum + (parseFloat(b.notes || '0') || 0), 0);
 
   return (
-    <div className="max-w-[1400px] mx-auto space-y-12 pb-12">
+    <div className="mx-auto max-w-[1400px] space-y-8 pb-8 sm:space-y-10 sm:pb-10 lg:space-y-12 lg:pb-12">
       {/* Header - Bold Premium */}
-      <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-8">
+      <div className="flex flex-col gap-5 sm:gap-6 md:flex-row md:items-end md:justify-between md:gap-8">
         <div>
-          <h1 className="text-6xl font-black text-neutral-900 tracking-tighter uppercase leading-none">
+          <h1 className="text-4xl font-black uppercase leading-none tracking-tighter text-neutral-900 sm:text-5xl lg:text-6xl">
             Hola, <span className="text-rose-600">{user?.firstName || user?.email?.split('@')[0] || 'Invitado'}</span>
           </h1>
-          <p className="text-neutral-400 text-sm font-black uppercase tracking-[0.3em] mt-4">
+          <p className="mt-3 text-[11px] font-black uppercase tracking-[0.22em] text-neutral-400 sm:mt-4 sm:text-sm sm:tracking-[0.3em]">
             Tu Salón de Belleza en Ibiza
           </p>
         </div>
         <Link
           href="/book"
-          className="px-10 py-5 rounded-[20px] bg-neutral-900 text-white text-sm font-black shadow-2xl hover:bg-rose-600 hover:-translate-y-1 transition-all flex items-center justify-center gap-3 uppercase tracking-[0.2em]"
+          className="flex w-full items-center justify-center gap-3 rounded-[18px] bg-neutral-900 px-6 py-4 text-[11px] font-black uppercase tracking-[0.2em] text-white shadow-2xl transition-all hover:bg-rose-600 sm:w-auto sm:px-10 sm:py-5 sm:text-sm sm:hover:-translate-y-1"
         >
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" />
@@ -77,24 +77,24 @@ export default function ClientDashboard() {
       </div>
 
       {/* Quick Stats - Luxury Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <div className="group relative bg-white border border-neutral-100 rounded-[40px] p-8 shadow-sm hover:shadow-xl transition-all overflow-hidden min-h-[220px] flex items-center justify-center">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 md:gap-8">
+        <div className="group relative flex min-h-[190px] items-center justify-center overflow-hidden rounded-[28px] border border-neutral-100 bg-white p-6 shadow-sm transition-all hover:shadow-xl sm:min-h-[220px] sm:rounded-[40px] sm:p-8">
           <div className="absolute top-0 right-0 w-32 h-32 bg-rose-50 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-700 opacity-50" />
           <div className="relative text-center w-full px-4">
             <p className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em] mb-4">Upcoming Appointments</p>
             <div className="flex items-baseline justify-center gap-3">
-              <p className="text-6xl font-black text-neutral-800 tracking-tight leading-none whitespace-nowrap">{upcomingBookings.length}</p>
+              <p className="whitespace-nowrap text-5xl font-black leading-none tracking-tight text-neutral-800 sm:text-6xl">{upcomingBookings.length}</p>
               <p className="text-sm font-bold text-rose-600 uppercase tracking-widest">Activas</p>
             </div>
           </div>
         </div>
 
-        <div className="group relative bg-neutral-900 rounded-[40px] p-8 shadow-2xl hover:bg-rose-600 transition-all duration-500 overflow-hidden min-h-[220px] flex items-center justify-center">
+        <div className="group relative flex min-h-[190px] items-center justify-center overflow-hidden rounded-[28px] bg-neutral-900 p-6 shadow-2xl transition-all duration-500 hover:bg-rose-600 sm:min-h-[220px] sm:rounded-[40px] sm:p-8">
           <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-700" />
           <div className="relative text-center w-full px-4">
             <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em] mb-4">Tratamientos</p>
             <div className="flex items-baseline justify-center gap-3 text-white">
-              <p className="text-6xl font-black tracking-tight leading-none whitespace-nowrap">{pastBookings}</p>
+              <p className="whitespace-nowrap text-5xl font-black leading-none tracking-tight sm:text-6xl">{pastBookings}</p>
               <p className="text-sm font-bold uppercase tracking-widest opacity-60">Realizados</p>
             </div>
           </div>
@@ -102,7 +102,7 @@ export default function ClientDashboard() {
       </div>
 
       {/* Quick Actions - Modern Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 sm:gap-6">
         {[
           { name: 'Book', href: '/book', icon: 'M12 4v16m8-8H4', color: 'rose' },
           { name: 'My Bookings', href: '/client/bookings', icon: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z', color: 'neutral' },
@@ -111,12 +111,12 @@ export default function ClientDashboard() {
           <Link
             key={action.name}
             href={action.href}
-            className="group p-8 bg-white border border-neutral-100 rounded-[32px] hover:shadow-xl hover:border-rose-100 transition-all flex flex-col items-center text-center gap-4"
+            className="group flex flex-col items-center gap-4 rounded-[24px] border border-neutral-100 bg-white p-6 text-center transition-all hover:border-rose-100 hover:shadow-xl sm:rounded-[32px] sm:p-8"
           >
             <div className={`w-16 h-16 rounded-2xl flex items-center justify-center transition-all duration-500 group-hover:scale-110 ${
               action.color === 'rose' ? 'bg-rose-600 text-white shadow-lg shadow-rose-200' : 'bg-neutral-50 text-neutral-400 group-hover:bg-neutral-900 group-hover:text-white'
             }`}>
-              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="h-7 w-7 sm:h-8 sm:w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d={action.icon} />
               </svg>
             </div>
@@ -128,9 +128,9 @@ export default function ClientDashboard() {
       </div>
 
       {/* Upcoming Bookings - Premium List */}
-      <div className="space-y-8">
-        <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-black text-neutral-900 tracking-widest uppercase">Upcoming Appointments</h2>
+      <div className="space-y-6 sm:space-y-8">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <h2 className="text-xl font-black uppercase tracking-[0.2em] text-neutral-900 sm:text-2xl sm:tracking-widest">Upcoming Appointments</h2>
           <div className="h-px flex-1 bg-neutral-100 mx-8 hidden sm:block" />
           <Link
             href="/client/bookings"
@@ -145,16 +145,16 @@ export default function ClientDashboard() {
             {upcomingBookings.map((booking) => (
               <div
                 key={booking.id}
-                className="group p-8 bg-white border border-neutral-100 rounded-[40px] hover:shadow-xl transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-8"
+                className="group flex flex-col justify-between gap-6 rounded-[28px] border border-neutral-100 bg-white p-5 transition-all hover:shadow-xl sm:flex-row sm:items-center sm:gap-8 sm:rounded-[40px] sm:p-8"
               >
-                <div className="flex items-center gap-8">
-                  <div className="w-20 h-20 bg-neutral-900 rounded-[28px] flex flex-col items-center justify-center text-white shadow-xl group-hover:bg-rose-600 transition-colors duration-500">
+                <div className="flex flex-col items-start gap-5 sm:flex-row sm:items-center sm:gap-8">
+                  <div className="flex h-16 w-16 flex-col items-center justify-center rounded-[22px] bg-neutral-900 text-white shadow-xl transition-colors duration-500 group-hover:bg-rose-600 sm:h-20 sm:w-20 sm:rounded-[28px]">
                     <span className="text-xs font-black uppercase tracking-widest opacity-60">{new Date(booking.bookingDate).toLocaleString('es', { month: 'short' })}</span>
-                    <span className="text-3xl font-black leading-none mt-1">{new Date(booking.bookingDate).getDate()}</span>
+                    <span className="mt-1 text-2xl font-black leading-none sm:text-3xl">{new Date(booking.bookingDate).getDate()}</span>
                   </div>
                   <div className="space-y-2">
-                    <h3 className="text-2xl font-black text-neutral-900 uppercase tracking-tighter leading-none">{booking.serviceName || 'TRATAMIENTO'}</h3>
-                    <div className="flex items-center gap-4 text-[10px] font-black text-neutral-400 uppercase tracking-[0.2em]">
+                    <h3 className="text-xl font-black uppercase tracking-tighter leading-none text-neutral-900 sm:text-2xl">{booking.serviceName || 'TRATAMIENTO'}</h3>
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[10px] font-black uppercase tracking-[0.2em] text-neutral-400">
                       <span className="flex items-center gap-2">
                         <div className="w-1.5 h-1.5 rounded-full bg-rose-600" />
                         {formatTime(booking.bookingTime)}
@@ -164,13 +164,13 @@ export default function ClientDashboard() {
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-6">
+                <div className="flex w-full items-center gap-4 sm:w-auto sm:gap-6">
                   <span className="px-6 py-3 rounded-2xl bg-emerald-50 text-emerald-600 text-[10px] font-black uppercase tracking-[0.3em]">
                     Confirmada
                   </span>
                   <Link
                     href={`/client/bookings`}
-                    className="w-14 h-14 rounded-2xl border-2 border-neutral-100 flex items-center justify-center text-neutral-300 hover:bg-neutral-900 hover:text-white hover:border-neutral-900 transition-all"
+                    className="ml-auto flex h-12 w-12 items-center justify-center rounded-2xl border-2 border-neutral-100 text-neutral-300 transition-all hover:border-neutral-900 hover:bg-neutral-900 hover:text-white sm:ml-0 sm:h-14 sm:w-14"
                   >
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
@@ -181,19 +181,19 @@ export default function ClientDashboard() {
             ))}
           </div>
         ) : (
-          <div className="bg-neutral-50 rounded-[48px] p-20 text-center border-2 border-dashed border-neutral-200">
-            <div className="w-24 h-24 bg-white rounded-[32px] shadow-xl flex items-center justify-center mx-auto mb-8">
+          <div className="rounded-[32px] border-2 border-dashed border-neutral-200 bg-neutral-50 p-8 text-center sm:rounded-[48px] sm:p-14 lg:p-20">
+            <div className="mx-auto mb-8 flex h-20 w-20 items-center justify-center rounded-[24px] bg-white shadow-xl sm:h-24 sm:w-24 sm:rounded-[32px]">
               <svg className="w-10 h-10 text-neutral-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
             </div>
-            <h3 className="text-2xl font-black text-neutral-900 uppercase tracking-widest mb-4">No hay citas pendientes</h3>
-            <p className="text-neutral-400 font-bold uppercase tracking-widest text-xs mb-10 max-w-xs mx-auto leading-relaxed">
+            <h3 className="mb-4 text-2xl font-black uppercase tracking-widest text-neutral-900">No hay citas pendientes</h3>
+            <p className="mx-auto mb-8 max-w-xs text-[11px] font-bold uppercase leading-relaxed tracking-[0.24em] text-neutral-400 sm:mb-10 sm:text-xs sm:tracking-widest">
               Book your next luxury experience at Amor & Amar
             </p>
             <Link
               href="/"
-              className="inline-flex items-center gap-3 px-12 py-5 bg-rose-600 text-white text-xs font-black uppercase tracking-[0.3em] rounded-2xl hover:bg-neutral-900 transition-all shadow-2xl shadow-rose-200"
+              className="inline-flex w-full items-center justify-center gap-3 rounded-2xl bg-rose-600 px-8 py-4 text-[11px] font-black uppercase tracking-[0.24em] text-white shadow-2xl shadow-rose-200 transition-all hover:bg-neutral-900 sm:w-auto sm:px-12 sm:py-5 sm:text-xs sm:tracking-[0.3em]"
             >
               Comenzar Ahora
             </Link>

@@ -141,14 +141,35 @@ export const ClientSidebar: React.FC<ClientSidebarProps> = ({
       {/* Sidebar - Clean Booksy Style */}
       <div
         className={cn(
-          'bg-white h-screen border-r border-neutral-200 fixed lg:sticky lg:top-0 z-[50] flex flex-col w-64 shadow-sm transform transition-all duration-200 lg:translate-x-0',
+          'bg-white h-screen border-r border-neutral-200 fixed lg:sticky lg:top-0 z-[50] flex flex-col w-[85vw] max-w-[320px] lg:w-64 shadow-sm transform transition-all duration-200 lg:translate-x-0',
           mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
         )}
         role="navigation"
         aria-label="Main navigation"
       >
         {/* Brand */}
-        <div className="px-6 py-5 border-b border-neutral-100">
+        <div className="px-5 py-5 sm:px-6 border-b border-neutral-100">
+          <div className="mb-4 flex items-center justify-between lg:hidden">
+            <p className="text-[10px] font-black uppercase tracking-[0.24em] text-neutral-400">
+              Client Menu
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                if (onMobileClose) {
+                  onMobileClose();
+                } else if (externalMobileMenuOpen === undefined) {
+                  setInternalMobileMenuOpen(false);
+                }
+              }}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-neutral-200 text-neutral-500 transition-colors hover:border-neutral-900 hover:text-neutral-900"
+              aria-label="Close client menu"
+            >
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
           <Link href="/client" className="block">
             <BrandLogo className="h-20 w-56" priority />
             <p className="text-xs text-neutral-500 mt-1">Client Portal</p>
@@ -156,7 +177,7 @@ export const ClientSidebar: React.FC<ClientSidebarProps> = ({
         </div>
 
         {/* User Profile */}
-        <div className="px-6 py-4 border-b border-neutral-100 bg-neutral-50/50">
+        <div className="px-5 py-4 sm:px-6 border-b border-neutral-100 bg-neutral-50/50">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-accent-500 flex items-center justify-center text-white text-sm font-semibold">
               {client

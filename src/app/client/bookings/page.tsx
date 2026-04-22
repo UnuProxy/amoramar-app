@@ -698,20 +698,20 @@ export default function ClientBookingsPage() {
     : true;
 
   return (
-    <div className="max-w-[1400px] mx-auto space-y-12 pb-12">
+    <div className="mx-auto max-w-[1400px] space-y-8 pb-8 sm:space-y-10 sm:pb-10 lg:space-y-12 lg:pb-12">
       {/* Header - Bold Premium */}
-      <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-8">
+      <div className="flex flex-col gap-5 sm:gap-6 md:flex-row md:items-end md:justify-between md:gap-8">
         <div>
-          <h1 className="text-6xl font-black text-neutral-900 tracking-tighter uppercase leading-none">
+          <h1 className="text-4xl font-black uppercase leading-none tracking-tighter text-neutral-900 sm:text-5xl lg:text-6xl">
             My Appointments
           </h1>
-          <p className="text-neutral-400 text-sm font-black uppercase tracking-[0.3em] mt-4">
+          <p className="mt-3 text-[11px] font-black uppercase tracking-[0.22em] text-neutral-400 sm:mt-4 sm:text-sm sm:tracking-[0.3em]">
             Gestión de tus reservas activas
           </p>
         </div>
         <button
           onClick={openNewBooking}
-          className="px-10 py-5 rounded-[20px] bg-neutral-900 text-white text-sm font-black shadow-2xl hover:bg-rose-600 hover:-translate-y-1 transition-all flex items-center justify-center gap-3 uppercase tracking-[0.2em]"
+          className="flex w-full items-center justify-center gap-3 rounded-[18px] bg-neutral-900 px-6 py-4 text-[11px] font-black uppercase tracking-[0.2em] text-white shadow-2xl transition-all hover:bg-rose-600 sm:w-auto sm:px-10 sm:py-5 sm:text-sm sm:hover:-translate-y-1"
         >
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" />
@@ -731,17 +731,17 @@ export default function ClientBookingsPage() {
             return (
               <div
                 key={booking.id}
-                className="group p-10 bg-white border border-neutral-100 rounded-[48px] hover:shadow-2xl transition-all flex flex-col lg:flex-row lg:items-center justify-between gap-10"
+                className="group flex flex-col justify-between gap-6 rounded-[28px] border border-neutral-100 bg-white p-5 transition-all hover:shadow-2xl sm:gap-8 sm:rounded-[40px] sm:p-8 lg:flex-row lg:items-center lg:gap-10 lg:rounded-[48px] lg:p-10"
               >
-                <div className="flex items-center gap-10">
+                <div className="flex flex-col items-start gap-5 sm:flex-row sm:items-center sm:gap-8 lg:gap-10">
                   <div className={cn(
-                    "w-24 h-24 rounded-[32px] flex flex-col items-center justify-center text-white shadow-xl group-hover:scale-105 transition-all duration-500",
+                    "flex h-20 w-20 flex-col items-center justify-center rounded-[24px] text-white shadow-xl transition-all duration-500 group-hover:scale-105 sm:h-24 sm:w-24 sm:rounded-[32px]",
                     booking.status === 'confirmed' ? 'bg-success-600' : 'bg-success-500'
                   )}>
                     <span className="text-xs font-black uppercase tracking-widest opacity-60">
                       {new Date(booking.bookingDate + 'T00:00:00').toLocaleString('es', { month: 'short' }).toUpperCase()}
                     </span>
-                    <span className="text-4xl font-black leading-none mt-1">
+                    <span className="mt-1 text-3xl font-black leading-none sm:text-4xl">
                       {new Date(booking.bookingDate + 'T00:00:00').getDate()}
                     </span>
                   </div>
@@ -758,8 +758,8 @@ export default function ClientBookingsPage() {
                       </span>
                       <span className="text-[10px] font-black text-accent-600 tabular-nums uppercase tracking-widest">{formatTime(booking.bookingTime)}</span>
                     </div>
-                    <h3 className="text-3xl font-black text-neutral-900 uppercase tracking-tighter leading-none">{service?.serviceName || 'TRATAMIENTO'}</h3>
-                    <div className="flex items-center gap-4 text-[10px] font-black text-neutral-400 uppercase tracking-[0.2em]">
+                    <h3 className="text-2xl font-black uppercase tracking-tighter leading-none text-neutral-900 sm:text-3xl">{service?.serviceName || 'TRATAMIENTO'}</h3>
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[10px] font-black uppercase tracking-[0.2em] text-neutral-400">
                       <span className="flex items-center gap-2">
                         {employee?.profileImage ? (
                           <img src={employee.profileImage} alt="" className="w-5 h-5 rounded-full object-cover grayscale" />
@@ -774,14 +774,14 @@ export default function ClientBookingsPage() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-10 border-t lg:border-t-0 pt-8 lg:pt-0">
-                  <div className="text-right">
+                <div className="flex flex-col items-stretch gap-4 border-t pt-6 sm:flex-row sm:items-center sm:gap-6 lg:gap-10 lg:border-t-0 lg:pt-0">
+                  <div className="text-left sm:text-right">
                     <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest mb-1">Inversión</p>
-                    <p className="text-3xl font-black text-neutral-900 tabular-nums">{formatCurrency(service?.price || 0)}</p>
+                    <p className="text-2xl font-black text-neutral-900 tabular-nums sm:text-3xl">{formatCurrency(service?.price || 0)}</p>
                   </div>
                   <button
                     onClick={() => startRebooking(booking)}
-                    className="px-6 py-4 rounded-[20px] bg-rose-600 text-white text-[10px] font-black uppercase tracking-[0.2em] hover:bg-neutral-900 transition-all shadow-lg"
+                    className="rounded-[18px] bg-rose-600 px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-white shadow-lg transition-all hover:bg-neutral-900 sm:rounded-[20px]"
                   >
                     Repetir
                   </button>
@@ -791,7 +791,7 @@ export default function ClientBookingsPage() {
                       setShowCancelModal(true);
                     }}
                     disabled={!canCancel}
-                    className={`w-16 h-16 rounded-[24px] flex items-center justify-center transition-all shadow-sm ${
+                    className={`flex h-12 w-full items-center justify-center rounded-[18px] transition-all shadow-sm sm:h-16 sm:w-16 sm:rounded-[24px] ${
                       canCancel
                         ? 'bg-neutral-50 text-neutral-300 hover:bg-amber-600 hover:text-white'
                         : 'bg-neutral-100 text-neutral-300 cursor-not-allowed'
@@ -807,19 +807,19 @@ export default function ClientBookingsPage() {
           })}
         </div>
       ) : (
-        <div className="bg-neutral-50 rounded-[64px] p-24 text-center border-2 border-dashed border-neutral-200">
-          <div className="w-24 h-24 bg-white rounded-[32px] shadow-xl flex items-center justify-center mx-auto mb-10">
+        <div className="rounded-[32px] border-2 border-dashed border-neutral-200 bg-neutral-50 p-8 text-center sm:rounded-[48px] sm:p-14 lg:rounded-[64px] lg:p-24">
+          <div className="mx-auto mb-8 flex h-20 w-20 items-center justify-center rounded-[24px] bg-white shadow-xl sm:mb-10 sm:h-24 sm:w-24 sm:rounded-[32px]">
             <svg className="w-12 h-12 text-neutral-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
           </div>
-          <h3 className="text-3xl font-black text-neutral-900 uppercase tracking-tighter mb-4">No hay citas activas</h3>
-          <p className="text-neutral-400 font-bold uppercase tracking-widest text-xs mb-12 max-w-xs mx-auto leading-relaxed">
+          <h3 className="mb-4 text-2xl font-black uppercase tracking-tighter text-neutral-900 sm:text-3xl">No hay citas activas</h3>
+          <p className="mx-auto mb-8 max-w-xs text-[11px] font-bold uppercase leading-relaxed tracking-[0.24em] text-neutral-400 sm:mb-12 sm:text-xs sm:tracking-widest">
             Book your next luxury experience at Amor & Amar
           </p>
           <button
             onClick={openNewBooking}
-            className="px-12 py-6 bg-rose-600 text-white text-xs font-black uppercase tracking-[0.3em] rounded-[24px] hover:bg-neutral-900 transition-all shadow-2xl shadow-rose-200"
+            className="w-full rounded-[20px] bg-rose-600 px-8 py-4 text-[11px] font-black uppercase tracking-[0.24em] text-white shadow-2xl shadow-rose-200 transition-all hover:bg-neutral-900 sm:w-auto sm:rounded-[24px] sm:px-12 sm:py-6 sm:text-xs sm:tracking-[0.3em]"
           >
             Comenzar Ahora
           </button>
@@ -829,13 +829,13 @@ export default function ClientBookingsPage() {
       {/* Cancel Modal - Bold Luxury */}
       {showCancelModal && selectedBooking && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-neutral-900/90 backdrop-blur-xl">
-          <div className="bg-white rounded-[40px] max-w-md w-full p-12 shadow-2xl border-2 border-white/20">
-            <div className="w-20 h-20 bg-amber-50 rounded-[28px] flex items-center justify-center mb-8">
+          <div className="w-full max-w-md rounded-[28px] border-2 border-white/20 bg-white p-6 shadow-2xl sm:rounded-[40px] sm:p-12">
+            <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-[22px] bg-amber-50 sm:mb-8 sm:h-20 sm:w-20 sm:rounded-[28px]">
               <svg className="w-10 h-10 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
             </div>
-            <h3 className="text-3xl font-black text-neutral-900 tracking-tighter uppercase mb-4">
+            <h3 className="mb-4 text-2xl font-black uppercase tracking-tighter text-neutral-900 sm:text-3xl">
               Cancel Appointment?
             </h3>
             <p className="text-neutral-400 font-bold uppercase tracking-widest text-[10px] leading-relaxed mb-10">
@@ -878,19 +878,19 @@ export default function ClientBookingsPage() {
       {/* New Booking Modal - Reusing the same Premium style */}
       {showNewBookingModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-neutral-900/90 backdrop-blur-xl">
-          <div className="bg-white rounded-[40px] max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-2xl border-2 border-white/20 flex flex-col">
+          <div className="flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-[28px] border-2 border-white/20 bg-white shadow-2xl sm:rounded-[40px]">
             {/* Header */}
-            <div className="p-10 bg-neutral-900 text-white flex items-center justify-between border-b border-white/5">
+            <div className="flex items-start justify-between gap-4 border-b border-white/5 bg-neutral-900 p-5 text-white sm:items-center sm:p-8 lg:p-10">
               <div>
                 <div className="flex items-center gap-3 mb-2">
                   <div className="w-2 h-2 rounded-full bg-rose-600 animate-pulse" />
                   <p className="text-[10px] font-black uppercase tracking-[0.3em] text-rose-400">STEP {bookingStep} OF 3</p>
                 </div>
-                <h2 className="text-4xl font-black tracking-tighter uppercase leading-none">New Booking</h2>
+                <h2 className="text-2xl font-black uppercase leading-none tracking-tighter sm:text-4xl">New Booking</h2>
               </div>
               <button
                 onClick={closeNewBooking}
-                className="w-12 h-12 rounded-2xl bg-white/5 text-white/40 hover:bg-rose-600 hover:text-white transition-all flex items-center justify-center"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white/5 text-white/40 transition-all hover:bg-rose-600 hover:text-white sm:h-12 sm:w-12"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
@@ -899,7 +899,7 @@ export default function ClientBookingsPage() {
             </div>
 
             {/* Content */}
-            <div className="flex-1 overflow-y-auto p-10 no-scrollbar">
+            <div className="flex-1 overflow-y-auto p-5 no-scrollbar sm:p-8 lg:p-10">
               {bookingStep === 1 && (
                 <div className="space-y-8">
                   <h3 className="text-xl font-black text-neutral-900 uppercase tracking-widest border-b border-neutral-100 pb-4">Selecciona una Experiencia</h3>
@@ -909,13 +909,13 @@ export default function ClientBookingsPage() {
                         key={service.id}
                         onClick={() => setSelectedService(service)}
                         className={cn(
-                          "p-8 rounded-[32px] text-left transition-all border-2",
+                          "rounded-[24px] border-2 p-5 text-left transition-all sm:rounded-[32px] sm:p-8",
                           selectedService?.id === service.id
                             ? "border-rose-600 bg-rose-50/50 shadow-xl"
                             : "border-neutral-100 hover:border-rose-200 hover:bg-neutral-50"
                         )}
                       >
-                        <h4 className="text-2xl font-black text-neutral-900 uppercase tracking-tighter mb-2">{service.serviceName}</h4>
+                        <h4 className="mb-2 text-xl font-black uppercase tracking-tighter text-neutral-900 sm:text-2xl">{service.serviceName}</h4>
                         <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-6 line-clamp-2">
                           {getLocalizedServiceDescription(service, 'es')}
                         </p>
@@ -941,13 +941,13 @@ export default function ClientBookingsPage() {
                           setFormData({ ...formData, employeeId: employee.id });
                         }}
                         className={cn(
-                          "p-8 rounded-[32px] text-left transition-all border-2 flex items-center gap-6",
+                          "flex flex-col items-start gap-4 rounded-[24px] border-2 p-5 text-left transition-all sm:flex-row sm:items-center sm:gap-6 sm:rounded-[32px] sm:p-8",
                           formData.employeeId === employee.id
                             ? "border-rose-600 bg-rose-50/50 shadow-xl"
                             : "border-neutral-100 hover:border-rose-200 hover:bg-neutral-50"
                         )}
                       >
-                        <div className="w-20 h-20 rounded-[24px] bg-neutral-900 flex items-center justify-center text-white text-2xl font-black uppercase overflow-hidden shadow-lg">
+                        <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-[20px] bg-neutral-900 text-xl font-black uppercase text-white shadow-lg sm:h-20 sm:w-20 sm:rounded-[24px] sm:text-2xl">
                           {employee.profileImage ? (
                             <img src={employee.profileImage} alt="" className="w-full h-full object-cover" />
                           ) : (
@@ -955,7 +955,7 @@ export default function ClientBookingsPage() {
                           )}
                         </div>
                         <div>
-                          <h4 className="text-xl font-black text-neutral-900 uppercase tracking-tighter">{employee.firstName} {employee.lastName}</h4>
+                          <h4 className="text-lg font-black uppercase tracking-tighter text-neutral-900 sm:text-xl">{employee.firstName} {employee.lastName}</h4>
                           <p className="text-[10px] font-black text-rose-600 uppercase tracking-[0.2em] mt-1">{employee.position || 'SPECIALIST'}</p>
                         </div>
                       </button>
@@ -967,7 +967,7 @@ export default function ClientBookingsPage() {
               {bookingStep === 3 && (
                 <div className="space-y-10">
                   <h3 className="text-xl font-black text-neutral-900 uppercase tracking-widest border-b border-neutral-100 pb-4">El Momento Perfecto</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+                  <div className="grid grid-cols-1 gap-8 md:grid-cols-2 md:gap-12">
                     <div className="space-y-4">
                       <label className="block text-[10px] font-black text-neutral-400 uppercase tracking-widest">Selecciona Fecha</label>
                       <input
@@ -975,13 +975,13 @@ export default function ClientBookingsPage() {
                         value={formData.date}
                         onChange={(e) => setFormData({ ...formData, date: e.target.value, time: '' })}
                         min={todayStr}
-                        className="w-full px-8 py-6 bg-neutral-50 border-2 border-neutral-100 rounded-[24px] text-neutral-900 font-black focus:border-rose-500 transition-all outline-none uppercase"
+                        className="w-full rounded-[20px] border-2 border-neutral-100 bg-neutral-50 px-5 py-4 font-black uppercase text-neutral-900 outline-none transition-all focus:border-rose-500 sm:rounded-[24px] sm:px-8 sm:py-6"
                       />
                     </div>
                     <div className="space-y-4">
                       <label className="block text-[10px] font-black text-neutral-400 uppercase tracking-widest">Selecciona Horario</label>
                       {!formData.date ? (
-                        <div className="p-8 text-center bg-neutral-50 rounded-[24px] border-2 border-dashed border-neutral-200">
+                        <div className="rounded-[20px] border-2 border-dashed border-neutral-200 bg-neutral-50 p-6 text-center sm:rounded-[24px] sm:p-8">
                           <p className="text-[10px] font-black text-neutral-300 uppercase tracking-widest">Primero elige una fecha</p>
                         </div>
                       ) : loadingSlots ? (
@@ -1007,7 +1007,7 @@ export default function ClientBookingsPage() {
                     </div>
                   </div>
                   <div className="space-y-4">
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col items-start justify-between gap-2 sm:flex-row sm:items-center">
                       <p className="text-sm font-black text-neutral-900 uppercase tracking-widest">Pago de depósito (50%)</p>
                       <span className="text-xs font-bold text-rose-600">
                         {depositDisplay || '—'}
@@ -1053,13 +1053,13 @@ export default function ClientBookingsPage() {
             </div>
 
             {/* Footer */}
-            <div className="p-10 bg-neutral-50 border-t border-neutral-100 flex items-center justify-between gap-6">
+            <div className="flex flex-col-reverse items-stretch justify-between gap-4 border-t border-neutral-100 bg-neutral-50 p-5 sm:flex-row sm:items-center sm:gap-6 sm:p-8 lg:p-10">
               <button
                 onClick={() => {
                   if (bookingStep > 1) setBookingStep(bookingStep - 1);
                   else closeNewBooking();
                 }}
-                className="px-8 py-4 text-xs font-black text-neutral-400 uppercase tracking-[0.2em] hover:text-neutral-900 transition-colors"
+                className="px-8 py-4 text-center text-xs font-black uppercase tracking-[0.2em] text-neutral-400 transition-colors hover:text-neutral-900"
               >
                 {bookingStep === 1 ? 'CANCELAR' : 'VOLVER'}
               </button>
@@ -1068,7 +1068,7 @@ export default function ClientBookingsPage() {
                 <button
                   onClick={() => setBookingStep(bookingStep + 1)}
                   disabled={!stepValid}
-                  className="px-12 py-5 bg-neutral-900 text-white text-xs font-black uppercase tracking-[0.2em] rounded-2xl hover:bg-rose-600 transition-all shadow-xl shadow-rose-200 disabled:opacity-30 disabled:cursor-not-allowed"
+                  className="rounded-2xl bg-neutral-900 px-12 py-5 text-xs font-black uppercase tracking-[0.2em] text-white shadow-xl shadow-rose-200 transition-all hover:bg-rose-600 disabled:cursor-not-allowed disabled:opacity-30"
                 >
                   CONTINUAR
                 </button>
@@ -1076,7 +1076,7 @@ export default function ClientBookingsPage() {
                 <button
                   onClick={handleSubmitNewBooking}
                   disabled={!stepValid || submitting || paymentLoading}
-                  className="px-12 py-5 bg-neutral-900 text-white text-xs font-black uppercase tracking-[0.2em] rounded-2xl hover:bg-rose-600 transition-all shadow-xl shadow-rose-200 disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-3"
+                  className="flex items-center justify-center gap-3 rounded-2xl bg-neutral-900 px-12 py-5 text-xs font-black uppercase tracking-[0.2em] text-white shadow-xl shadow-rose-200 transition-all hover:bg-rose-600 disabled:cursor-not-allowed disabled:opacity-30"
                 >
                   {(submitting || paymentLoading) && <div className="w-2 h-2 rounded-full bg-white animate-ping" />}
                   {submitting || paymentLoading ? 'PROCESANDO...' : 'PAGAR Y RESERVAR'}

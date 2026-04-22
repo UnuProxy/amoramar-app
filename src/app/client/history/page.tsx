@@ -132,44 +132,44 @@ export default function ClientHistoryPage() {
   }
 
   return (
-    <div className="max-w-[1400px] mx-auto space-y-12 pb-12">
+    <div className="mx-auto max-w-[1400px] space-y-8 pb-8 sm:space-y-10 sm:pb-10 lg:space-y-12 lg:pb-12">
       {/* Header - Bold Premium */}
-      <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-8">
+      <div className="flex flex-col gap-5 sm:gap-6 md:flex-row md:items-end md:justify-between md:gap-8">
         <div>
-          <h1 className="text-6xl font-black text-neutral-900 tracking-tighter uppercase leading-none">
+          <h1 className="text-4xl font-black uppercase leading-none tracking-tighter text-neutral-900 sm:text-5xl lg:text-6xl">
             History
           </h1>
-          <p className="text-neutral-400 text-sm font-black uppercase tracking-[0.3em] mt-4">
+          <p className="mt-3 text-[11px] font-black uppercase tracking-[0.22em] text-neutral-400 sm:mt-4 sm:text-sm sm:tracking-[0.3em]">
             Tus experiencias en Amor & Amar
           </p>
         </div>
       </div>
 
       {/* Stats Grid - Luxury High Impact */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-        <div className="bg-white border border-neutral-100 rounded-[40px] p-10 shadow-sm hover:shadow-xl transition-all group overflow-hidden relative">
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 lg:gap-8">
+        <div className="group relative overflow-hidden rounded-[28px] border border-neutral-100 bg-white p-6 shadow-sm transition-all hover:shadow-xl sm:rounded-[40px] sm:p-8 lg:p-10">
           <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-50 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-700 opacity-50" />
           <div className="relative">
             <p className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em] mb-4">Completed</p>
-            <p className="text-6xl font-black text-neutral-900 tracking-tighter">{stats.completedCount}</p>
+            <p className="text-5xl font-black tracking-tighter text-neutral-900 sm:text-6xl">{stats.completedCount}</p>
             <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mt-2">SUCCESSFUL SESSIONS</p>
           </div>
         </div>
 
-        <div className="bg-white border border-neutral-100 rounded-[40px] p-10 shadow-sm hover:shadow-xl transition-all group overflow-hidden relative">
+        <div className="group relative overflow-hidden rounded-[28px] border border-neutral-100 bg-white p-6 shadow-sm transition-all hover:shadow-xl sm:rounded-[40px] sm:p-8 lg:p-10">
           <div className="absolute top-0 right-0 w-32 h-32 bg-amber-50 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-700 opacity-50" />
           <div className="relative">
             <p className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.3em] mb-4">Canceladas</p>
-            <p className="text-6xl font-black text-neutral-900 tracking-tighter">{stats.cancelledCount}</p>
+            <p className="text-5xl font-black tracking-tighter text-neutral-900 sm:text-6xl">{stats.cancelledCount}</p>
             <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest mt-2">CITAS BAJA</p>
           </div>
         </div>
 
-        <div className="bg-neutral-900 rounded-[40px] p-10 shadow-2xl group overflow-hidden relative">
+        <div className="group relative overflow-hidden rounded-[28px] bg-neutral-900 p-6 shadow-2xl sm:rounded-[40px] sm:p-8 lg:p-10">
           <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-700" />
           <div className="relative">
             <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em] mb-4">Tiempo Total</p>
-            <p className="text-6xl font-black text-white tracking-tighter">{stats.totalHours}<span className="text-2xl">H</span></p>
+            <p className="text-5xl font-black tracking-tighter text-white sm:text-6xl">{stats.totalHours}<span className="text-xl sm:text-2xl">H</span></p>
             <p className="text-[10px] font-black text-rose-400 uppercase tracking-widest mt-2">TU BIENESTAR</p>
           </div>
         </div>
@@ -177,19 +177,19 @@ export default function ClientHistoryPage() {
 
       {/* Favorite Service Card - Refined */}
       {stats.completedCount > 0 && stats.favoriteService && (
-        <div className="bg-neutral-900 rounded-[40px] p-10 shadow-2xl border border-white/5 flex flex-col md:flex-row items-center gap-10">
-          <div className="w-24 h-24 bg-rose-600 rounded-[32px] flex items-center justify-center shadow-2xl shadow-rose-900/40">
+        <div className="flex flex-col items-center gap-6 rounded-[28px] border border-white/5 bg-neutral-900 p-6 shadow-2xl sm:gap-8 sm:rounded-[40px] sm:p-8 md:flex-row md:gap-10 lg:p-10">
+          <div className="flex h-20 w-20 items-center justify-center rounded-[24px] bg-rose-600 shadow-2xl shadow-rose-900/40 sm:h-24 sm:w-24 sm:rounded-[32px]">
             <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
             </svg>
           </div>
           <div className="text-center md:text-left flex-1">
             <p className="text-[10px] font-black text-rose-400 uppercase tracking-[0.4em] mb-2">Tratamiento Estrella</p>
-            <h3 className="text-4xl font-black text-white uppercase tracking-tighter">{stats.favoriteService}</h3>
+            <h3 className="text-2xl font-black uppercase tracking-tighter text-white sm:text-4xl">{stats.favoriteService}</h3>
           </div>
           <Link
             href="/client/bookings"
-            className="px-10 py-5 bg-white text-black text-xs font-black uppercase tracking-[0.3em] rounded-2xl hover:bg-rose-600 hover:text-white transition-all inline-block"
+            className="inline-flex w-full items-center justify-center rounded-2xl bg-white px-8 py-4 text-[11px] font-black uppercase tracking-[0.24em] text-black transition-all hover:bg-rose-600 hover:text-white sm:w-auto sm:px-10 sm:py-5 sm:text-xs sm:tracking-[0.3em]"
           >
             Book Again
           </Link>
@@ -197,7 +197,7 @@ export default function ClientHistoryPage() {
       )}
 
       {/* Filters - Modern Style */}
-      <div className="flex gap-4 overflow-x-auto no-scrollbar pb-2">
+      <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar sm:gap-4">
         {[
           { id: 'all', label: `Todos (${stats.completedCount + stats.cancelledCount})` },
           { id: 'completed', label: `Completados (${stats.completedCount})` },
@@ -207,7 +207,7 @@ export default function ClientHistoryPage() {
             key={btn.id}
             onClick={() => setFilter(btn.id as any)}
             className={cn(
-              "px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] transition-all whitespace-nowrap border-2",
+              "whitespace-nowrap rounded-2xl border-2 px-6 py-3 text-[10px] font-black uppercase tracking-[0.2em] transition-all sm:px-8 sm:py-4",
               filter === btn.id 
                 ? "bg-neutral-900 border-neutral-900 text-white shadow-xl" 
                 : "bg-white border-neutral-100 text-neutral-400 hover:border-neutral-900 hover:text-neutral-900"
@@ -220,7 +220,7 @@ export default function ClientHistoryPage() {
 
       {/* Bookings List - High End Design */}
       {pastBookings.length > 0 ? (
-        <div className="grid gap-8">
+        <div className="grid gap-6 sm:gap-8">
           {pastBookings.map((booking) => {
             const service = getService(booking.serviceId);
             const employee = getEmployee(booking.employeeId);
@@ -228,17 +228,17 @@ export default function ClientHistoryPage() {
             return (
               <div
                 key={booking.id}
-                className="group p-10 bg-white border border-neutral-100 rounded-[48px] hover:shadow-2xl transition-all flex flex-col lg:flex-row lg:items-center justify-between gap-10"
+                className="group flex flex-col justify-between gap-6 rounded-[28px] border border-neutral-100 bg-white p-5 transition-all hover:shadow-2xl sm:gap-8 sm:rounded-[40px] sm:p-8 lg:flex-row lg:items-center lg:gap-10 lg:rounded-[48px] lg:p-10"
               >
-                <div className="flex items-center gap-10">
+                <div className="flex flex-col items-start gap-5 sm:flex-row sm:items-center sm:gap-8 lg:gap-10">
                   <div className={cn(
-                    "w-24 h-24 rounded-[32px] flex flex-col items-center justify-center text-white shadow-xl group-hover:scale-105 transition-all duration-500",
+                    "flex h-20 w-20 flex-col items-center justify-center rounded-[24px] text-white shadow-xl transition-all duration-500 group-hover:scale-105 sm:h-24 sm:w-24 sm:rounded-[32px]",
                     booking.status === 'completed' ? 'bg-neutral-900' : 'bg-amber-600'
                   )}>
                     <span className="text-xs font-black uppercase tracking-widest opacity-60">
                       {new Date(booking.bookingDate + 'T00:00:00').toLocaleString('es', { month: 'short' }).toUpperCase()}
                     </span>
-                    <span className="text-4xl font-black leading-none mt-1">
+                    <span className="mt-1 text-3xl font-black leading-none sm:text-4xl">
                       {new Date(booking.bookingDate + 'T00:00:00').getDate()}
                     </span>
                   </div>
@@ -253,8 +253,8 @@ export default function ClientHistoryPage() {
                       </span>
                       <span className="text-[10px] font-black text-rose-600 tabular-nums uppercase tracking-widest">{formatTime(booking.bookingTime)}</span>
                     </div>
-                    <h3 className="text-3xl font-black text-neutral-900 uppercase tracking-tighter leading-none">{service?.serviceName || 'TRATAMIENTO'}</h3>
-                    <div className="flex items-center gap-4 text-[10px] font-black text-neutral-400 uppercase tracking-[0.2em]">
+                    <h3 className="text-2xl font-black uppercase tracking-tighter leading-none text-neutral-900 sm:text-3xl">{service?.serviceName || 'TRATAMIENTO'}</h3>
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[10px] font-black uppercase tracking-[0.2em] text-neutral-400">
                       <span className="flex items-center gap-2">
                         {employee?.profileImage ? (
                           <img src={employee.profileImage} alt="" className="w-5 h-5 rounded-full object-cover grayscale" />
@@ -269,10 +269,10 @@ export default function ClientHistoryPage() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-6">
+                <div className="flex w-full items-center gap-4 sm:w-auto sm:gap-6">
                   <Link
                     href={`/client/bookings?rebook=${booking.id}`}
-                    className="px-8 py-4 rounded-2xl bg-rose-600 text-white text-[10px] font-black uppercase tracking-[0.2em] hover:bg-neutral-900 transition-all shadow-lg inline-block"
+                    className="inline-flex w-full items-center justify-center rounded-2xl bg-rose-600 px-8 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-white shadow-lg transition-all hover:bg-neutral-900 sm:w-auto"
                   >
                     Book Again
                   </Link>
@@ -282,19 +282,19 @@ export default function ClientHistoryPage() {
           })}
         </div>
       ) : (
-        <div className="bg-neutral-50 rounded-[64px] p-24 text-center border-2 border-dashed border-neutral-200">
-          <div className="w-24 h-24 bg-white rounded-[32px] shadow-xl flex items-center justify-center mx-auto mb-10">
+        <div className="rounded-[32px] border-2 border-dashed border-neutral-200 bg-neutral-50 p-8 text-center sm:rounded-[48px] sm:p-14 lg:rounded-[64px] lg:p-24">
+          <div className="mx-auto mb-8 flex h-20 w-20 items-center justify-center rounded-[24px] bg-white shadow-xl sm:mb-10 sm:h-24 sm:w-24 sm:rounded-[32px]">
             <svg className="w-12 h-12 text-neutral-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
-          <h3 className="text-3xl font-black text-neutral-900 uppercase tracking-tighter mb-4">Aún no hay historia</h3>
-          <p className="text-neutral-400 font-bold uppercase tracking-widest text-xs mb-12 max-w-xs mx-auto leading-relaxed">
+          <h3 className="mb-4 text-2xl font-black uppercase tracking-tighter text-neutral-900 sm:text-3xl">Aún no hay historia</h3>
+          <p className="mx-auto mb-8 max-w-xs text-[11px] font-bold uppercase leading-relaxed tracking-[0.24em] text-neutral-400 sm:mb-12 sm:text-xs sm:tracking-widest">
             Tu viaje de cuidado personal en Amor & Amar comienza con tu primera reserva.
           </p>
           <Link
             href="/book"
-            className="inline-block px-12 py-6 bg-rose-600 text-white text-xs font-black uppercase tracking-[0.3em] rounded-[24px] hover:bg-neutral-900 transition-all shadow-2xl shadow-rose-200"
+            className="inline-flex w-full items-center justify-center rounded-[20px] bg-rose-600 px-8 py-4 text-[11px] font-black uppercase tracking-[0.24em] text-white shadow-2xl shadow-rose-200 transition-all hover:bg-neutral-900 sm:w-auto sm:rounded-[24px] sm:px-12 sm:py-6 sm:text-xs sm:tracking-[0.3em]"
           >
             Comenzar Ahora
           </Link>
