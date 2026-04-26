@@ -37,10 +37,10 @@ export function NavBar() {
   return (
     <>
       <header className="sticky top-0 z-40 border-b border-[#DDD3C8]/70 bg-[#F1F2F0]/90 backdrop-blur">
-        <nav className="mx-auto flex h-28 w-full max-w-6xl items-center justify-between px-5 sm:px-6 lg:px-8">
+        <nav className="mx-auto flex min-h-24 w-full max-w-6xl items-center justify-between px-3 py-3 xs:px-5 sm:h-28 sm:px-6 sm:py-0 lg:px-8">
           <a href="/" className="inline-flex items-center">
             <BrandLogo
-              className="h-16 w-32 sm:h-24 sm:w-56"
+              className="h-14 w-24 xs:h-16 xs:w-32 sm:h-24 sm:w-56"
               imageClassName="drop-shadow-none"
               priority
             />
@@ -84,12 +84,12 @@ export function NavBar() {
             </a>
           </div>
 
-          <div className="mr-1 flex items-center gap-1.5 md:hidden">
-            <LanguageSwitcher />
+          <div className="mr-1 flex min-w-0 max-w-[calc(100vw-8rem)] flex-wrap items-center justify-end gap-1.5 md:hidden">
+            <LanguageSwitcher className="shrink-0 [&_button]:px-2 [&_button]:tracking-[0.08em] xs:[&_button]:px-3 xs:[&_button]:tracking-[0.12em]" />
             {user ? (
               <Link
                 href="/client/bookings"
-                className="rounded-full border border-[#8A6F58]/30 px-4 py-2 text-sm font-semibold text-[#8A6F58]"
+                className="whitespace-nowrap rounded-full border border-[#8A6F58]/30 px-3 py-2 text-xs font-semibold text-[#8A6F58] xs:px-4 xs:text-sm"
               >
                 {copy.myBookings}
               </Link>
@@ -97,14 +97,14 @@ export function NavBar() {
               <button
                 type="button"
                 onClick={() => setShowAuthModal(true)}
-                className="rounded-full border border-[#8A6F58]/30 px-4 py-2 text-sm font-semibold text-[#8A6F58]"
+                className="whitespace-nowrap rounded-full border border-[#8A6F58]/30 px-3 py-2 text-xs font-semibold text-[#8A6F58] xs:px-4 xs:text-sm"
               >
                 {copy.login}
               </button>
             )}
             <a
               href={bookingLink()}
-              className="rounded-full bg-[#8A6F58] px-4 py-2 text-sm font-semibold text-white"
+              className="whitespace-nowrap rounded-full bg-[#8A6F58] px-3 py-2 text-xs font-semibold text-white xs:px-4 xs:text-sm"
             >
               {copy.book}
             </a>
