@@ -9,7 +9,7 @@ import { formatCurrency, cn } from '@/shared/lib/utils';
 import { useLanguage } from '@/shared/context/LanguageContext';
 
 type EndOfDayMethod = 'cash' | 'pos' | 'online';
-type EndOfDayTransactionType = 'deposit' | 'final_payment' | 'refund';
+type EndOfDayTransactionType = 'deposit' | 'final_payment' | 'refund' | 'pending';
 
 interface EndOfDayTransaction {
   id: string;
@@ -22,7 +22,8 @@ interface EndOfDayTransaction {
   employeeType?: Employee['employmentType'];
   method: EndOfDayMethod;
   type: EndOfDayTransactionType;
-  amount: number; // refunds are negative
+  amount: number; // refunds are negative; pending rows are 0
+  expectedAmount?: number; // shown only for pending rows
   createdByName?: string;
   closedByName?: string;
   staffId: string;
@@ -69,6 +70,8 @@ export default function EndOfDayPage() {
           deposit: 'Deposito',
           finalPayment: 'Pago final',
           refund: 'Reembolso',
+          pending: 'Pendiente',
+          expectedShort: 'Esperado',
           createdBy: 'Creo:',
           closedBy: 'Cerro:',
           refundedBy: 'Reembolso:',
@@ -103,6 +106,8 @@ export default function EndOfDayPage() {
           deposit: 'Deposit',
           finalPayment: 'Final payment',
           refund: 'Refund',
+          pending: 'Pending',
+          expectedShort: 'Expected',
           createdBy: 'Created:',
           closedBy: 'Closed:',
           refundedBy: 'Refunded:',
@@ -177,6 +182,16 @@ export default function EndOfDayPage() {
       const finalPaymentAt = toDate(booking.finalPaymentReceivedAt);
       const cancelledAt = toDate(booking.cancelledAt);
 
+      // The reference moment is the appointment itself: report bookings on the
+      // day the service is scheduled, not the day the row was inserted in the
+      // system. We still keep the original audit timestamp for sort order.
+      const bookingDateKey = booking.bookingDate;
+      const bookingTimeLabel = booking.bookingTime || '--:--';
+      const bookingTimestamp = (() => {
+        const composite = new Date(`${booking.bookingDate}T${booking.bookingTime || '00:00'}:00`);
+        return Number.isNaN(composite.getTime()) ? createdAt || new Date() : composite;
+      })();
+
       const creatorId = booking.createdByUserId || 'unknown';
       const creatorName = booking.createdByName || booking.clientName || copy.unspecified;
 
@@ -206,13 +221,13 @@ export default function EndOfDayPage() {
           Boolean(booking.paymentIntentId)
         );
 
-      if (hasDepositEvent && createdAt) {
+      if (hasDepositEvent && bookingDateKey) {
         rows.push({
           id: `${booking.id}-deposit`,
           bookingId: booking.id,
-          dateKey: toDateKey(createdAt)!,
-          timestamp: createdAt,
-          displayTime: toTimeLabel(createdAt, booking.bookingTime),
+          dateKey: bookingDateKey,
+          timestamp: createdAt || bookingTimestamp,
+          displayTime: bookingTimeLabel,
           clientName: booking.clientName,
           serviceName: service?.serviceName || booking.serviceName || copy.serviceFallback,
           employeeType: employee?.employmentType,
@@ -226,13 +241,13 @@ export default function EndOfDayPage() {
         });
       }
 
-      if (finalPaymentAt && finalAmount > 0) {
+      if (finalPaymentAt && finalAmount > 0 && bookingDateKey) {
         rows.push({
           id: `${booking.id}-final`,
           bookingId: booking.id,
-          dateKey: toDateKey(finalPaymentAt)!,
+          dateKey: bookingDateKey,
           timestamp: finalPaymentAt,
-          displayTime: toTimeLabel(finalPaymentAt, booking.bookingTime),
+          displayTime: bookingTimeLabel,
           clientName: booking.clientName,
           serviceName: service?.serviceName || booking.serviceName || copy.serviceFallback,
           employeeType: employee?.employmentType,
@@ -246,13 +261,13 @@ export default function EndOfDayPage() {
         });
       }
 
-      if (booking.paymentStatus === 'refunded' && cancelledAt) {
+      if (booking.paymentStatus === 'refunded' && cancelledAt && bookingDateKey) {
         rows.push({
           id: `${booking.id}-refund`,
           bookingId: booking.id,
-          dateKey: toDateKey(cancelledAt)!,
+          dateKey: bookingDateKey,
           timestamp: cancelledAt,
-          displayTime: toTimeLabel(cancelledAt, booking.bookingTime),
+          displayTime: bookingTimeLabel,
           clientName: booking.clientName,
           serviceName: service?.serviceName || booking.serviceName || copy.serviceFallback,
           employeeType: employee?.employmentType,
@@ -265,15 +280,54 @@ export default function EndOfDayPage() {
           staffName: assignedStaffName,
         });
       }
+
+      // Pending: there is a booking on bookingDate, but we have not collected
+      // any deposit or final payment yet. Show as a zero-amount row so the day
+      // surfaces the appointment without inflating the cash totals.
+      const isCancelled = booking.status === 'cancelled' || booking.paymentStatus === 'refunded';
+      const hasAnyPayment = hasDepositEvent || (finalPaymentAt !== null && finalAmount > 0);
+      if (!isCancelled && !hasAnyPayment && bookingDateKey) {
+        const expectedAmount = (() => {
+          if (typeof service?.price === 'number') return service.price;
+          if (typeof service?.price === 'string') {
+            const parsed = parseFloat(service.price);
+            return Number.isFinite(parsed) ? parsed : 0;
+          }
+          return 0;
+        })();
+        rows.push({
+          id: `${booking.id}-pending`,
+          bookingId: booking.id,
+          dateKey: bookingDateKey,
+          timestamp: bookingTimestamp,
+          displayTime: bookingTimeLabel,
+          clientName: booking.clientName,
+          serviceName: service?.serviceName || booking.serviceName || copy.serviceFallback,
+          employeeType: employee?.employmentType,
+          method: 'cash',
+          type: 'pending',
+          amount: 0,
+          expectedAmount,
+          createdByName: creatorName,
+          closedByName: closerName,
+          staffId: assignedStaffId,
+          staffName: assignedStaffName,
+        });
+      }
     });
 
     return rows.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
-  }, [bookings, services, employees]);
+  }, [bookings, services, employees, copy.serviceFallback, copy.unspecified]);
 
   const transactionsForDay = useMemo(() => {
     return allTransactions
       .filter((tx) => tx.dateKey === selectedDate)
-      .filter((tx) => (filterMethod === 'all' ? true : tx.method === filterMethod))
+      .filter((tx) => {
+        if (filterMethod === 'all') return true;
+        // Pending rows have no real payment method; only show them under "All".
+        if (tx.type === 'pending') return false;
+        return tx.method === filterMethod;
+      })
       .filter((tx) => (filterStaff === 'all' ? true : tx.staffId === filterStaff));
   }, [allTransactions, selectedDate, filterMethod, filterStaff]);
 
@@ -300,6 +354,10 @@ export default function EndOfDayPage() {
     };
 
     transactionsForDay.forEach((tx) => {
+      // Pending rows are appointments without any collected payment; they must
+      // not contribute to cash/POS/online totals or the daily total.
+      if (tx.type === 'pending') return;
+
       totalAmount += tx.amount;
       if (tx.amount >= 0) {
         grossCollected += tx.amount;
@@ -556,7 +614,10 @@ export default function EndOfDayPage() {
                       ? copy.deposit
                       : tx.type === 'final_payment'
                       ? copy.finalPayment
+                      : tx.type === 'pending'
+                      ? copy.pending
                       : copy.refund;
+                  const isPending = tx.type === 'pending';
                   const shouldShowToggle = tx.serviceName.length > 70;
                   const isExpanded = expandedTransactionIds.includes(tx.id);
                   return (
@@ -606,6 +667,8 @@ export default function EndOfDayPage() {
                               ? "bg-rose-100 text-rose-700"
                               : tx.type === 'final_payment'
                               ? "bg-sky-100 text-sky-700"
+                              : tx.type === 'pending'
+                              ? "bg-amber-100 text-amber-700"
                               : "bg-emerald-100 text-emerald-700"
                           )}
                         >
@@ -613,7 +676,11 @@ export default function EndOfDayPage() {
                         </span>
                       </td>
                       <td className="px-6 sm:px-10 py-6 text-center">
-                        {tx.method === 'cash' ? (
+                        {isPending ? (
+                          <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-slate-100 text-slate-500 text-xs font-black uppercase tracking-wider">
+                            —
+                          </span>
+                        ) : tx.method === 'cash' ? (
                           <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-emerald-100 text-emerald-700 text-xs font-black uppercase tracking-wider">
                             € {copy.cash}
                           </span>
@@ -646,14 +713,25 @@ export default function EndOfDayPage() {
                         </div>
                       </td>
                       <td className="px-6 sm:px-10 py-6 text-right">
-                        <p
-                          className={cn(
-                            "text-lg font-black tabular-nums",
-                            tx.amount < 0 ? 'text-rose-700' : 'text-slate-900'
-                          )}
-                        >
-                          {tx.amount < 0 ? '-' : '+'}{formatCurrency(Math.abs(tx.amount))}
-                        </p>
+                        {isPending ? (
+                          <div className="flex flex-col items-end">
+                            <p className="text-lg font-black tabular-nums text-amber-600">
+                              {formatCurrency(tx.expectedAmount || 0)}
+                            </p>
+                            <span className="mt-1 text-[9px] font-black text-amber-500 uppercase tracking-[0.2em]">
+                              {copy.expectedShort}
+                            </span>
+                          </div>
+                        ) : (
+                          <p
+                            className={cn(
+                              "text-lg font-black tabular-nums",
+                              tx.amount < 0 ? 'text-rose-700' : 'text-slate-900'
+                            )}
+                          >
+                            {tx.amount < 0 ? '-' : '+'}{formatCurrency(Math.abs(tx.amount))}
+                          </p>
+                        )}
                       </td>
                     </tr>
                   );
