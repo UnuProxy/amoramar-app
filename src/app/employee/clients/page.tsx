@@ -20,19 +20,58 @@ export default function EmployeeClientsPage() {
   const [savingNotes, setSavingNotes] = useState(false);
   const [newHairNote, setNewHairNote] = useState('');
 
+  const normalizeEmail = (value?: string) => (value || '').trim().toLowerCase();
+
   useEffect(() => {
     const fetchData = async () => {
-      if (!user) return;
+      if (!user) {
+        setLoading(false);
+        return;
+      }
 
       try {
-        const [clientsData, bookingsData, servicesData, employeesData] = await Promise.all([
+        const [clientsData, servicesData, employeesData] = await Promise.all([
           getClients(),
-          getBookings({}),
           getServices(),
           getEmployees(),
         ]);
 
-        setClients(clientsData);
+        const foundEmployee = employeesData.find((employee) => employee.userId === user.id);
+        if (!foundEmployee) {
+          setClients([]);
+          setBookings([]);
+          setServices(servicesData);
+          setEmployees(employeesData);
+          return;
+        }
+
+        const bookingsData = await getBookings({ employeeId: foundEmployee.id });
+        const assignedEmailSet = new Set(
+          bookingsData
+            .map((booking) => normalizeEmail(booking.clientEmail))
+            .filter((email) => email.length > 0)
+        );
+
+        const latestBookingByEmail = new Map<string, string>();
+        bookingsData.forEach((booking) => {
+          const normalizedEmail = normalizeEmail(booking.clientEmail);
+          if (!normalizedEmail) return;
+          const bookingDateTimeKey = `${booking.bookingDate}T${booking.bookingTime}`;
+          const currentLatest = latestBookingByEmail.get(normalizedEmail);
+          if (!currentLatest || bookingDateTimeKey > currentLatest) {
+            latestBookingByEmail.set(normalizedEmail, bookingDateTimeKey);
+          }
+        });
+
+        const assignedClients = clientsData
+          .filter((client) => assignedEmailSet.has(normalizeEmail(client.email)))
+          .sort((a, b) => {
+            const latestA = latestBookingByEmail.get(normalizeEmail(a.email)) || '';
+            const latestB = latestBookingByEmail.get(normalizeEmail(b.email)) || '';
+            return latestB.localeCompare(latestA);
+          });
+
+        setClients(assignedClients);
         setBookings(bookingsData);
         setServices(servicesData);
         setEmployees(employeesData);
@@ -46,6 +85,15 @@ export default function EmployeeClientsPage() {
     fetchData();
   }, [user]);
 
+  useEffect(() => {
+    if (!selectedClient) return;
+    const stillVisible = clients.some((client) => client.id === selectedClient.id);
+    if (!stillVisible) {
+      setSelectedClient(null);
+      setNewHairNote('');
+    }
+  }, [clients, selectedClient]);
+
   const filteredClients = clients.filter((client) => {
     const term = searchTerm.toLowerCase();
     const fullName = `${client.firstName || ''} ${client.lastName || ''}`.toLowerCase();
@@ -57,8 +105,9 @@ export default function EmployeeClientsPage() {
   });
 
   const getClientBookings = (clientEmail: string) => {
+    const normalizedClientEmail = normalizeEmail(clientEmail);
     return bookings
-      .filter((b) => b.clientEmail.toLowerCase() === clientEmail.toLowerCase())
+      .filter((b) => normalizeEmail(b.clientEmail) === normalizedClientEmail)
       .sort((a, b) => {
         const dateA = new Date(`${a.bookingDate}T${a.bookingTime}`);
         const dateB = new Date(`${b.bookingDate}T${b.bookingTime}`);
@@ -174,13 +223,13 @@ export default function EmployeeClientsPage() {
         {/* Client List */}
         <div className="space-y-4">
           <h2 className="text-xl font-black text-neutral-800 uppercase tracking-tight">
-            {searchTerm ? `Results (${filteredClients.length})` : `All Clients (${clients.length})`}
+            {searchTerm ? `Results (${filteredClients.length})` : `My Clients (${clients.length})`}
           </h2>
           <div className="space-y-3 max-h-[800px] overflow-y-auto pr-2">
             {filteredClients.length === 0 ? (
               <div className="py-16 text-center bg-neutral-50 rounded-2xl border border-neutral-100">
                 <p className="text-neutral-400 text-sm font-black uppercase tracking-widest">
-                  {searchTerm ? 'No clients found' : 'No registered clients'}
+                  {searchTerm ? 'No clients found' : 'No clients assigned yet'}
                 </p>
               </div>
             ) : (

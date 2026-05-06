@@ -71,7 +71,10 @@ const dayKeyByIndex: DayOfWeek[] = [
 const toInputDate = (date: Date) => {
   const copy = new Date(date);
   copy.setHours(12, 0, 0, 0);
-  return copy.toISOString().split('T')[0];
+  const year = copy.getFullYear();
+  const month = String(copy.getMonth() + 1).padStart(2, '0');
+  const day = String(copy.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 };
 
 const getStartOfWeek = (baseDate: Date = new Date()) => {
@@ -94,7 +97,7 @@ const hasOverlap = (startA: number, endA: number, startB: number, endB: number) 
 // Check if a slot is in the past
 const isSlotInPast = (date: string, time: string): boolean => {
   const now = new Date();
-  const today = now.toISOString().split('T')[0];
+  const today = toInputDate(now);
   
   // If date is before today, it's in the past
   if (date < today) return true;
@@ -118,7 +121,7 @@ const isBookingInFuture = (bookingDate: string, bookingTime: string): boolean =>
 
 // Check if entire day is in the past
 const isDayInPast = (date: string): boolean => {
-  const today = new Date().toISOString().split('T')[0];
+  const today = toInputDate(new Date());
   return date < today;
 };
 
@@ -324,6 +327,14 @@ export default function EmployeeCalendarPage() {
     return () => clearInterval(interval);
   }, []);
 
+  const todayDate = useMemo(() => toInputDate(currentTime), [currentTime]);
+  const currentWeekStartDate = useMemo(() => getStartOfWeek(currentTime), [currentTime]);
+
+  // Keep the calendar aligned to the current week when the day/week rolls over.
+  useEffect(() => {
+    setCalendarStartDate((prev) => (prev === currentWeekStartDate ? prev : currentWeekStartDate));
+  }, [currentWeekStartDate]);
+
   // Fetch available slots for new booking
   useEffect(() => {
     if (bookingForm.employeeId && bookingForm.serviceId && bookingForm.bookingDate) {
@@ -390,16 +401,40 @@ export default function EmployeeCalendarPage() {
     }));
   };
 
-  const openNewBooking = (defaults: Partial<BookingFormData>) => {
+  const getSelfBookingClientDefaults = () => {
+    const fullName = `${employee?.firstName || ''} ${employee?.lastName || ''}`.trim();
+    const fallbackName = user?.email?.split('@')[0] || '';
+    return {
+      clientName: fullName || fallbackName,
+      clientEmail: employee?.email?.trim() || user?.email?.trim() || '',
+      clientPhone: employee?.phone?.trim() || '',
+    };
+  };
+
+  const prefillBookingForSelf = () => {
+    const selfClient = getSelfBookingClientDefaults();
+    if (!selfClient.clientName || !selfClient.clientEmail) {
+      alert('Please complete your profile name and email to book for yourself.');
+      return;
+    }
+    setBookingForm((prev) => ({
+      ...prev,
+      ...selfClient,
+    }));
+    setClientSearchOpen(false);
+  };
+
+  const openNewBooking = (defaults: Partial<BookingFormData>, forSelf = false) => {
     if (defaults.bookingDate && defaults.bookingTime && isSlotInPast(defaults.bookingDate, defaults.bookingTime)) {
       alert('Cannot book in a past time slot.');
       return;
     }
+    const selfClient = forSelf ? getSelfBookingClientDefaults() : null;
     const defaultService = services.find((service) => service.id === (defaults.serviceId || selectedServiceId));
     setBookingForm({
-      clientName: '',
-      clientEmail: '',
-      clientPhone: '',
+      clientName: defaults.clientName || selfClient?.clientName || '',
+      clientEmail: defaults.clientEmail || selfClient?.clientEmail || '',
+      clientPhone: defaults.clientPhone || selfClient?.clientPhone || '',
       serviceId: defaults.serviceId || selectedServiceId || '',
       employeeId: employee?.id || '',
       bookingDate: defaults.bookingDate || '',
@@ -625,7 +660,7 @@ export default function EmployeeCalendarPage() {
   };
 
   const goToToday = () => {
-    setCalendarStartDate(getStartOfWeek());
+    setCalendarStartDate(currentWeekStartDate);
   };
 
   const selectedService = services.find((service) => service.id === selectedServiceId);
@@ -637,7 +672,22 @@ export default function EmployeeCalendarPage() {
   );
   const normalizedServiceSearch = serviceSearchTerm.trim().toLowerCase();
   const groupedBookingServices = useMemo(() => {
-    const sortedServices = [...services].sort(compareServicesByDisplayOrder);
+    const sortedServices = [...services]
+      .filter((service) => service.isActive !== false)
+      .sort(compareServicesByDisplayOrder);
+    const seenServiceKeys = new Set<string>();
+    const uniqueServices = sortedServices.filter((service) => {
+      const dedupeKey = [
+        service.serviceName.trim().toLowerCase(),
+        Number(service.price || 0).toFixed(2),
+        String(service.duration || 0),
+        getServiceGroupId(service),
+        getServiceSubgroupId(service),
+      ].join('|');
+      if (seenServiceKeys.has(dedupeKey)) return false;
+      seenServiceKeys.add(dedupeKey);
+      return true;
+    });
     const matchesServiceSearch = (service: Service) => {
       if (!normalizedServiceSearch) return true;
 
@@ -654,7 +704,7 @@ export default function EmployeeCalendarPage() {
 
     const groupedSections = catalogConfig.groups.map((group) => {
       const groupLabel = getCatalogGroupLabel(group, 'en');
-      const groupServices = sortedServices.filter((service) => {
+      const groupServices = uniqueServices.filter((service) => {
         if (getServiceGroupId(service) !== group.id) return false;
         return matchesServiceSearch(service);
       });
@@ -685,7 +735,7 @@ export default function EmployeeCalendarPage() {
     });
 
     const knownGroupIds = new Set(catalogConfig.groups.map((group) => group.id));
-    const uncataloguedServices = sortedServices.filter(
+    const uncataloguedServices = uniqueServices.filter(
       (service) => !knownGroupIds.has(getServiceGroupId(service)) && matchesServiceSearch(service)
     );
 
@@ -1194,7 +1244,7 @@ export default function EmployeeCalendarPage() {
     }
 
     // Prevent setting to past
-    if (isBookingInFuture(newDate, newTime) === false && (newDate < new Date().toISOString().split('T')[0] || isSlotInPast(newDate, newTime))) {
+    if (isBookingInFuture(newDate, newTime) === false && (newDate < todayDate || isSlotInPast(newDate, newTime))) {
       alert('Cannot reschedule to a past time slot.');
       return;
     }
@@ -1322,7 +1372,7 @@ export default function EmployeeCalendarPage() {
     const date = new Date(`${calendarStartDate}T12:00:00`);
     date.setDate(date.getDate() + index);
     const dateStr = toInputDate(date);
-    const isToday = dateStr === toInputDate(new Date());
+    const isToday = dateStr === todayDate;
     const isPast = isDayInPast(dateStr);
     return {
       date: dateStr,
@@ -1336,7 +1386,7 @@ export default function EmployeeCalendarPage() {
   });
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-10 overflow-x-hidden">
       {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-8">
         <div>
@@ -1347,11 +1397,11 @@ export default function EmployeeCalendarPage() {
             {currentTime.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-4">
+        <div className="flex flex-wrap items-center gap-4 w-full lg:w-auto">
           <select
             value={selectedServiceId || ''}
             onChange={(e) => setSelectedServiceId(e.target.value || undefined)}
-            className="px-6 py-4 bg-white border border-neutral-200 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] focus:border-accent-600 outline-none cursor-pointer shadow-sm transition-all"
+            className="w-full max-w-full min-w-0 lg:w-auto px-4 sm:px-6 py-4 bg-white border border-neutral-200 rounded-2xl text-[9px] sm:text-[10px] font-black uppercase tracking-[0.08em] sm:tracking-[0.2em] focus:border-accent-600 outline-none cursor-pointer shadow-sm transition-all"
           >
             {services.length === 0 && <option value="">NO SERVICES</option>}
             {services.map((service) => (
@@ -1384,10 +1434,10 @@ export default function EmployeeCalendarPage() {
       </div>
 
       {/* Calendar Container */}
-      <div className="bg-white border border-neutral-100 rounded-[48px] shadow-sm overflow-hidden">
-        <div className="px-10 py-8 border-b border-neutral-100 bg-neutral-50/30">
+      <div className="bg-white border border-neutral-100 rounded-[36px] sm:rounded-[48px] shadow-sm overflow-hidden">
+        <div className="px-5 sm:px-10 py-6 sm:py-8 border-b border-neutral-100 bg-neutral-50/30">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
-            <div className="flex items-center gap-6">
+            <div className="flex flex-wrap items-center gap-3 sm:gap-6">
               <button
                 onClick={() => changeWeek(-1)}
                 disabled={loadingCalendar}
@@ -1397,7 +1447,9 @@ export default function EmployeeCalendarPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M15 19l-7-7 7-7" />
                 </svg>
               </button>
-              <h2 className="text-lg font-black text-neutral-900 uppercase tracking-[0.2em]">{weekRangeLabel}</h2>
+              <h2 className="text-sm sm:text-lg font-black text-neutral-900 uppercase tracking-[0.12em] sm:tracking-[0.2em]">
+                {weekRangeLabel}
+              </h2>
               <button
                 onClick={() => changeWeek(1)}
                 disabled={loadingCalendar}
@@ -1417,7 +1469,7 @@ export default function EmployeeCalendarPage() {
           </div>
         </div>
 
-        <div className="px-10 py-4 border-b border-neutral-100 bg-neutral-50/50 flex flex-wrap gap-8">
+        <div className="px-5 sm:px-10 py-4 border-b border-neutral-100 bg-neutral-50/50 flex flex-wrap gap-6 sm:gap-8">
           {[
             { color: 'bg-success-500', label: 'Disponible' },
             { color: 'bg-info-500', label: 'Booked' },
@@ -1585,7 +1637,7 @@ export default function EmployeeCalendarPage() {
                                 <span className="text-xs font-black text-primary-900 tabular-nums tracking-tight">{slot}</span>
                                 <div className="w-1.5 h-1.5 rounded-full bg-success-500 opacity-80" />
                               </div>
-                              <div className="grid grid-cols-1 gap-2 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto transition-opacity duration-150">
+                              <div className="grid grid-cols-1 gap-2 opacity-100 pointer-events-auto sm:opacity-0 sm:pointer-events-none sm:group-hover:opacity-100 sm:group-hover:pointer-events-auto sm:group-focus-within:opacity-100 sm:group-focus-within:pointer-events-auto transition-opacity duration-150">
                                 <button
                                   type="button"
                                   onClick={() =>
@@ -1597,6 +1649,21 @@ export default function EmployeeCalendarPage() {
                                   className="w-full py-2 bg-accent-50 text-[9px] font-black text-accent-700 uppercase tracking-[0.15em] rounded-lg hover:bg-accent-600 hover:text-white transition-all duration-150 hover:brightness-95"
                                 >
                                   Book
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    openNewBooking(
+                                      {
+                                        bookingDate: day.date,
+                                        bookingTime: slot,
+                                      },
+                                      true
+                                    )
+                                  }
+                                  className="w-full py-2 bg-success-50 text-[9px] font-black text-success-700 uppercase tracking-[0.15em] rounded-lg hover:bg-success-500 hover:text-white transition-all duration-150 hover:brightness-95"
+                                >
+                                  Para mi
                                 </button>
                                 <button
                                   type="button"
@@ -1848,7 +1915,7 @@ export default function EmployeeCalendarPage() {
                       <input
                         type="date"
                         value={bookingModal.newDate}
-                        min={new Date().toISOString().split('T')[0]}
+                        min={todayDate}
                         onChange={async (e) => {
                           const newDate = e.target.value;
                           setBookingModal((prev) => (prev ? { ...prev, newDate, newTime: '' } : prev));
@@ -1916,11 +1983,11 @@ export default function EmployeeCalendarPage() {
       {/* NEW Booking Modal (Agenda manual) */}
       {newBookingOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-neutral-900/90 backdrop-blur-xl p-4">
-          <div className="w-full max-w-4xl bg-white rounded-[40px] shadow-2xl overflow-hidden border-2 border-white/20">
-            <div className="px-12 py-10 flex items-center justify-between border-b border-neutral-100">
+          <div className="w-full max-w-4xl bg-white rounded-[28px] sm:rounded-[40px] shadow-2xl overflow-hidden border-2 border-white/20">
+            <div className="px-5 sm:px-8 lg:px-12 py-6 sm:py-10 flex items-center justify-between border-b border-neutral-100 gap-4">
               <div>
-                <h2 className="text-3xl font-black text-neutral-900 tracking-tighter uppercase">Crear Reserva</h2>
-                <p className="text-neutral-500 font-bold uppercase tracking-widest text-xs mt-1">Agenda manual</p>
+                <h2 className="text-2xl sm:text-3xl font-black text-neutral-900 tracking-tighter uppercase">Crear Reserva</h2>
+                <p className="text-neutral-500 font-bold uppercase tracking-widest text-[10px] sm:text-xs mt-1">Agenda manual</p>
               </div>
               <button
                 onClick={() => setNewBookingOpen(false)}
@@ -1932,10 +1999,19 @@ export default function EmployeeCalendarPage() {
               </button>
             </div>
 
-            <div className="p-12 space-y-8 max-h-[70vh] overflow-y-auto no-scrollbar">
+            <div className="p-5 sm:p-8 lg:p-12 space-y-8 max-h-[70vh] overflow-y-auto no-scrollbar">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 <div className="space-y-2">
-                  <label className="block text-xs font-black text-neutral-400 uppercase tracking-widest">Nombre</label>
+                  <div className="flex items-center justify-between gap-2">
+                    <label className="block text-xs font-black text-neutral-400 uppercase tracking-widest">Nombre</label>
+                    <button
+                      type="button"
+                      onClick={prefillBookingForSelf}
+                      className="shrink-0 rounded-full bg-success-50 px-3 py-1 text-[9px] font-black uppercase tracking-[0.15em] text-success-700 hover:bg-success-500 hover:text-white transition-colors"
+                    >
+                      Reservar para mi
+                    </button>
+                  </div>
                   <div className="relative">
                     <input
                       type="text"
@@ -2108,7 +2184,7 @@ export default function EmployeeCalendarPage() {
                   <label className="block text-xs font-black text-neutral-400 uppercase tracking-widest">Date</label>
                   <input
                     type="date"
-                    min={new Date().toISOString().split('T')[0]}
+                    min={todayDate}
                     value={bookingForm.bookingDate}
                     onChange={(e) => setBookingForm((prev) => ({ ...prev, bookingDate: e.target.value, bookingTime: '' }))}
                     className="w-full px-6 py-5 bg-neutral-50 border-2 border-neutral-100 rounded-2xl text-neutral-900 font-bold focus:border-accent-500 transition-all outline-none"
@@ -2166,7 +2242,7 @@ export default function EmployeeCalendarPage() {
               </div>
             </div>
 
-            <div className="px-12 py-8 bg-neutral-50 border-t border-neutral-100 flex items-center justify-end gap-4">
+            <div className="px-5 sm:px-8 lg:px-12 py-6 sm:py-8 bg-neutral-50 border-t border-neutral-100 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-4">
               <button
                 onClick={() => setNewBookingOpen(false)}
                 className="px-8 py-4 text-sm font-bold text-neutral-400 uppercase tracking-widest hover:text-neutral-900 transition-colors"

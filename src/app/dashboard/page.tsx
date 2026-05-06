@@ -317,7 +317,22 @@ export default function DashboardPage() {
 
   const groupedBookingServices = useMemo(() => {
     const normalizedSearch = serviceSearchTerm.trim().toLowerCase();
-    const sortedServices = [...services].sort(compareServicesByDisplayOrder);
+    const sortedServices = [...services]
+      .filter((service) => service.isActive !== false)
+      .sort(compareServicesByDisplayOrder);
+    const seenServiceKeys = new Set<string>();
+    const uniqueServices = sortedServices.filter((service) => {
+      const dedupeKey = [
+        service.serviceName.trim().toLowerCase(),
+        Number(service.price || 0).toFixed(2),
+        String(service.duration || 0),
+        getServiceGroupId(service),
+        getServiceSubgroupId(service),
+      ].join('|');
+      if (seenServiceKeys.has(dedupeKey)) return false;
+      seenServiceKeys.add(dedupeKey);
+      return true;
+    });
     const matchesServiceSearch = (service: Service) => {
       if (!normalizedSearch) return true;
 
@@ -333,7 +348,7 @@ export default function DashboardPage() {
     };
 
     const groupedSections = catalogConfig.groups.map((group) => {
-      const groupServices = sortedServices.filter((service) => {
+      const groupServices = uniqueServices.filter((service) => {
         if (getServiceGroupId(service) !== group.id) return false;
         return matchesServiceSearch(service);
       });
@@ -364,7 +379,7 @@ export default function DashboardPage() {
     });
 
     const knownGroupIds = new Set(catalogConfig.groups.map((group) => group.id));
-    const uncataloguedServices = sortedServices.filter(
+    const uncataloguedServices = uniqueServices.filter(
       (service) => !knownGroupIds.has(getServiceGroupId(service)) && matchesServiceSearch(service)
     );
 
