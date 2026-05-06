@@ -103,7 +103,7 @@ export async function POST(request: NextRequest) {
 
     const expenseData: Omit<Expense, 'id' | 'createdAt' | 'updatedAt'> = {
       salonId: body.salonId || 'default-salon-id',
-      category: body.category,
+      category: String(body.category || 'other').trim() || 'other',
       name: body.name,
       description: body.description || undefined,
       amount: parseFloat(body.amount),

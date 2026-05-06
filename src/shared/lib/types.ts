@@ -47,7 +47,7 @@ export interface Client {
 }
 
 // Expense Management
-export type ExpenseCategory = 
+export type DefaultExpenseCategory = 
   | 'rent' 
   | 'utilities' 
   | 'products' 
@@ -60,6 +60,8 @@ export type ExpenseCategory =
   | 'taxes' 
   | 'maintenance' 
   | 'other';
+
+export type ExpenseCategory = DefaultExpenseCategory | (string & {});
 
 export type ExpenseFrequency = 'one-time' | 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly';
 
@@ -86,6 +88,7 @@ export interface ManualRevenue {
   id: string;
   salonId: string;
   serviceName: string;
+  category?: string;
   amount: number; // in euros
   date: string; // YYYY-MM-DD
   notes?: string;

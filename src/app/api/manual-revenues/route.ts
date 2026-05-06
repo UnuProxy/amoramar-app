@@ -10,6 +10,7 @@ const toManualRevenueResponse = (docId: string, data?: Record<string, any>): Man
   id: docId,
   salonId: data?.salonId || 'default-salon-id',
   serviceName: data?.serviceName || '',
+  category: data?.category || 'other',
   amount: typeof data?.amount === 'number' ? data.amount : Number(data?.amount || 0),
   date: data?.date || '',
   notes: data?.notes || undefined,
@@ -94,6 +95,7 @@ export async function POST(request: NextRequest) {
     const manualRevenueData: Omit<ManualRevenue, 'id' | 'createdAt' | 'updatedAt'> = {
       salonId: body.salonId || 'default-salon-id',
       serviceName: body.serviceName,
+      category: String(body.category || 'other').trim() || 'other',
       amount: parseFloat(body.amount),
       date: body.date,
       notes: body.notes || undefined,
