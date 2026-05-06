@@ -77,8 +77,8 @@ export default function DirectBookingPage() {
   const stripeRef = useRef<Stripe | null>(null);
   const elementsRef = useRef<StripeElements | null>(null);
   const cardElementRef = useRef<StripeCardElement | null>(null);
-  const paymentRequestRef = useRef<any>(null);
-  const paymentRequestButtonRef = useRef<any>(null);
+  const expressElementsRef = useRef<StripeElements | null>(null);
+  const expressCheckoutElementRef = useRef<any>(null);
   const cardMountId = 'direct-booking-card-element';
   const paymentRequestMountId = 'direct-booking-wallet-element';
   const stripePublicKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '';
@@ -286,87 +286,85 @@ export default function DirectBookingPage() {
 
   useEffect(() => {
     const walletAmount = depositAmount ?? Math.round((service?.price || 0) * 50);
-    if (bookingStep !== 3 || !stripePublicKey || !walletAmount) {
+    if (bookingStep !== 3 || !stripePublicKey || !walletAmount || !service) {
       setWalletLabel(null);
-      if (paymentRequestButtonRef.current) {
-        paymentRequestButtonRef.current.unmount();
-        paymentRequestButtonRef.current = null;
+      if (expressCheckoutElementRef.current) {
+        try { expressCheckoutElementRef.current.unmount(); } catch (_e) { /* noop */ }
+        expressCheckoutElementRef.current = null;
       }
-      paymentRequestRef.current = null;
+      expressElementsRef.current = null;
       return;
     }
 
     let isActive = true;
+    let mountedElement: any = null;
 
-    const setupPaymentRequest = async () => {
+    const setupExpressCheckout = async () => {
       if (!stripeRef.current) {
         stripeRef.current = await loadStripe(stripePublicKey);
       }
-      if (!stripeRef.current) return;
-      if (!elementsRef.current) {
-        elementsRef.current = stripeRef.current.elements();
-      }
-      if (!elementsRef.current) return;
+      if (!stripeRef.current || !isActive) return;
 
-      if (paymentRequestButtonRef.current) {
-        paymentRequestButtonRef.current.unmount();
-        paymentRequestButtonRef.current = null;
+      if (expressCheckoutElementRef.current) {
+        try { expressCheckoutElementRef.current.unmount(); } catch (_e) { /* noop */ }
+        expressCheckoutElementRef.current = null;
       }
 
-      const paymentRequest = stripeRef.current.paymentRequest({
-        country: 'ES',
+      const expressElements = stripeRef.current.elements({
+        mode: 'payment',
+        amount: walletAmount,
         currency: 'eur',
-        total: {
-          label: service?.serviceName || 'Booking deposit',
-          amount: walletAmount,
-        },
-        requestPayerName: true,
-        requestPayerEmail: true,
-        requestPayerPhone: true,
+      });
+      expressElementsRef.current = expressElements;
+
+      const expressCheckout = expressElements.create('expressCheckout', {
+        paymentMethodOrder: ['applePay', 'googlePay', 'link'],
+        buttonHeight: 48,
+        buttonType: { applePay: 'book', googlePay: 'book' },
+      } as any);
+
+      expressCheckout.on('ready', (event: any) => {
+        if (!isActive) return;
+        const methods = event?.availablePaymentMethods || {};
+        if (methods.applePay) setWalletLabel('Apple Pay');
+        else if (methods.googlePay) setWalletLabel('Google Pay');
+        else if (methods.link) setWalletLabel('Link');
+        else setWalletLabel(null);
       });
 
-      const wallet = await paymentRequest.canMakePayment();
-      if (!isActive || !wallet) {
-        setWalletLabel(null);
-        return;
-      }
-
-      const nextWalletLabel = wallet.applePay ? 'Apple Pay' : wallet.googlePay ? 'Google Pay' : 'Fast checkout';
-      setWalletLabel(nextWalletLabel);
-      paymentRequestRef.current = paymentRequest;
-
-      paymentRequest.on('paymentmethod', async (event: any) => {
+      expressCheckout.on('confirm', async () => {
         setSubmitting(true);
         setPaymentLoading(true);
         setPaymentError(null);
 
         try {
+          const { error: submitError } = await expressElements.submit();
+          if (submitError) {
+            throw new Error(submitError.message || 'El pago no pudo completarse');
+          }
+
           const intent = await ensurePaymentIntent();
-          const initialResult = await stripeRef.current!.confirmCardPayment(
-            intent.clientSecret,
-            {
-              payment_method: event.paymentMethod.id,
+
+          const { error, paymentIntent } = await stripeRef.current!.confirmPayment({
+            elements: expressElements,
+            clientSecret: intent.clientSecret,
+            confirmParams: {
+              return_url: `${window.location.origin}/book`,
+              payment_method_data: {
+                billing_details: {
+                  name: formData.name || undefined,
+                  email: formData.email || undefined,
+                  phone: formData.phone || undefined,
+                },
+              },
             },
-            { handleActions: false }
-          );
+            redirect: 'if_required',
+          });
 
-          if (initialResult.error || !initialResult.paymentIntent) {
-            event.complete('fail');
-            throw new Error(initialResult.error?.message || 'El pago no pudo completarse');
+          if (error) {
+            throw new Error(error.message || 'El pago no pudo completarse');
           }
-
-          event.complete('success');
-
-          let confirmedPaymentIntent = initialResult.paymentIntent;
-          if (confirmedPaymentIntent.status === 'requires_action') {
-            const actionResult = await stripeRef.current!.confirmCardPayment(intent.clientSecret);
-            if (actionResult.error || !actionResult.paymentIntent) {
-              throw new Error(actionResult.error?.message || 'El pago requiere una autenticación adicional.');
-            }
-            confirmedPaymentIntent = actionResult.paymentIntent;
-          }
-
-          if (confirmedPaymentIntent.status !== 'succeeded') {
+          if (!paymentIntent || paymentIntent.status !== 'succeeded') {
             throw new Error('El pago no se completó. Inténtalo de nuevo.');
           }
 
@@ -378,7 +376,7 @@ export default function DirectBookingPage() {
             clientName: formData.name,
             clientEmail: formData.email,
             clientPhone: formData.phone,
-            paymentIntentId: confirmedPaymentIntent.id,
+            paymentIntentId: paymentIntent.id,
           };
 
           const response = await fetch('/api/bookings', {
@@ -417,32 +415,25 @@ export default function DirectBookingPage() {
         }
       });
 
-      const button = elementsRef.current.create('paymentRequestButton', {
-        paymentRequest,
-        style: {
-          paymentRequestButton: {
-            type: 'book',
-            theme: 'dark',
-            height: '48px',
-          },
-        },
-      });
-      paymentRequestButtonRef.current = button;
-      button.mount(`#${paymentRequestMountId}`);
+      mountedElement = expressCheckout;
+      expressCheckoutElementRef.current = expressCheckout;
+      expressCheckout.mount(`#${paymentRequestMountId}`);
     };
 
-    setupPaymentRequest().catch((err) => {
+    setupExpressCheckout().catch((err) => {
       console.error('Error setting up wallet payment:', err);
       if (isActive) setWalletLabel(null);
     });
 
     return () => {
       isActive = false;
-      if (paymentRequestButtonRef.current) {
-        paymentRequestButtonRef.current.unmount();
-        paymentRequestButtonRef.current = null;
+      if (mountedElement) {
+        try { mountedElement.unmount(); } catch (_e) { /* noop */ }
       }
-      paymentRequestRef.current = null;
+      if (expressCheckoutElementRef.current === mountedElement) {
+        expressCheckoutElementRef.current = null;
+      }
+      expressElementsRef.current = null;
     };
   }, [bookingStep, stripePublicKey, depositAmount, service?.id, service?.price, service?.serviceName, formData.name, formData.email, formData.phone, formData.date, formData.time, formData.employeeId]);
 
