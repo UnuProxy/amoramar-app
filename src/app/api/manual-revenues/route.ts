@@ -6,6 +6,16 @@ import type { ManualRevenue } from '@/shared/lib/types';
 const withoutUndefined = <T extends Record<string, any>>(value: T): T =>
   Object.fromEntries(Object.entries(value).filter(([, entry]) => entry !== undefined)) as T;
 
+const ALLOWED_PAYMENT_METHODS = new Set(['cash', 'card', 'transfer', 'other']);
+
+const normalizePaymentMethod = (value: unknown): ManualRevenue['paymentMethod'] | undefined => {
+  if (typeof value !== 'string') return undefined;
+  const normalized = value.trim().toLowerCase();
+  return ALLOWED_PAYMENT_METHODS.has(normalized)
+    ? (normalized as ManualRevenue['paymentMethod'])
+    : undefined;
+};
+
 const toManualRevenueResponse = (docId: string, data?: Record<string, any>): ManualRevenue => ({
   id: docId,
   salonId: data?.salonId || 'default-salon-id',
@@ -13,6 +23,7 @@ const toManualRevenueResponse = (docId: string, data?: Record<string, any>): Man
   category: data?.category || 'other',
   amount: typeof data?.amount === 'number' ? data.amount : Number(data?.amount || 0),
   date: data?.date || '',
+  paymentMethod: normalizePaymentMethod(data?.paymentMethod),
   notes: data?.notes || undefined,
   createdAt: data?.createdAt?.toDate?.() || new Date(0),
   updatedAt: data?.updatedAt?.toDate?.() || new Date(0),
@@ -98,6 +109,7 @@ export async function POST(request: NextRequest) {
       category: String(body.category || 'other').trim() || 'other',
       amount: parseFloat(body.amount),
       date: body.date,
+      paymentMethod: normalizePaymentMethod(body.paymentMethod),
       notes: body.notes || undefined,
     };
 

@@ -76,6 +76,9 @@ export default function FinancialDashboard() {
   const [manualRevenues, setManualRevenues] = useState<ManualRevenue[]>([]);
   const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState<DateRange>('month');
+  // YYYY-MM. When set, it takes precedence over `dateRange` and pins the
+  // report to that exact calendar month (e.g. April 1 – April 30).
+  const [specificMonth, setSpecificMonth] = useState<string>('');
   const [payoutMonth, setPayoutMonth] = useState<string>(() => new Date().toISOString().slice(0, 7));
   const [expenseSearchTerm, setExpenseSearchTerm] = useState('');
   const [expenseCategoryFilter, setExpenseCategoryFilter] = useState<'all' | ExpenseCategory>('all');
@@ -108,6 +111,7 @@ export default function FinancialDashboard() {
     isPaid: boolean;
     vendor: string;
     notes: string;
+    paymentMethod: 'cash' | 'card';
   }>({
     category: 'other',
     name: '',
@@ -118,6 +122,7 @@ export default function FinancialDashboard() {
     isPaid: true,
     vendor: '',
     notes: '',
+    paymentMethod: 'cash',
   });
 
   const [newManualRevenue, setNewManualRevenue] = useState<{
@@ -126,12 +131,14 @@ export default function FinancialDashboard() {
     amount: string;
     date: string;
     notes: string;
+    paymentMethod: 'cash' | 'card';
   }>({
     serviceName: '',
     category: 'other',
     amount: '',
     date: new Date().toISOString().split('T')[0],
     notes: '',
+    paymentMethod: 'cash',
   });
 
   const copy =
@@ -143,6 +150,20 @@ export default function FinancialDashboard() {
           last3Months: 'ULTIMOS 3 MESES',
           oneYear: '1 ANO',
           allTime: 'TODO EL TIEMPO',
+          specificMonthLabel: 'MES ESPECIFICO',
+          specificMonthHint: 'Elige un mes natural completo',
+          clearSpecificMonth: 'Limpiar',
+          activeMonthBadge: 'Mes activo',
+          paymentMethodLabel: 'Metodo de pago',
+          paymentCash: 'Efectivo',
+          paymentCard: 'Tarjeta',
+          cashFlowTitle: 'Flujo de caja',
+          cashFlowSubtitle: 'Cuanto entra y sale por cada metodo en el periodo seleccionado',
+          incomeShort: 'Ingreso',
+          expensesShort: 'Gasto',
+          netShort: 'Neto',
+          onlineMethod: 'Online',
+          unspecifiedMethod: 'Sin metodo',
           addExpense: 'Anadir gasto',
           addRevenue: 'Anadir ingreso',
           grossIncome: 'Ingreso bruto',
@@ -250,6 +271,20 @@ export default function FinancialDashboard() {
           last3Months: 'LAST 3 MONTHS',
           oneYear: '1 YEAR',
           allTime: 'ALL TIME',
+          specificMonthLabel: 'SPECIFIC MONTH',
+          specificMonthHint: 'Pick an exact calendar month',
+          clearSpecificMonth: 'Clear',
+          activeMonthBadge: 'Active month',
+          paymentMethodLabel: 'Payment method',
+          paymentCash: 'Cash',
+          paymentCard: 'Card',
+          cashFlowTitle: 'Cash flow',
+          cashFlowSubtitle: 'Money in and out by method for the selected period',
+          incomeShort: 'Income',
+          expensesShort: 'Expenses',
+          netShort: 'Net',
+          onlineMethod: 'Online',
+          unspecifiedMethod: 'No method',
           addExpense: 'Add Expense',
           addRevenue: 'Add Revenue',
           grossIncome: 'Gross Income',
@@ -493,6 +528,29 @@ export default function FinancialDashboard() {
 
   // Date range filtering (confirmed or completed bookings for accurate revenue)
   const { startDate, endDate } = useMemo(() => {
+    const toYYYYMMDD = (d: Date) => {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    };
+
+    // Specific month picker overrides every other range so the user can
+    // inspect a finished calendar month (e.g. April 1 – April 30).
+    if (specificMonth) {
+      const [yearStr, monthStr] = specificMonth.split('-');
+      const y = Number.parseInt(yearStr, 10);
+      const m = Number.parseInt(monthStr, 10);
+      if (Number.isFinite(y) && Number.isFinite(m) && m >= 1 && m <= 12) {
+        const start = new Date(y, m - 1, 1);
+        const end = new Date(y, m, 0); // last day of month m
+        return {
+          startDate: toYYYYMMDD(start),
+          endDate: toYYYYMMDD(end),
+        };
+      }
+    }
+
     const now = new Date();
     const year = now.getFullYear();
     const month = now.getMonth();
@@ -508,18 +566,11 @@ export default function FinancialDashboard() {
       start = new Date(2025, 0, 1);
     }
 
-    const toYYYYMMDD = (d: Date) => {
-      const y = d.getFullYear();
-      const m = String(d.getMonth() + 1).padStart(2, '0');
-      const day = String(d.getDate()).padStart(2, '0');
-      return `${y}-${m}-${day}`;
-    };
-
     return {
       startDate: toYYYYMMDD(start),
       endDate: toYYYYMMDD(end),
     };
-  }, [dateRange]);
+  }, [dateRange, specificMonth]);
 
   // Filter bookings and expenses by date range
   const filteredBookings = useMemo(() => {
@@ -855,6 +906,66 @@ export default function FinancialDashboard() {
     };
   }, [filteredBookings, filteredExpenses, filteredManualRevenues, services, employees, payoutBookings, getBookingAmount, copy.bookings, copy.manualRevenueEntries, copy.serviceFallback]);
 
+  // Cash vs card breakdown for the selected period.
+  // Money in = paid deposits + final payments + manual revenues, split by
+  // method (cash, card terminal, online/Stripe). Money out = expenses split by
+  // payment method. Final payments are only attributed to the salon for
+  // non-self-employed staff (autonomos take the closing amount themselves).
+  const cashFlowByMethod = useMemo(() => {
+    const inflow = { cash: 0, card: 0, online: 0, unspecified: 0 };
+    const outflow = { cash: 0, card: 0, unspecified: 0 };
+
+    filteredBookings.forEach((booking) => {
+      const service = services.find((s) => s.id === booking.serviceId);
+      const employee = employees.find((e) => e.id === booking.employeeId);
+      const totals = calculateBookingTotals(booking, service);
+
+      if (totals.depositPaidValue > 0) {
+        if (booking.paymentIntentId) {
+          inflow.online += totals.depositPaidValue;
+        } else if (booking.finalPaymentMethod === 'pos') {
+          inflow.card += totals.depositPaidValue;
+        } else {
+          inflow.cash += totals.depositPaidValue;
+        }
+      }
+
+      const closingForSalon =
+        employee?.employmentType === 'self-employed' ? 0 : totals.closingAmount;
+      if (closingForSalon > 0 && booking.finalPaymentReceived === true) {
+        if (booking.finalPaymentMethod === 'pos') {
+          inflow.card += closingForSalon;
+        } else {
+          inflow.cash += closingForSalon;
+        }
+      }
+    });
+
+    filteredManualRevenues.forEach((item) => {
+      if (item.paymentMethod === 'cash') inflow.cash += item.amount;
+      else if (item.paymentMethod === 'card') inflow.card += item.amount;
+      else inflow.unspecified += item.amount;
+    });
+
+    filteredExpenses.forEach((expense) => {
+      if (expense.paymentMethod === 'cash') outflow.cash += expense.amount;
+      else if (expense.paymentMethod === 'card') outflow.card += expense.amount;
+      else outflow.unspecified += expense.amount;
+    });
+
+    const totalInflow = inflow.cash + inflow.card + inflow.online + inflow.unspecified;
+    const totalOutflow = outflow.cash + outflow.card + outflow.unspecified;
+    const net = {
+      cash: inflow.cash - outflow.cash,
+      card: inflow.card - outflow.card,
+      online: inflow.online,
+      unspecified: inflow.unspecified - outflow.unspecified,
+      total: totalInflow - totalOutflow,
+    };
+
+    return { inflow, outflow, net, totalInflow, totalOutflow };
+  }, [filteredBookings, filteredExpenses, filteredManualRevenues, services, employees]);
+
   const getOwnerAuthHeaders = async () => {
     const token = await auth?.currentUser?.getIdToken();
     if (!token) {
@@ -896,6 +1007,7 @@ export default function FinancialDashboard() {
           amount: '',
           date: new Date().toISOString().split('T')[0],
           notes: '',
+          paymentMethod: 'cash',
         });
       } else {
         throw new Error(payload.error || copy.errorAddingRevenue);
@@ -946,6 +1058,7 @@ export default function FinancialDashboard() {
           isPaid: true,
           vendor: '',
           notes: '',
+          paymentMethod: 'cash',
         });
         setExpenseReceiptFile(null);
       } else {
@@ -1063,14 +1176,48 @@ export default function FinancialDashboard() {
         <div className="flex flex-wrap items-center gap-4">
           <select
             value={dateRange}
-            onChange={(e) => setDateRange(e.target.value as DateRange)}
-            className="px-6 py-4 bg-white border border-slate-100 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] focus:border-sky-500 outline-none cursor-pointer shadow-sm hover:shadow-md transition-all"
+            onChange={(e) => {
+              setDateRange(e.target.value as DateRange);
+              // Picking any preset cancels the specific-month override.
+              setSpecificMonth('');
+            }}
+            disabled={Boolean(specificMonth)}
+            className="px-6 py-4 bg-white border border-slate-100 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] focus:border-sky-500 outline-none cursor-pointer shadow-sm hover:shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <option value="month">{copy.thisMonth}</option>
             <option value="quarter">{copy.last3Months}</option>
             <option value="year">{copy.oneYear}</option>
             <option value="all">{copy.allTime}</option>
           </select>
+
+          <div
+            className={cn(
+              "flex items-center gap-2 rounded-2xl border px-4 py-2 shadow-sm transition-all",
+              specificMonth
+                ? "bg-sky-50 border-sky-300 ring-1 ring-sky-200"
+                : "bg-white border-slate-100 hover:border-sky-300"
+            )}
+            title={copy.specificMonthHint}
+          >
+            <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-500 whitespace-nowrap">
+              {copy.specificMonthLabel}
+            </label>
+            <input
+              type="month"
+              value={specificMonth}
+              onChange={(e) => setSpecificMonth(e.target.value)}
+              className="bg-transparent text-[10px] font-black uppercase tracking-[0.15em] text-slate-700 outline-none cursor-pointer"
+            />
+            {specificMonth && (
+              <button
+                type="button"
+                onClick={() => setSpecificMonth('')}
+                className="ml-1 px-2 py-1 rounded-lg bg-white text-[9px] font-black uppercase tracking-[0.15em] text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors border border-slate-200"
+              >
+                {copy.clearSpecificMonth}
+              </button>
+            )}
+          </div>
 
           <button
             onClick={() => setShowAddRevenue(true)}
@@ -1149,6 +1296,109 @@ export default function FinancialDashboard() {
             <p className="text-[10px] font-black text-sky-500 uppercase tracking-widest mt-4">{copy.profitability}</p>
           </div>
         </div>
+      </div>
+
+      {/* Cash flow by payment method */}
+      <div className="bg-white border-2 border-sky-100/50 rounded-[40px] overflow-hidden shadow-sm">
+        <div className="px-6 sm:px-10 py-6 sm:py-8 border-b-2 border-sky-100/50 bg-sky-50/30 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-black text-slate-800 tracking-[0.3em] uppercase">{copy.cashFlowTitle}</h2>
+            <p className="mt-2 text-[10px] font-bold text-slate-400 uppercase tracking-[0.18em]">{copy.cashFlowSubtitle}</p>
+          </div>
+          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+            {startDate} → {endDate}
+          </p>
+        </div>
+
+        <div className="p-6 sm:p-8 grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
+          {([
+            {
+              key: 'cash' as const,
+              label: copy.paymentCash,
+              icon: '€',
+              accent: 'emerald',
+              income: cashFlowByMethod.inflow.cash,
+              expense: cashFlowByMethod.outflow.cash,
+              net: cashFlowByMethod.net.cash,
+            },
+            {
+              key: 'card' as const,
+              label: copy.paymentCard,
+              icon: '💳',
+              accent: 'sky',
+              income: cashFlowByMethod.inflow.card,
+              expense: cashFlowByMethod.outflow.card,
+              net: cashFlowByMethod.net.card,
+            },
+            {
+              key: 'online' as const,
+              label: copy.onlineMethod,
+              icon: '🌐',
+              accent: 'violet',
+              income: cashFlowByMethod.inflow.online,
+              expense: 0,
+              net: cashFlowByMethod.net.online,
+            },
+          ]).map((bucket) => (
+            <div
+              key={bucket.key}
+              className={cn(
+                "rounded-[28px] border-2 p-5 sm:p-6 flex flex-col gap-4 transition-all",
+                bucket.accent === 'emerald' && "border-emerald-100 bg-emerald-50/40",
+                bucket.accent === 'sky' && "border-sky-100 bg-sky-50/40",
+                bucket.accent === 'violet' && "border-violet-100 bg-violet-50/40"
+              )}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div
+                    className={cn(
+                      "w-10 h-10 rounded-2xl flex items-center justify-center text-lg font-black",
+                      bucket.accent === 'emerald' && "bg-emerald-100 text-emerald-700",
+                      bucket.accent === 'sky' && "bg-sky-100 text-sky-700",
+                      bucket.accent === 'violet' && "bg-violet-100 text-violet-700"
+                    )}
+                  >
+                    {bucket.icon}
+                  </div>
+                  <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-700">{bucket.label}</p>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">{copy.incomeShort}</span>
+                  <span className="text-base sm:text-lg font-black tabular-nums text-slate-800">+ {formatCurrency(bucket.income)}</span>
+                </div>
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">{copy.expensesShort}</span>
+                  <span className="text-base sm:text-lg font-black tabular-nums text-rose-600">
+                    {bucket.expense > 0 ? `- ${formatCurrency(bucket.expense)}` : formatCurrency(0)}
+                  </span>
+                </div>
+                <div className="border-t border-slate-200 pt-2 flex items-baseline justify-between gap-3">
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">{copy.netShort}</span>
+                  <span
+                    className={cn(
+                      "text-lg sm:text-xl font-black tabular-nums",
+                      bucket.net >= 0 ? "text-slate-900" : "text-rose-700"
+                    )}
+                  >
+                    {bucket.net < 0 ? '- ' : ''}{formatCurrency(Math.abs(bucket.net))}
+                  </span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {(cashFlowByMethod.inflow.unspecified > 0 || cashFlowByMethod.outflow.unspecified > 0) && (
+          <div className="px-6 sm:px-10 pb-6 sm:pb-8 -mt-2 flex flex-col sm:flex-row gap-2 sm:gap-6 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
+            <span>
+              {copy.unspecifiedMethod} · + {formatCurrency(cashFlowByMethod.inflow.unspecified)} / - {formatCurrency(cashFlowByMethod.outflow.unspecified)}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Revenue Analytics Grid - Professional Ibiza Style */}
@@ -1864,7 +2114,7 @@ export default function FinancialDashboard() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 gap-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-2">
                   <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">{copy.revenueDate}</label>
                   <input
@@ -1875,6 +2125,31 @@ export default function FinancialDashboard() {
                   />
                 </div>
                 <div className="space-y-2">
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">{copy.paymentMethodLabel}</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    {(['cash', 'card'] as const).map((method) => {
+                      const active = newManualRevenue.paymentMethod === method;
+                      return (
+                        <button
+                          key={method}
+                          type="button"
+                          onClick={() => setNewManualRevenue({ ...newManualRevenue, paymentMethod: method })}
+                          className={cn(
+                            "py-4 rounded-2xl border-2 text-xs font-black uppercase tracking-[0.18em] transition-all",
+                            active
+                              ? method === 'cash'
+                                ? "bg-emerald-50 border-emerald-500 text-emerald-700 shadow-sm"
+                                : "bg-sky-50 border-sky-500 text-sky-700 shadow-sm"
+                              : "bg-slate-50 border-slate-100 text-slate-500 hover:border-slate-300"
+                          )}
+                        >
+                          {method === 'cash' ? `€ ${copy.paymentCash}` : `💳 ${copy.paymentCard}`}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div className="space-y-2 md:col-span-2">
                   <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">{copy.revenueNotes}</label>
                   <textarea
                     value={newManualRevenue.notes}
@@ -1987,15 +2262,42 @@ export default function FinancialDashboard() {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">{copy.vendorOptional}</label>
-                <input
-                  type="text"
-                  value={newExpense.vendor}
-                  onChange={(e) => setNewExpense({ ...newExpense, vendor: e.target.value })}
-                  className="w-full px-4 sm:px-6 py-4 sm:py-5 bg-slate-50 border-2 border-slate-100 rounded-2xl text-slate-800 font-bold focus:border-rose-500 transition-all outline-none"
-                  placeholder="NOMBRE DEL PROVEEDOR"
-                />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8">
+                <div className="space-y-2">
+                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">{copy.vendorOptional}</label>
+                  <input
+                    type="text"
+                    value={newExpense.vendor}
+                    onChange={(e) => setNewExpense({ ...newExpense, vendor: e.target.value })}
+                    className="w-full px-4 sm:px-6 py-4 sm:py-5 bg-slate-50 border-2 border-slate-100 rounded-2xl text-slate-800 font-bold focus:border-rose-500 transition-all outline-none"
+                    placeholder="NOMBRE DEL PROVEEDOR"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">{copy.paymentMethodLabel}</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    {(['cash', 'card'] as const).map((method) => {
+                      const active = newExpense.paymentMethod === method;
+                      return (
+                        <button
+                          key={method}
+                          type="button"
+                          onClick={() => setNewExpense({ ...newExpense, paymentMethod: method })}
+                          className={cn(
+                            "py-4 rounded-2xl border-2 text-xs font-black uppercase tracking-[0.18em] transition-all",
+                            active
+                              ? method === 'cash'
+                                ? "bg-emerald-50 border-emerald-500 text-emerald-700 shadow-sm"
+                                : "bg-sky-50 border-sky-500 text-sky-700 shadow-sm"
+                              : "bg-slate-50 border-slate-100 text-slate-500 hover:border-slate-300"
+                          )}
+                        >
+                          {method === 'cash' ? `€ ${copy.paymentCash}` : `💳 ${copy.paymentCard}`}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
               <div className="space-y-3">
                 <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">{copy.receiptOptional}</label>

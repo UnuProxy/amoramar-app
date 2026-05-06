@@ -91,6 +91,7 @@ export interface ManualRevenue {
   category?: string;
   amount: number; // in euros
   date: string; // YYYY-MM-DD
+  paymentMethod?: 'cash' | 'card' | 'transfer' | 'other';
   notes?: string;
   createdAt: Date;
   updatedAt: Date;
