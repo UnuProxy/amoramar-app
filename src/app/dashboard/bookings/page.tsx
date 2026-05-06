@@ -127,6 +127,15 @@ interface DrawerProps {
 }
 
 const Drawer: React.FC<DrawerProps> = ({ isOpen, onClose, title, children }) => {
+  const handleClose = useCallback(
+    (event?: React.SyntheticEvent) => {
+      event?.preventDefault();
+      event?.stopPropagation();
+      onClose();
+    },
+    [onClose]
+  );
+
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
@@ -138,16 +147,37 @@ const Drawer: React.FC<DrawerProps> = ({ isOpen, onClose, title, children }) => 
     };
   }, [isOpen]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 lg:hidden">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      <div className="absolute inset-y-0 right-0 w-full max-w-sm bg-white shadow-2xl animate-in slide-in-from-right duration-300">
+      <div
+        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+        onClick={(event) => handleClose(event)}
+        onPointerDown={(event) => event.stopPropagation()}
+      />
+      <div
+        className="absolute inset-y-0 right-0 w-full max-w-sm bg-white shadow-2xl animate-in slide-in-from-right duration-300"
+        onClick={(event) => event.stopPropagation()}
+        onPointerDown={(event) => event.stopPropagation()}
+      >
         <div className="flex items-center justify-between p-4 border-b border-slate-200">
           <h2 className="text-lg font-bold text-slate-900">{title}</h2>
           <button
-            onClick={onClose}
+            type="button"
+            onClick={(event) => handleClose(event)}
+            onPointerDown={(event) => event.stopPropagation()}
             className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
           >
             <X className="w-5 h-5 text-slate-500" />
@@ -848,6 +878,9 @@ interface FiltersContentProps {
   employees: Employee[];
   onClear: () => void;
   hasActiveFilters: boolean;
+  showApplyButton?: boolean;
+  onApply?: () => void;
+  resultsCount?: number;
 }
 
 const FiltersContent: React.FC<FiltersContentProps> = ({
@@ -860,8 +893,11 @@ const FiltersContent: React.FC<FiltersContentProps> = ({
   employees,
   onClear,
   hasActiveFilters,
+  showApplyButton = false,
+  onApply,
+  resultsCount,
 }) => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   return (
     <div className="space-y-5">
       {/* Search */}
@@ -937,6 +973,25 @@ const FiltersContent: React.FC<FiltersContentProps> = ({
           {t('clear_filters')}
         </button>
       )}
+
+      {showApplyButton && onApply && (
+        <div className="pt-1 space-y-2">
+          <button
+            type="button"
+            onClick={onApply}
+            className="w-full py-3 text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 active:bg-slate-700 rounded-lg transition-colors"
+          >
+            {language === 'es' ? 'Aplicar y cerrar' : 'Apply and close'}
+          </button>
+          {typeof resultsCount === 'number' && (
+            <p className="text-[11px] font-medium text-slate-500 text-center">
+              {language === 'es'
+                ? `${resultsCount} ${resultsCount === 1 ? 'reserva encontrada' : 'reservas encontradas'}`
+                : `${resultsCount} ${resultsCount === 1 ? 'booking found' : 'bookings found'}`}
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 };
@@ -976,6 +1031,7 @@ export default function BookingsPage() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showFiltersDrawer, setShowFiltersDrawer] = useState(false);
   const [showCalendarDrawer, setShowCalendarDrawer] = useState(false);
+  const [lastFiltersDrawerCloseAt, setLastFiltersDrawerCloseAt] = useState(0);
 
   // Filters
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(() => {
@@ -1213,6 +1269,18 @@ export default function BookingsPage() {
     setSearchTerm('');
   };
 
+  const openFiltersDrawer = () => {
+    // Prevent immediate reopen when closing from the top-right button
+    // on mobile devices where taps can bleed through to underlying elements.
+    if (Date.now() - lastFiltersDrawerCloseAt < 250) return;
+    setShowFiltersDrawer(true);
+  };
+
+  const closeFiltersDrawer = () => {
+    setShowFiltersDrawer(false);
+    setLastFiltersDrawerCloseAt(Date.now());
+  };
+
   const detailHrefForBooking = useCallback(
     (bookingId: string) => {
       const query = searchParams.toString();
@@ -1293,7 +1361,7 @@ export default function BookingsPage() {
                 <CalendarDays className="w-5 h-5 text-slate-600" />
               </button>
               <button
-                onClick={() => setShowFiltersDrawer(true)}
+                onClick={openFiltersDrawer}
                 className={cn(
                   'p-2.5 rounded-lg relative',
                   hasActiveFilters ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600'
@@ -1675,7 +1743,7 @@ export default function BookingsPage() {
       {/* Mobile Filters Drawer */}
       <Drawer
         isOpen={showFiltersDrawer}
-        onClose={() => setShowFiltersDrawer(false)}
+        onClose={closeFiltersDrawer}
         title={t('filters')}
       >
         <FiltersContent
@@ -1688,6 +1756,9 @@ export default function BookingsPage() {
           employees={employees}
           onClear={clearFilters}
           hasActiveFilters={hasActiveFilters}
+          showApplyButton
+          onApply={closeFiltersDrawer}
+          resultsCount={filteredBookings.length}
         />
       </Drawer>
 
