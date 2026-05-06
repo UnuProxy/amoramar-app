@@ -43,6 +43,30 @@ const MANUAL_REVENUE_SUGGESTIONS = [
   'Voucher Sale',
 ];
 
+const MANUAL_REVENUE_CATEGORIES: { value: string; label: { en: string; es: string }; icon: string }[] = [
+  { value: 'service', label: { en: 'Service', es: 'Servicio' }, icon: '💇' },
+  { value: 'retail', label: { en: 'Retail', es: 'Retail' }, icon: '🛍️' },
+  { value: 'voucher', label: { en: 'Voucher', es: 'Bono' }, icon: '🎟️' },
+  { value: 'package', label: { en: 'Package', es: 'Paquete' }, icon: '📦' },
+  { value: 'other', label: { en: 'Other', es: 'Otros' }, icon: '📌' },
+];
+
+const normalizeCategoryValue = (value: string, fallback = 'other') => {
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : fallback;
+};
+
+const categoryKey = (value: string) => value.trim().toLowerCase();
+
+const formatCategoryLabel = (value: string) => {
+  return value
+    .trim()
+    .split(/[\s_-]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+};
+
 export default function FinancialDashboard() {
   const { language } = useLanguage();
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -58,7 +82,9 @@ export default function FinancialDashboard() {
   const [expenseStartDateFilter, setExpenseStartDateFilter] = useState('');
   const [expenseEndDateFilter, setExpenseEndDateFilter] = useState('');
   const [expensePage, setExpensePage] = useState(1);
-  const [expensePageSize, setExpensePageSize] = useState(50);
+  const [expensePageSize, setExpensePageSize] = useState(25);
+  const [expensePageInput, setExpensePageInput] = useState('1');
+  const [selectedExpenseSummaryCategory, setSelectedExpenseSummaryCategory] = useState<string | null>(null);
   const [showAddExpense, setShowAddExpense] = useState(false);
   const [showAddRevenue, setShowAddRevenue] = useState(false);
   const [expenseReceiptFile, setExpenseReceiptFile] = useState<File | null>(null);
@@ -96,11 +122,13 @@ export default function FinancialDashboard() {
 
   const [newManualRevenue, setNewManualRevenue] = useState<{
     serviceName: string;
+    category: string;
     amount: string;
     date: string;
     notes: string;
   }>({
     serviceName: '',
+    category: 'other',
     amount: '',
     date: new Date().toISOString().split('T')[0],
     notes: '',
@@ -121,6 +149,8 @@ export default function FinancialDashboard() {
           bookings: 'RESERVAS',
           totalExpenses: 'Gastos totales',
           transactions: 'TRANSACCIONES',
+          transactionSingular: 'transaccion',
+          transactionsLower: 'transacciones',
           netProfit: 'Beneficio neto',
           finalResult: 'RESULTADO FINAL',
           margin: 'Margen %',
@@ -146,6 +176,7 @@ export default function FinancialDashboard() {
           manualRevenueHelp: 'Servicios cobrados fuera del sistema de reservas.',
           manualRevenueEntries: 'ingresos manuales',
           revenueServiceName: 'Servicio / Concepto',
+          incomeCategory: 'Categoria de ingreso',
           revenueDate: 'Fecha',
           revenueNotes: 'Notas',
           newRevenue: 'Nuevo ingreso',
@@ -154,7 +185,8 @@ export default function FinancialDashboard() {
           errorAddingRevenue: 'Error al anadir el ingreso.',
           confirmDeleteRevenue: 'Estas seguro de que quieres eliminar este ingreso?',
           placeholderRevenueConcept: 'SERVICIO EXTERNO, BONO, VENTA...',
-          expand: 'Expandir',
+          placeholderCategory: 'ESCRIBE O ELIGE CATEGORIA',
+          expand: 'Ver mas',
           collapse: 'Ver menos',
           expensesWord: 'GASTOS',
           dateVendor: 'Fecha / Proveedor',
@@ -165,6 +197,11 @@ export default function FinancialDashboard() {
           searchExpenses: 'Buscar gasto',
           searchExpensesPlaceholder: 'Buscar por concepto, proveedor o nota',
           allCategories: 'Todas las categorias',
+          totalsBySubcategory: 'Totales por subcategoria',
+          filteredExpensesTotal: 'Total filtrado',
+          noSubcategory: 'Sin subcategoria',
+          openBreakdown: 'Ver detalle',
+          backToCategories: 'Volver a categorias',
           fromDate: 'Desde',
           toDate: 'Hasta',
           matchingExpenses: 'gastos encontrados',
@@ -172,6 +209,9 @@ export default function FinancialDashboard() {
           showing: 'Mostrando',
           of: 'de',
           page: 'Pagina',
+          first: 'Primera',
+          last: 'Ultima',
+          goToPage: 'Ir a pagina',
           previous: 'Anterior',
           next: 'Siguiente',
           perPage: 'por pagina',
@@ -216,6 +256,8 @@ export default function FinancialDashboard() {
           bookings: 'BOOKINGS',
           totalExpenses: 'Total Expenses',
           transactions: 'TRANSACTIONS',
+          transactionSingular: 'transaction',
+          transactionsLower: 'transactions',
           netProfit: 'Net Profit',
           finalResult: 'FINAL RESULT',
           margin: 'Margin %',
@@ -241,6 +283,7 @@ export default function FinancialDashboard() {
           manualRevenueHelp: 'Services charged outside the booking system.',
           manualRevenueEntries: 'manual revenue entries',
           revenueServiceName: 'Service / Concept',
+          incomeCategory: 'Income Category',
           revenueDate: 'Date',
           revenueNotes: 'Notes',
           newRevenue: 'New revenue',
@@ -249,7 +292,8 @@ export default function FinancialDashboard() {
           errorAddingRevenue: 'Error adding revenue.',
           confirmDeleteRevenue: 'Are you sure you want to delete this revenue entry?',
           placeholderRevenueConcept: 'EXTERNAL SERVICE, PACKAGE, SALE...',
-          expand: 'Expand',
+          placeholderCategory: 'TYPE OR PICK CATEGORY',
+          expand: 'See more',
           collapse: 'Show less',
           expensesWord: 'EXPENSES',
           dateVendor: 'Date / Vendor',
@@ -260,6 +304,11 @@ export default function FinancialDashboard() {
           searchExpenses: 'Search expenses',
           searchExpensesPlaceholder: 'Search by concept, vendor, or note',
           allCategories: 'All categories',
+          totalsBySubcategory: 'Totals by subcategory',
+          filteredExpensesTotal: 'Filtered total',
+          noSubcategory: 'No subcategory',
+          openBreakdown: 'Open breakdown',
+          backToCategories: 'Back to categories',
           fromDate: 'From',
           toDate: 'To',
           matchingExpenses: 'matching expenses',
@@ -267,6 +316,9 @@ export default function FinancialDashboard() {
           showing: 'Showing',
           of: 'of',
           page: 'Page',
+          first: 'First',
+          last: 'Last',
+          goToPage: 'Go to page',
           previous: 'Previous',
           next: 'Next',
           perPage: 'per page',
@@ -299,7 +351,7 @@ export default function FinancialDashboard() {
           savingExpense: 'Saving...',
         };
 
-  const expenseCategories = useMemo(
+  const defaultExpenseCategoryOptions = useMemo(
     () =>
       EXPENSE_CATEGORIES.map((category) => ({
         value: category.value,
@@ -308,6 +360,54 @@ export default function FinancialDashboard() {
       })),
     [language]
   );
+
+  const expenseCategoryOptions = useMemo(() => {
+    const options = [...defaultExpenseCategoryOptions];
+    const seen = new Set(options.map((option) => categoryKey(option.value)));
+    const categoryValues = new Set<string>([
+      ...expenses.map((expense) => normalizeCategoryValue(String(expense.category || 'other'))),
+      normalizeCategoryValue(String(newExpense.category || 'other')),
+    ]);
+
+    categoryValues.forEach((value) => {
+      const key = categoryKey(value);
+      if (!key || seen.has(key)) return;
+      seen.add(key);
+      options.push({
+        value,
+        icon: '🏷️',
+        label: formatCategoryLabel(value),
+      });
+    });
+
+    return options;
+  }, [defaultExpenseCategoryOptions, expenses, newExpense.category]);
+
+  const manualRevenueCategoryOptions = useMemo(() => {
+    const options = MANUAL_REVENUE_CATEGORIES.map((category) => ({
+      value: category.value,
+      icon: category.icon,
+      label: category.label[language],
+    }));
+    const seen = new Set(options.map((option) => categoryKey(option.value)));
+    const categoryValues = new Set<string>([
+      ...manualRevenues.map((item) => normalizeCategoryValue(String(item.category || 'other'))),
+      normalizeCategoryValue(String(newManualRevenue.category || 'other')),
+    ]);
+
+    categoryValues.forEach((value) => {
+      const key = categoryKey(value);
+      if (!key || seen.has(key)) return;
+      seen.add(key);
+      options.push({
+        value,
+        icon: '🏷️',
+        label: formatCategoryLabel(value),
+      });
+    });
+
+    return options;
+  }, [language, manualRevenues, newManualRevenue.category]);
 
   useEffect(() => {
     loadData();
@@ -458,7 +558,10 @@ export default function FinancialDashboard() {
         return false;
       }
 
-      if (expenseCategoryFilter !== 'all' && expense.category !== expenseCategoryFilter) {
+      if (
+        expenseCategoryFilter !== 'all' &&
+        categoryKey(String(expense.category || 'other')) !== categoryKey(String(expenseCategoryFilter))
+      ) {
         return false;
       }
 
@@ -499,11 +602,115 @@ export default function FinancialDashboard() {
     };
   }, [manageableExpenses, expensePage, expensePageSize]);
 
+  const expenseTotalsByCategory = useMemo(() => {
+    const totals = new Map<
+      string,
+      { categoryValue: string; label: string; icon: string; total: number; count: number }
+    >();
+
+    manageableExpenses.forEach((expense) => {
+      const categoryValue = normalizeCategoryValue(String(expense.category || 'other'));
+      const categoryOption = expenseCategoryOptions.find(
+        (option) => categoryKey(option.value) === categoryKey(categoryValue)
+      );
+      const mapKey = categoryKey(categoryValue);
+      const current = totals.get(mapKey) || {
+        categoryValue,
+        label: categoryOption?.label || formatCategoryLabel(categoryValue),
+        icon: categoryOption?.icon || '🏷️',
+        total: 0,
+        count: 0,
+      };
+      current.total += expense.amount;
+      current.count += 1;
+      totals.set(mapKey, current);
+    });
+
+    return Array.from(totals.values()).sort((a, b) => b.total - a.total);
+  }, [manageableExpenses, expenseCategoryOptions]);
+
+  const selectedExpenseSummaryCategoryMeta = useMemo(() => {
+    if (!selectedExpenseSummaryCategory) return null;
+    return (
+      expenseTotalsByCategory.find(
+        (item) => categoryKey(item.categoryValue) === categoryKey(selectedExpenseSummaryCategory)
+      ) || null
+    );
+  }, [expenseTotalsByCategory, selectedExpenseSummaryCategory]);
+
+  const visibleExpenseTotalsBySubcategory = useMemo(() => {
+    const totals = new Map<string, { label: string; total: number; count: number }>();
+
+    manageableExpenses.forEach((expense) => {
+      const categoryValue = normalizeCategoryValue(String(expense.category || 'other'));
+      if (
+        selectedExpenseSummaryCategory &&
+        categoryKey(categoryValue) !== categoryKey(selectedExpenseSummaryCategory)
+      ) {
+        return;
+      }
+
+      const rawSubcategory = normalizeCategoryValue(
+        String(expense.name || expense.description || copy.noSubcategory),
+        copy.noSubcategory
+      );
+      const subcategoryLabel = formatCategoryLabel(rawSubcategory);
+      const subcategoryKey = subcategoryLabel.toLowerCase();
+
+      const current = totals.get(subcategoryKey) || {
+        label: subcategoryLabel,
+        total: 0,
+        count: 0,
+      };
+      current.total += expense.amount;
+      current.count += 1;
+      totals.set(subcategoryKey, current);
+    });
+
+    return Array.from(totals.values()).sort((a, b) => b.total - a.total);
+  }, [manageableExpenses, selectedExpenseSummaryCategory, copy.noSubcategory]);
+
+  const filteredExpensesTotal = useMemo(
+    () => manageableExpenses.reduce((sum, expense) => sum + expense.amount, 0),
+    [manageableExpenses]
+  );
+
+  useEffect(() => {
+    if (!selectedExpenseSummaryCategory) return;
+    const existsInCurrentFilters = expenseTotalsByCategory.some(
+      (item) => categoryKey(item.categoryValue) === categoryKey(selectedExpenseSummaryCategory)
+    );
+    if (!existsInCurrentFilters) {
+      setSelectedExpenseSummaryCategory(null);
+    }
+  }, [expenseTotalsByCategory, selectedExpenseSummaryCategory]);
+
   useEffect(() => {
     if (expensePage !== expensePagination.currentPage) {
       setExpensePage(expensePagination.currentPage);
     }
   }, [expensePage, expensePagination.currentPage]);
+
+  useEffect(() => {
+    setExpensePageInput(String(expensePagination.currentPage));
+  }, [expensePagination.currentPage]);
+
+  const goToExpensePage = useCallback(
+    (nextPage: number) => {
+      const clampedPage = Math.min(expensePagination.totalPages, Math.max(1, nextPage));
+      setExpensePage(clampedPage);
+    },
+    [expensePagination.totalPages]
+  );
+
+  const applyExpensePageInput = useCallback(() => {
+    const parsed = Number(expensePageInput);
+    if (!Number.isFinite(parsed)) {
+      setExpensePageInput(String(expensePagination.currentPage));
+      return;
+    }
+    goToExpensePage(Math.trunc(parsed));
+  }, [expensePageInput, expensePagination.currentPage, goToExpensePage]);
 
   // Month-specific window for therapist payouts
   const { payoutStartDate, payoutEndDate } = useMemo(() => {
@@ -550,18 +757,6 @@ export default function FinancialDashboard() {
 
     const netProfit = totalRevenue - totalExpenses;
     const profitMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
-
-    // Group expenses by category
-    const expensesByCategory = expenseCategories.map((cat) => {
-      const categoryExpenses = filteredExpenses.filter((e) => e.category === cat.value);
-      const total = categoryExpenses.reduce((sum, e) => sum + e.amount, 0);
-      return {
-        ...cat,
-        total,
-        count: categoryExpenses.length,
-        percentage: totalExpenses > 0 ? (total / totalExpenses) * 100 : 0,
-      };
-    }).filter((cat) => cat.total > 0).sort((a, b) => b.total - a.total);
 
     // Revenue by Service
     const revenueByService = services
@@ -653,13 +848,12 @@ export default function FinancialDashboard() {
       totalExpenses,
       netProfit,
       profitMargin,
-      expensesByCategory,
       revenueByService,
       revenueByEmployee,
       payoutByEmployee,
       payoutTotalRevenue,
     };
-  }, [filteredBookings, filteredExpenses, filteredManualRevenues, services, employees, payoutBookings, expenseCategories, getBookingAmount, copy.bookings, copy.manualRevenueEntries, copy.serviceFallback]);
+  }, [filteredBookings, filteredExpenses, filteredManualRevenues, services, employees, payoutBookings, getBookingAmount, copy.bookings, copy.manualRevenueEntries, copy.serviceFallback]);
 
   const getOwnerAuthHeaders = async () => {
     const token = await auth?.currentUser?.getIdToken();
@@ -687,6 +881,7 @@ export default function FinancialDashboard() {
         headers,
         body: JSON.stringify({
           ...newManualRevenue,
+          category: normalizeCategoryValue(newManualRevenue.category),
           amount: parseFloat(newManualRevenue.amount),
         }),
       });
@@ -697,6 +892,7 @@ export default function FinancialDashboard() {
         setShowAddRevenue(false);
         setNewManualRevenue({
           serviceName: '',
+          category: 'other',
           amount: '',
           date: new Date().toISOString().split('T')[0],
           notes: '',
@@ -730,6 +926,7 @@ export default function FinancialDashboard() {
         headers,
         body: JSON.stringify({
           ...newExpense,
+          category: normalizeCategoryValue(String(newExpense.category || 'other')),
           amount: parseFloat(newExpense.amount),
           receiptUrl,
         }),
@@ -973,7 +1170,7 @@ export default function FinancialDashboard() {
 
                   return (
                     <div key={item.service.id} className="group">
-                      <div className="grid grid-cols-[auto,minmax(0,1fr)] lg:grid-cols-[auto,minmax(0,1fr),auto] items-start gap-x-4 gap-y-3 mb-4">
+                      <div className="mb-4 space-y-3 lg:space-y-0 lg:grid lg:grid-cols-[auto,minmax(0,1fr),auto] lg:items-start lg:gap-x-4 lg:gap-y-3">
                         <div className="flex items-start gap-4 min-w-0 lg:col-span-2">
                           <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-white font-black text-sm shadow-md">
                             {index + 1}
@@ -982,11 +1179,11 @@ export default function FinancialDashboard() {
                             <p
                               className="text-lg font-black text-slate-800 uppercase tracking-tighter leading-[1.05] break-words"
                               style={
-                                shouldShowToggle && !isExpanded
+                                !isExpanded
                                   ? {
                                       display: '-webkit-box',
                                       WebkitBoxOrient: 'vertical',
-                                      WebkitLineClamp: 4,
+                                      WebkitLineClamp: 3,
                                       overflow: 'hidden',
                                     }
                                   : undefined
@@ -994,11 +1191,18 @@ export default function FinancialDashboard() {
                             >
                               {item.service.serviceName}
                             </p>
+                            <button
+                              type="button"
+                              onClick={() => toggleRevenueItemExpansion(item.service.id)}
+                              className="mt-2 text-[10px] font-black uppercase tracking-[0.2em] text-sky-600 hover:text-sky-700 transition-colors sm:hidden"
+                            >
+                              {isExpanded ? copy.collapse : copy.expand}
+                            </button>
                             {shouldShowToggle && (
                               <button
                                 type="button"
                                 onClick={() => toggleRevenueItemExpansion(item.service.id)}
-                                className="mt-2 text-[10px] font-black uppercase tracking-[0.2em] text-sky-600 hover:text-sky-700 transition-colors"
+                                className="mt-2 text-[10px] font-black uppercase tracking-[0.2em] text-sky-600 hover:text-sky-700 transition-colors hidden sm:inline-flex"
                               >
                                 {isExpanded ? copy.collapse : copy.expand}
                               </button>
@@ -1006,7 +1210,7 @@ export default function FinancialDashboard() {
                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">{item.bookingsCount} {item.countLabel || copy.bookings}</p>
                           </div>
                         </div>
-                        <div className="text-right self-start whitespace-nowrap pl-2 col-start-2 justify-self-end lg:col-start-auto">
+                        <div className="text-right self-start whitespace-nowrap lg:pl-2">
                           <p className="text-base sm:text-lg xl:text-xl font-black text-sky-600 tabular-nums leading-none">{formatCurrency(item.revenue)}</p>
                           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">{item.percentage.toFixed(0)}{copy.ofTotal}</p>
                         </div>
@@ -1112,45 +1316,6 @@ export default function FinancialDashboard() {
         </div>
       </div>
 
-      {/* Expenses by Category */}
-      <div className="bg-white border border-slate-100 rounded-[48px] overflow-hidden shadow-sm">
-        <div className="px-10 py-8 border-b border-slate-100 bg-slate-50/30">
-          <h2 className="text-sm font-black text-slate-800 tracking-[0.3em] uppercase text-center">{copy.expenseBreakdown}</h2>
-        </div>
-        
-        <div className="p-10">
-          {financials.expensesByCategory.length === 0 ? (
-            <div className="text-center py-12 text-slate-300 font-bold uppercase tracking-widest text-xs">{copy.noExpenses}</div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-8">
-              {financials.expensesByCategory.map((cat) => (
-                <div key={cat.value} className="group">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-4">
-                      <span className="text-2xl grayscale group-hover:grayscale-0 transition-all">{cat.icon}</span>
-                      <div>
-                        <p className="text-lg font-black text-slate-800 uppercase tracking-tighter leading-none">{cat.label}</p>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">{cat.count} {copy.invoices}</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-xl font-black text-slate-800 tabular-nums leading-none">{formatCurrency(cat.total)}</p>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">{cat.percentage.toFixed(0)}%</p>
-                    </div>
-                  </div>
-                  <div className="w-full bg-slate-100 rounded-full h-1 overflow-hidden">
-                    <div
-                      className="h-full bg-amber-500 rounded-full transition-all duration-1000"
-                      style={{ width: `${cat.percentage}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
       <div className="bg-white border border-slate-100 rounded-[48px] overflow-hidden shadow-sm">
         <div className="px-10 py-8 border-b border-slate-100 bg-slate-50/30 space-y-2">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -1167,6 +1332,7 @@ export default function FinancialDashboard() {
               <tr className="bg-slate-50/50">
                 <th className="px-10 py-6 text-left text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">{copy.revenueDate}</th>
                 <th className="px-10 py-6 text-left text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">{copy.revenueServiceName}</th>
+                <th className="px-10 py-6 text-left text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">{copy.incomeCategory}</th>
                 <th className="px-10 py-6 text-left text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">{copy.revenueNotes}</th>
                 <th className="px-10 py-6 text-right text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">{copy.amount}</th>
                 <th className="px-10 py-6 text-right text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">{copy.action}</th>
@@ -1175,7 +1341,7 @@ export default function FinancialDashboard() {
             <tbody className="divide-y divide-slate-100">
               {filteredManualRevenues.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-10 py-12 text-center text-sm font-semibold text-slate-400">
+                  <td colSpan={6} className="px-10 py-12 text-center text-sm font-semibold text-slate-400">
                     {copy.noManualRevenue}
                   </td>
                 </tr>
@@ -1188,6 +1354,19 @@ export default function FinancialDashboard() {
                   </td>
                   <td className="px-10 py-8">
                     <div className="text-sm font-bold text-slate-700 uppercase tracking-widest">{item.serviceName}</div>
+                  </td>
+                  <td className="px-10 py-8">
+                    {(() => {
+                      const categoryValue = normalizeCategoryValue(String(item.category || 'other'));
+                      const category = manualRevenueCategoryOptions.find(
+                        (option) => categoryKey(option.value) === categoryKey(categoryValue)
+                      );
+                      return (
+                        <span className="px-4 py-2 rounded-2xl bg-slate-100 text-slate-500 text-[10px] font-black uppercase tracking-[0.2em]">
+                          {category?.label || formatCategoryLabel(categoryValue)}
+                        </span>
+                      );
+                    })()}
                   </td>
                   <td className="px-10 py-8 text-sm text-slate-500">{item.notes || '—'}</td>
                   <td className="px-10 py-8 text-right">
@@ -1207,6 +1386,31 @@ export default function FinancialDashboard() {
               ))}
             </tbody>
           </table>
+          {expensePagination.totalPages > 1 && (
+            <div className="border-t border-slate-100 px-6 sm:px-10 py-4 bg-white">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+                  {copy.page} {expensePagination.currentPage} / {expensePagination.totalPages}
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={() => goToExpensePage(expensePagination.currentPage - 1)}
+                    disabled={expensePagination.currentPage === 1}
+                    className="rounded-xl border border-slate-200 px-4 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-slate-600 transition-all hover:border-slate-400 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {copy.previous}
+                  </button>
+                  <button
+                    onClick={() => goToExpensePage(expensePagination.currentPage + 1)}
+                    disabled={expensePagination.currentPage === expensePagination.totalPages}
+                    className="rounded-xl border border-slate-200 px-4 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-slate-600 transition-all hover:border-slate-400 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {copy.next}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -1234,7 +1438,7 @@ export default function FinancialDashboard() {
               className="rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 outline-none transition-all focus:border-sky-400"
             >
               <option value="all">{copy.allCategories}</option>
-              {expenseCategories.map((category) => (
+              {expenseCategoryOptions.map((category) => (
                 <option key={category.value} value={category.value}>
                   {category.label}
                 </option>
@@ -1257,13 +1461,101 @@ export default function FinancialDashboard() {
           </div>
         </div>
         <div className="overflow-x-auto">
+          <div className="border-b border-slate-100 px-6 sm:px-10 py-5 space-y-4 bg-white">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">
+                {copy.totalsBySubcategory}
+              </p>
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-500">
+                {copy.filteredExpensesTotal}: {formatCurrency(filteredExpensesTotal)}
+              </p>
+            </div>
+            {expenseTotalsByCategory.length === 0 ? (
+              <p className="text-sm font-semibold text-slate-400">{copy.noMatchingExpenses}</p>
+            ) : (
+              <div className="space-y-4">
+                {selectedExpenseSummaryCategoryMeta && (
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedExpenseSummaryCategory(null)}
+                      className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-slate-600 transition-all hover:border-slate-400"
+                    >
+                      {copy.backToCategories}
+                    </button>
+                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">
+                      {selectedExpenseSummaryCategoryMeta.label}
+                    </p>
+                  </div>
+                )}
+
+                {!selectedExpenseSummaryCategoryMeta && (
+                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                    {expenseTotalsByCategory.map((item) => (
+                      <button
+                        key={item.categoryValue}
+                        type="button"
+                        onClick={() => setSelectedExpenseSummaryCategory(item.categoryValue)}
+                        className="rounded-2xl border border-slate-100 bg-slate-50/70 px-4 py-3 text-left transition-all hover:border-slate-300 hover:bg-slate-50"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-700 break-words">
+                            {item.label}
+                          </p>
+                          <span className="text-base">{item.icon}</span>
+                        </div>
+                        <div className="mt-2 flex items-end justify-between gap-2">
+                          <p className="text-lg font-black text-slate-900 tabular-nums">
+                            {formatCurrency(item.total)}
+                          </p>
+                          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+                            {item.count} {item.count === 1 ? copy.transactionSingular : copy.transactionsLower}
+                          </p>
+                        </div>
+                        <p className="mt-2 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+                          {copy.openBreakdown}
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {selectedExpenseSummaryCategoryMeta && (
+                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                    {visibleExpenseTotalsBySubcategory.map((item) => (
+                      <div
+                        key={`${selectedExpenseSummaryCategoryMeta.categoryValue}-${item.label}`}
+                        className="rounded-2xl border border-slate-100 bg-slate-50/70 px-4 py-3"
+                      >
+                        <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-700 break-words">
+                          {item.label}
+                        </p>
+                        <div className="mt-2 flex items-end justify-between gap-2">
+                          <p className="text-lg font-black text-slate-900 tabular-nums">
+                            {formatCurrency(item.total)}
+                          </p>
+                          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+                            {item.count} {item.count === 1 ? copy.transactionSingular : copy.transactionsLower}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {selectedExpenseSummaryCategoryMeta && visibleExpenseTotalsBySubcategory.length === 0 && (
+                  <p className="text-sm font-semibold text-slate-400">{copy.noMatchingExpenses}</p>
+                )}
+              </div>
+            )}
+          </div>
           <div className="flex flex-col gap-4 border-b border-slate-100 px-6 sm:px-10 py-5 sm:flex-row sm:items-center sm:justify-between">
             <div className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">
               {expensePagination.totalItems === 0
                 ? `${copy.showing} 0 ${copy.of} 0`
                 : `${copy.showing} ${expensePagination.startIndex + 1}-${expensePagination.endIndex} ${copy.of} ${expensePagination.totalItems}`}
             </div>
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
               <label className="flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
                 <span>{copy.perPage}</span>
                 <select
@@ -1271,14 +1563,21 @@ export default function FinancialDashboard() {
                   onChange={(event) => setExpensePageSize(Number(event.target.value))}
                   className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 outline-none transition-all focus:border-sky-400"
                 >
-                  {[25, 50, 100, 250].map((size) => (
+                  {[10, 25, 50, 100].map((size) => (
                     <option key={size} value={size}>{size}</option>
                   ))}
                 </select>
               </label>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <button
-                  onClick={() => setExpensePage((prev) => Math.max(1, prev - 1))}
+                  onClick={() => goToExpensePage(1)}
+                  disabled={expensePagination.currentPage === 1}
+                  className="rounded-xl border border-slate-200 px-3 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-slate-600 transition-all hover:border-slate-400 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {copy.first}
+                </button>
+                <button
+                  onClick={() => goToExpensePage(expensePagination.currentPage - 1)}
                   disabled={expensePagination.currentPage === 1}
                   className="rounded-xl border border-slate-200 px-4 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-slate-600 transition-all hover:border-slate-400 disabled:cursor-not-allowed disabled:opacity-40"
                 >
@@ -1288,11 +1587,41 @@ export default function FinancialDashboard() {
                   {copy.page} {expensePagination.currentPage} / {expensePagination.totalPages}
                 </div>
                 <button
-                  onClick={() => setExpensePage((prev) => Math.min(expensePagination.totalPages, prev + 1))}
+                  onClick={() => goToExpensePage(expensePagination.currentPage + 1)}
                   disabled={expensePagination.currentPage === expensePagination.totalPages}
                   className="rounded-xl border border-slate-200 px-4 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-slate-600 transition-all hover:border-slate-400 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {copy.next}
+                </button>
+                <button
+                  onClick={() => goToExpensePage(expensePagination.totalPages)}
+                  disabled={expensePagination.currentPage === expensePagination.totalPages}
+                  className="rounded-xl border border-slate-200 px-3 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-slate-600 transition-all hover:border-slate-400 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {copy.last}
+                </button>
+              </div>
+              <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+                <span>{copy.goToPage}</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={expensePagination.totalPages}
+                  value={expensePageInput}
+                  onChange={(event) => setExpensePageInput(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      applyExpensePageInput();
+                    }
+                  }}
+                  className="w-20 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 outline-none transition-all focus:border-sky-400"
+                />
+                <button
+                  type="button"
+                  onClick={applyExpensePageInput}
+                  className="rounded-xl border border-slate-200 px-3 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-slate-600 transition-all hover:border-slate-400"
+                >
+                  OK
                 </button>
               </div>
             </div>
@@ -1315,7 +1644,9 @@ export default function FinancialDashboard() {
                   </td>
                 </tr>
               ) : expensePagination.items.map((expense) => {
-                const category = expenseCategories.find((c) => c.value === expense.category);
+                const category = expenseCategoryOptions.find(
+                  (c) => categoryKey(c.value) === categoryKey(String(expense.category || 'other'))
+                );
                 return (
                   <tr key={expense.id} className="hover:bg-slate-50 transition-all group">
                     <td className="px-10 py-8">
@@ -1486,7 +1817,7 @@ export default function FinancialDashboard() {
             </div>
 
             <div className="p-6 sm:p-12 space-y-8 flex-1 min-h-0 overflow-y-auto">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 <div className="space-y-2">
                   <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">{copy.revenueServiceName}</label>
                   <input
@@ -1500,6 +1831,24 @@ export default function FinancialDashboard() {
                   <datalist id="manual-revenue-concepts">
                     {MANUAL_REVENUE_SUGGESTIONS.map((item) => (
                       <option key={item} value={item} />
+                    ))}
+                  </datalist>
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">{copy.incomeCategory}</label>
+                  <input
+                    type="text"
+                    value={newManualRevenue.category}
+                    onChange={(e) => setNewManualRevenue({ ...newManualRevenue, category: e.target.value })}
+                    list="manual-revenue-categories"
+                    className="w-full px-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-2xl text-slate-800 font-bold focus:border-sky-500 transition-all outline-none uppercase"
+                    placeholder={copy.placeholderCategory}
+                  />
+                  <datalist id="manual-revenue-categories">
+                    {manualRevenueCategoryOptions.map((item) => (
+                      <option key={item.value} value={item.value}>
+                        {item.label}
+                      </option>
                     ))}
                   </datalist>
                 </div>
@@ -1558,11 +1907,11 @@ export default function FinancialDashboard() {
 
       {/* Add Expense Modal - Clean & Focused */}
       {showAddExpense && (
-        <div className="fixed inset-0 z-[100] flex items-start sm:items-center justify-center bg-slate-800/90 backdrop-blur-xl p-4">
-          <div className="w-full max-w-2xl bg-white rounded-[32px] sm:rounded-[40px] shadow-2xl overflow-hidden border-2 border-white/20 max-h-[90vh] flex flex-col">
-            <div className="px-6 sm:px-12 py-6 sm:py-10 flex items-center justify-between border-b border-slate-100">
-              <div>
-                <h2 className="text-3xl font-black text-slate-800 tracking-tighter uppercase">{copy.newExpense}</h2>
+        <div className="fixed inset-0 z-[100] flex items-start sm:items-center justify-center bg-slate-800/90 backdrop-blur-xl p-3 sm:p-4">
+          <div className="w-full max-w-2xl bg-white rounded-[28px] sm:rounded-[40px] shadow-2xl overflow-hidden border-2 border-white/20 max-h-[calc(100dvh-1.5rem)] sm:max-h-[90vh] flex flex-col overflow-x-hidden">
+            <div className="px-4 sm:px-12 py-5 sm:py-10 flex items-center justify-between gap-4 border-b border-slate-100">
+              <div className="min-w-0">
+                <h2 className="text-2xl sm:text-3xl font-black text-slate-800 tracking-tighter uppercase break-words">{copy.newExpense}</h2>
                 <p className="text-slate-500 font-bold uppercase tracking-widest text-xs mt-1">{copy.salonOperations}</p>
               </div>
               <button
@@ -1570,7 +1919,7 @@ export default function FinancialDashboard() {
                   setShowAddExpense(false);
                   setExpenseReceiptFile(null);
                 }}
-                className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 hover:bg-slate-800 hover:text-white transition-all flex items-center justify-center"
+                className="w-11 h-11 sm:w-12 sm:h-12 shrink-0 rounded-2xl bg-slate-100 text-slate-400 hover:bg-slate-800 hover:text-white transition-all flex items-center justify-center"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
@@ -1578,8 +1927,8 @@ export default function FinancialDashboard() {
               </button>
             </div>
 
-            <div className="p-6 sm:p-12 space-y-8 flex-1 min-h-0 overflow-y-auto">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="p-4 sm:p-12 space-y-6 sm:space-y-8 flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8">
                 <div className="space-y-2">
                   <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">{copy.concept}</label>
                   <input
@@ -1587,7 +1936,7 @@ export default function FinancialDashboard() {
                     value={newExpense.name}
                     onChange={(e) => setNewExpense({ ...newExpense, name: e.target.value })}
                     list="expense-concepts"
-                    className="w-full px-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-2xl text-slate-800 font-bold focus:border-rose-500 transition-all outline-none"
+                    className="w-full px-4 sm:px-6 py-4 sm:py-5 bg-slate-50 border-2 border-slate-100 rounded-2xl text-slate-800 font-bold focus:border-rose-500 transition-all outline-none"
                     placeholder={copy.placeholderConcept}
                   />
                   <datalist id="expense-concepts">
@@ -1598,26 +1947,32 @@ export default function FinancialDashboard() {
                 </div>
                 <div className="space-y-2">
                   <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">{copy.category}</label>
-                  <select
+                  <input
+                    type="text"
                     value={newExpense.category}
                     onChange={(e) => setNewExpense({ ...newExpense, category: e.target.value as ExpenseCategory })}
-                    className="w-full px-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-2xl text-slate-800 font-black focus:border-rose-500 transition-all outline-none appearance-none"
-                  >
-                    {expenseCategories.map((cat) => (
-                      <option key={cat.value} value={cat.value}>{cat.icon} {cat.label.toUpperCase()}</option>
+                    list="expense-categories"
+                    className="w-full px-4 sm:px-6 py-4 sm:py-5 bg-slate-50 border-2 border-slate-100 rounded-2xl text-slate-800 font-black focus:border-rose-500 transition-all outline-none uppercase"
+                    placeholder={copy.placeholderCategory}
+                  />
+                  <datalist id="expense-categories">
+                    {expenseCategoryOptions.map((cat) => (
+                      <option key={cat.value} value={cat.value}>
+                        {cat.label}
+                      </option>
                     ))}
-                  </select>
+                  </datalist>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8">
                 <div className="space-y-2">
                   <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">{copy.amountEuro}</label>
                   <input
                     type="number"
                     value={newExpense.amount}
                     onChange={(e) => setNewExpense({ ...newExpense, amount: e.target.value })}
-                    className="w-full px-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-2xl text-slate-800 font-bold focus:border-rose-500 transition-all outline-none"
+                    className="w-full px-4 sm:px-6 py-4 sm:py-5 bg-slate-50 border-2 border-slate-100 rounded-2xl text-slate-800 font-bold focus:border-rose-500 transition-all outline-none"
                     placeholder="0.00"
                   />
                 </div>
@@ -1627,7 +1982,7 @@ export default function FinancialDashboard() {
                     type="date"
                     value={newExpense.date}
                     onChange={(e) => setNewExpense({ ...newExpense, date: e.target.value })}
-                    className="w-full px-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-2xl text-slate-800 font-bold focus:border-rose-500 transition-all outline-none"
+                    className="w-full px-4 sm:px-6 py-4 sm:py-5 bg-slate-50 border-2 border-slate-100 rounded-2xl text-slate-800 font-bold focus:border-rose-500 transition-all outline-none"
                   />
                 </div>
               </div>
@@ -1638,13 +1993,13 @@ export default function FinancialDashboard() {
                   type="text"
                   value={newExpense.vendor}
                   onChange={(e) => setNewExpense({ ...newExpense, vendor: e.target.value })}
-                  className="w-full px-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-2xl text-slate-800 font-bold focus:border-rose-500 transition-all outline-none"
+                  className="w-full px-4 sm:px-6 py-4 sm:py-5 bg-slate-50 border-2 border-slate-100 rounded-2xl text-slate-800 font-bold focus:border-rose-500 transition-all outline-none"
                   placeholder="NOMBRE DEL PROVEEDOR"
                 />
               </div>
               <div className="space-y-3">
                 <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">{copy.receiptOptional}</label>
-                <div className="rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 p-5">
+                <div className="rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 p-4 sm:p-5">
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div className="min-w-0">
                       <p className="text-sm font-bold text-slate-700 break-all">
@@ -1652,8 +2007,8 @@ export default function FinancialDashboard() {
                       </p>
                       <p className="mt-1 text-xs font-medium text-slate-400">JPG, PNG o PDF. Max 10MB.</p>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <label className="cursor-pointer rounded-xl bg-white px-4 py-3 text-[10px] font-black uppercase tracking-[0.2em] text-slate-700 shadow-sm ring-1 ring-slate-200 transition-all hover:ring-slate-400">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <label className="cursor-pointer rounded-xl bg-white px-4 py-3 text-[10px] font-black uppercase tracking-[0.12em] sm:tracking-[0.2em] text-slate-700 shadow-sm ring-1 ring-slate-200 transition-all hover:ring-slate-400">
                         {expenseReceiptFile ? copy.changeReceipt : copy.uploadReceipt}
                         <input
                           type="file"
@@ -1666,7 +2021,7 @@ export default function FinancialDashboard() {
                         <button
                           type="button"
                           onClick={() => setExpenseReceiptFile(null)}
-                          className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 hover:text-slate-700"
+                          className="text-[10px] font-black uppercase tracking-[0.12em] sm:tracking-[0.2em] text-slate-400 hover:text-slate-700"
                         >
                           {copy.removeReceipt}
                         </button>
@@ -1677,20 +2032,20 @@ export default function FinancialDashboard() {
               </div>
             </div>
 
-            <div className="px-6 sm:px-12 py-6 sm:py-8 bg-slate-50 border-t border-slate-100 flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-4">
+            <div className="px-4 sm:px-12 py-5 sm:py-8 bg-slate-50 border-t border-slate-100 flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-3 sm:gap-4">
               <button
                 onClick={() => {
                   setShowAddExpense(false);
                   setExpenseReceiptFile(null);
                 }}
-                className="px-8 py-4 text-sm font-bold text-slate-400 uppercase tracking-widest hover:text-slate-800 transition-colors"
+                className="w-full sm:w-auto px-8 py-4 text-sm font-bold text-slate-400 uppercase tracking-widest hover:text-slate-800 transition-colors"
               >
                 {copy.cancel}
               </button>
               <button
                 onClick={handleAddExpense}
                 disabled={savingExpense}
-                className="px-12 py-4 text-sm font-black text-white bg-slate-800 rounded-2xl hover:bg-rose-600 hover:scale-[1.02] active:scale-[0.98] transition-all shadow-xl shadow-rose-200 uppercase tracking-[0.2em] disabled:opacity-60 disabled:hover:bg-slate-800 disabled:hover:scale-100"
+                className="w-full sm:w-auto px-8 sm:px-12 py-4 text-sm font-black text-white bg-slate-800 rounded-2xl hover:bg-rose-600 hover:scale-[1.02] active:scale-[0.98] transition-all shadow-xl shadow-rose-200 uppercase tracking-[0.12em] sm:tracking-[0.2em] disabled:opacity-60 disabled:hover:bg-slate-800 disabled:hover:scale-100"
               >
                 {savingExpense ? copy.savingExpense : copy.registerExpense}
               </button>
