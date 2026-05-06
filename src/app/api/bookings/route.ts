@@ -59,8 +59,10 @@ export async function POST(request: NextRequest) {
     const createdByRole = data.createdByRole ?? (allowUnpaid ? (isConsultation ? 'client' : 'employee') : 'client');
     const createdByName = data.createdByName ?? (createdByRole === 'client' ? data.clientName : undefined);
     const createdByUserId = data.createdByUserId;
+    const isStaffManagedBooking = createdByRole === 'owner' || createdByRole === 'employee';
+    const isOfflineStaffDeposit = isStaffManagedBooking && !allowUnpaid && !data.paymentIntentId;
 
-    if (!process.env.STRIPE_SECRET_KEY && !allowUnpaid) {
+    if (!process.env.STRIPE_SECRET_KEY && !allowUnpaid && !isOfflineStaffDeposit) {
       return NextResponse.json<ApiResponse<null>>(
         {
           success: false,
@@ -124,7 +126,7 @@ export async function POST(request: NextRequest) {
     const expectedDeposit = Math.round((servicePrice * 0.5) * 100);
 
     let depositAmount = expectedDeposit;
-    if (!allowUnpaid) {
+    if (!allowUnpaid && !isOfflineStaffDeposit) {
       if (!data.paymentIntentId) {
         return NextResponse.json<ApiResponse<null>>(
           {
@@ -178,6 +180,11 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         );
       }
+    } else if (!allowUnpaid && isOfflineStaffDeposit) {
+      // Staff can register cash/POS deposits without Stripe when payment is handled externally.
+      if (typeof data.depositAmount === 'number' && Number.isFinite(data.depositAmount) && data.depositAmount >= 0) {
+        depositAmount = Math.round(data.depositAmount);
+      }
     }
 
     // Create the booking
@@ -203,6 +210,8 @@ export async function POST(request: NextRequest) {
       depositPaid: isConsultation ? true : !allowUnpaid,
       paymentIntentId: data.paymentIntentId,
       paymentStatus: isConsultation ? 'paid' : (allowUnpaid ? 'pending' : 'deposit_paid'),
+      paymentNotes: data.paymentNotes || undefined,
+      finalPaymentMethod: !allowUnpaid ? data.finalPaymentMethod : undefined,
       isConsultation,
       consultationDuration: isConsultation ? data.consultationDuration : undefined,
     });
@@ -239,6 +248,8 @@ export async function POST(request: NextRequest) {
           depositPaid: isConsultation ? true : !allowUnpaid,
           paymentIntentId: data.paymentIntentId,
           paymentStatus: isConsultation ? 'paid' : (allowUnpaid ? 'pending' : 'deposit_paid'),
+          paymentNotes: data.paymentNotes || undefined,
+          finalPaymentMethod: !allowUnpaid ? data.finalPaymentMethod : undefined,
           isConsultation,
           consultationDuration: isConsultation ? data.consultationDuration : undefined,
           createdAt: new Date(),

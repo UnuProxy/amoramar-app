@@ -404,6 +404,9 @@ export interface BookingFormData {
   createdByUserId?: string;
   notes?: string;
   paymentIntentId?: string;
+  paymentNotes?: string;
+  finalPaymentMethod?: PaymentMethod;
+  depositAmount?: number; // Optional offline-recorded deposit amount in cents
   allowUnpaid?: boolean;
   isConsultation?: boolean;
   consultationDuration?: number;

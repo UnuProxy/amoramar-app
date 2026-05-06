@@ -560,6 +560,10 @@ export default function DashboardPage() {
     
     try {
       const noPaymentCollected = adjustedAmount === 0;
+      const depositAmountCents =
+        typeof adjustedAmount === 'number' && Number.isFinite(adjustedAmount)
+          ? Math.max(0, Math.round(adjustedAmount * 100))
+          : undefined;
       const createdByName = user?.firstName
         ? `${user.firstName} ${user.lastName || ''}`.trim()
         : user?.email || 'Admin';
@@ -577,6 +581,7 @@ export default function DashboardPage() {
           clientPhone: bookingForm.clientPhone,
           notes: bookingForm.notes || undefined,
           allowUnpaid: noPaymentCollected,
+          depositAmount: noPaymentCollected ? 0 : depositAmountCents,
           depositPaid: !noPaymentCollected,
           finalPaymentMethod: noPaymentCollected ? undefined : paymentMethod,
           paymentNotes: notes || undefined,

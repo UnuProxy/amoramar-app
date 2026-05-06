@@ -438,6 +438,10 @@ export default function EmployeeCalendarPage() {
     
     try {
       const noPaymentCollected = adjustedAmount === 0;
+      const depositAmountCents =
+        typeof adjustedAmount === 'number' && Number.isFinite(adjustedAmount)
+          ? Math.max(0, Math.round(adjustedAmount * 100))
+          : undefined;
       
       const res = await fetch('/api/bookings', {
         method: 'POST',
@@ -445,6 +449,7 @@ export default function EmployeeCalendarPage() {
         body: JSON.stringify({
           ...bookingForm,
           allowUnpaid: noPaymentCollected,
+          depositAmount: noPaymentCollected ? 0 : depositAmountCents,
           depositPaid: !noPaymentCollected,
           finalPaymentMethod: noPaymentCollected ? undefined : paymentMethod,
           paymentNotes: notes || undefined,
