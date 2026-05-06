@@ -1936,7 +1936,7 @@ export default function DashboardPage() {
       {bookingModalShouldRender && (
         <div
           className={cn(
-            'fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/90 backdrop-blur-xl p-4 transition-opacity duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]',
+            'fixed inset-0 z-[100] flex items-start sm:items-center justify-center bg-slate-900/90 backdrop-blur-xl p-3 sm:p-4 transition-opacity duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]',
             bookingModalOpen ? 'opacity-100' : 'opacity-0'
           )}
           role="dialog"
@@ -1944,18 +1944,18 @@ export default function DashboardPage() {
         >
           <div
             className={cn(
-              'relative w-full max-w-4xl bg-white rounded-[40px] shadow-2xl overflow-hidden border-2 border-white/20 transform transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]',
+              'relative w-full max-w-4xl bg-white rounded-[28px] sm:rounded-[40px] shadow-2xl overflow-hidden border-2 border-white/20 max-h-[calc(100dvh-1.5rem)] sm:max-h-[90vh] flex flex-col overflow-x-hidden transform transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]',
               bookingModalOpen ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-3 scale-[0.97]'
             )}
           >
-            <div className="px-12 py-10 flex items-center justify-between border-b border-slate-100">
-              <div>
-                <h2 className="text-3xl font-black text-slate-900 tracking-tighter uppercase">Create Booking</h2>
-                <p className="text-slate-500 font-bold uppercase tracking-widest text-xs mt-1">Manual Schedule</p>
+            <div className="px-4 sm:px-8 lg:px-12 py-5 sm:py-8 lg:py-10 flex items-center justify-between gap-4 border-b border-slate-100">
+              <div className="min-w-0">
+                <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tighter uppercase leading-tight">Create Booking</h2>
+                <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px] sm:text-xs mt-1">Manual Schedule</p>
               </div>
               <button
                 onClick={closeBookingModal}
-                className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 hover:bg-slate-900 hover:text-white transition-all flex items-center justify-center"
+                className="w-11 h-11 sm:w-12 sm:h-12 shrink-0 rounded-2xl bg-slate-100 text-slate-400 hover:bg-slate-900 hover:text-white transition-all flex items-center justify-center"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
@@ -1963,8 +1963,8 @@ export default function DashboardPage() {
               </button>
             </div>
 
-            <div className="p-12 space-y-8 max-h-[70vh] overflow-y-auto no-scrollbar">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="p-4 sm:p-8 lg:p-12 space-y-6 sm:space-y-8 flex-1 min-h-0 overflow-y-auto overflow-x-hidden no-scrollbar">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8">
                 <div className="space-y-2">
                   <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">Name</label>
                   <div className="relative">
@@ -1978,11 +1978,11 @@ export default function DashboardPage() {
                       }}
                       onFocus={() => setClientSuggestionsOpen(true)}
                       onBlur={() => setTimeout(() => setClientSuggestionsOpen(false), 120)}
-                      className="w-full px-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-2xl text-slate-900 font-bold focus:border-sky-500 transition-all outline-none"
+                      className="w-full px-4 sm:px-6 py-4 sm:py-5 bg-slate-50 border-2 border-slate-100 rounded-2xl text-slate-900 font-bold focus:border-sky-500 transition-all outline-none"
                       placeholder="CLIENTE"
                     />
                     {clientSuggestionsOpen && (
-                      <div className="absolute z-10 mt-2 w-full bg-white border-2 border-blue-200 rounded-2xl shadow-2xl overflow-hidden">
+                      <div className="absolute z-10 mt-2 w-full max-h-72 overflow-y-auto bg-white border-2 border-blue-200 rounded-2xl shadow-2xl overflow-x-hidden">
                         {clientMatches.length === 0 ? (
                           <div className="px-4 py-4 text-center">
                             <p className="text-sm font-bold text-slate-600">No clients found</p>
@@ -2036,7 +2036,7 @@ export default function DashboardPage() {
                     type="email"
                     value={bookingForm.clientEmail}
                     onChange={(e) => setBookingForm((prev) => ({ ...prev, clientEmail: e.target.value }))}
-                    className="w-full px-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-2xl text-slate-900 font-bold focus:border-sky-500 transition-all outline-none"
+                    className="w-full px-4 sm:px-6 py-4 sm:py-5 bg-slate-50 border-2 border-slate-100 rounded-2xl text-slate-900 font-bold focus:border-sky-500 transition-all outline-none"
                     placeholder="EMAIL"
                   />
                 </div>
@@ -2046,24 +2046,24 @@ export default function DashboardPage() {
                     type="tel"
                     value={bookingForm.clientPhone}
                     onChange={(e) => setBookingForm((prev) => ({ ...prev, clientPhone: e.target.value }))}
-                    className="w-full px-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-2xl text-slate-900 font-bold focus:border-sky-500 transition-all outline-none"
+                    className="w-full px-4 sm:px-6 py-4 sm:py-5 bg-slate-50 border-2 border-slate-100 rounded-2xl text-slate-900 font-bold focus:border-sky-500 transition-all outline-none"
                     placeholder="PHONE"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8">
                 <div className="space-y-2">
                   <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">Service</label>
                   <button
                     type="button"
                     onClick={openServicePicker}
-                    className="w-full px-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-2xl text-left text-slate-900 font-black hover:border-sky-300 focus:border-sky-500 transition-all outline-none"
+                    className="w-full px-4 sm:px-6 py-4 sm:py-5 bg-slate-50 border-2 border-slate-100 rounded-2xl text-left text-slate-900 font-black hover:border-sky-300 focus:border-sky-500 transition-all outline-none truncate"
                   >
                     {selectedBookingService ? selectedBookingService.serviceName : 'SEARCH SERVICE...'}
                   </button>
                   {selectedBookingService && (
-                    <p className="text-[10px] font-bold text-sky-600 uppercase tracking-widest">
+                    <p className="text-[10px] font-bold text-sky-600 uppercase tracking-[0.12em] break-words leading-tight">
                       {getServiceGroupLabel(selectedBookingService, catalogConfig, 'en')} / {getServiceSubgroupLabel(selectedBookingService, catalogConfig, 'en')}
                     </p>
                   )}
@@ -2073,7 +2073,7 @@ export default function DashboardPage() {
                   <select
                     value={bookingForm.employeeId}
                     onChange={(e) => setBookingForm((prev) => ({ ...prev, employeeId: e.target.value, bookingTime: '' }))}
-                    className="w-full px-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-2xl text-slate-900 font-black focus:border-sky-500 transition-all outline-none appearance-none"
+                    className="w-full px-4 sm:px-6 py-4 sm:py-5 bg-slate-50 border-2 border-slate-100 rounded-2xl text-slate-900 font-black focus:border-sky-500 transition-all outline-none appearance-none"
                     disabled={!bookingForm.serviceId}
                   >
                     <option value="">SELECT</option>
@@ -2091,12 +2091,12 @@ export default function DashboardPage() {
                     min={new Date().toISOString().split('T')[0]}
                     value={bookingForm.bookingDate}
                     onChange={(e) => setBookingForm((prev) => ({ ...prev, bookingDate: e.target.value, bookingTime: '' }))}
-                    className="w-full px-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-2xl text-slate-900 font-bold focus:border-sky-500 transition-all outline-none"
+                    className="w-full px-4 sm:px-6 py-4 sm:py-5 bg-slate-50 border-2 border-slate-100 rounded-2xl text-slate-900 font-bold focus:border-sky-500 transition-all outline-none"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8">
                 <div className="space-y-2">
                   <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">Time</label>
                   <input
@@ -2104,7 +2104,7 @@ export default function DashboardPage() {
                     step={1800}
                     value={bookingForm.bookingTime}
                     onChange={(e) => setBookingForm((prev) => ({ ...prev, bookingTime: e.target.value }))}
-                    className="w-full px-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-2xl text-slate-900 font-black focus:border-sky-500 transition-all outline-none"
+                    className="w-full px-4 sm:px-6 py-4 sm:py-5 bg-slate-50 border-2 border-slate-100 rounded-2xl text-slate-900 font-black focus:border-sky-500 transition-all outline-none"
                     disabled={!bookingForm.employeeId || !bookingForm.bookingDate}
                   />
                   {bookingSlotsLoading ? (
@@ -2146,7 +2146,7 @@ export default function DashboardPage() {
                     value={bookingForm.notes}
                     onChange={(e) => setBookingForm((prev) => ({ ...prev, notes: e.target.value }))}
                     rows={2}
-                    className="w-full px-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-2xl text-slate-900 font-medium focus:border-sky-500 transition-all outline-none no-scrollbar"
+                    className="w-full px-4 sm:px-6 py-4 sm:py-5 bg-slate-50 border-2 border-slate-100 rounded-2xl text-slate-900 font-medium focus:border-sky-500 transition-all outline-none no-scrollbar"
                     placeholder="PREFERENCES OR DETAILS..."
                   />
                 </div>
@@ -2154,14 +2154,14 @@ export default function DashboardPage() {
             </div>
 
             {servicePickerOpen && (
-              <div className="absolute inset-0 z-20 flex items-center justify-center bg-slate-900/55 backdrop-blur-sm p-6">
-                <div className="w-full max-w-3xl max-h-[75vh] overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-2xl">
-                  <div className="flex items-center justify-between border-b border-slate-100 px-8 py-6">
+              <div className="absolute inset-0 z-20 flex items-center justify-center bg-slate-900/55 backdrop-blur-sm p-3 sm:p-6">
+                <div className="w-full max-w-3xl max-h-[calc(100%-0.5rem)] sm:max-h-[75vh] overflow-hidden rounded-[24px] sm:rounded-[32px] border border-slate-200 bg-white shadow-2xl">
+                  <div className="flex items-center justify-between border-b border-slate-100 px-4 sm:px-8 py-4 sm:py-6 gap-3">
                     <div>
-                      <h3 className="text-xl font-black uppercase tracking-tight text-slate-900">
+                      <h3 className="text-lg sm:text-xl font-black uppercase tracking-tight text-slate-900">
                         {activeServiceGroup ? activeServiceGroup.label : 'Choose Service Group'}
                       </h3>
-                      <p className="mt-1 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+                      <p className="mt-1 text-[9px] sm:text-[10px] font-black uppercase tracking-[0.12em] sm:tracking-[0.2em] text-slate-400">
                         {activeServiceGroup ? 'Choose a subgroup and service' : 'Step 1: choose one of the 4 groups'}
                       </p>
                     </div>
@@ -2187,17 +2187,17 @@ export default function DashboardPage() {
                     </div>
                   </div>
 
-                  <div className="border-b border-slate-100 px-8 py-5">
+                  <div className="border-b border-slate-100 px-4 sm:px-8 py-4 sm:py-5">
                     <input
                       type="text"
                       value={serviceSearchTerm}
                       onChange={(e) => setServiceSearchTerm(e.target.value)}
                       placeholder="SEARCH SERVICE OR GROUP..."
-                      className="w-full rounded-2xl border-2 border-slate-100 bg-slate-50 px-6 py-4 text-sm font-bold text-slate-900 outline-none transition-all focus:border-sky-500"
+                      className="w-full rounded-2xl border-2 border-slate-100 bg-slate-50 px-4 sm:px-6 py-3 sm:py-4 text-sm font-bold text-slate-900 outline-none transition-all focus:border-sky-500"
                     />
                   </div>
 
-                  <div className="max-h-[calc(75vh-10rem)] overflow-y-auto p-8">
+                  <div className="max-h-[calc(75vh-10rem)] overflow-y-auto p-4 sm:p-8">
                     {!activeServiceGroup ? (
                       groupedBookingServices.length === 0 ? (
                         <div className="py-12 text-center">
@@ -2264,17 +2264,17 @@ export default function DashboardPage() {
               </div>
             )}
 
-            <div className="px-12 py-8 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-4">
+            <div className="px-4 sm:px-8 lg:px-12 py-5 sm:py-8 bg-slate-50 border-t border-slate-100 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-3 sm:gap-4">
               <button
                 onClick={closeBookingModal}
-                className="px-8 py-4 text-sm font-bold text-slate-400 uppercase tracking-widest hover:text-slate-900 transition-colors"
+                className="w-full sm:w-auto px-8 py-4 text-sm font-bold text-slate-400 uppercase tracking-widest hover:text-slate-900 transition-colors"
                 disabled={bookingSaving}
               >
                 Cancel
               </button>
               <button
                 onClick={handleBookingSubmit}
-                className="px-12 py-4 text-sm font-black text-white bg-sky-600 rounded-2xl hover:bg-sky-700 hover:scale-[1.02] active:scale-[0.98] transition-all shadow-[0_10px_24px_rgba(230,57,70,0.2)] disabled:opacity-50 uppercase tracking-[0.2em]"
+                className="w-full sm:w-auto px-8 sm:px-12 py-4 text-sm font-black text-white bg-sky-600 rounded-2xl hover:bg-sky-700 hover:scale-[1.02] active:scale-[0.98] transition-all shadow-[0_10px_24px_rgba(230,57,70,0.2)] disabled:opacity-50 uppercase tracking-[0.12em] sm:tracking-[0.2em]"
                 disabled={bookingSaving}
               >
                 {bookingSaving ? 'SAVING...' : 'CONFIRM BOOKING'}
