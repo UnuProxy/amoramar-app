@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import useEmblaCarousel from 'embla-carousel-react';
-import { bookingLink } from '@/lib/constants';
 import { services } from '@/lib/services';
 import { useLanguage } from '@/shared/context/LanguageContext';
 import styles from './ServiceCards.module.css';
@@ -33,7 +32,6 @@ export function ServiceCards({ id }: ServiceCardsProps) {
     align: 'center',
     skipSnaps: false,
   });
-
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [scrollSnaps, setScrollSnaps] = useState<number[]>([]);
 
@@ -43,15 +41,15 @@ export function ServiceCards({ id }: ServiceCardsProps) {
           title: 'Servicios',
           previous: 'Anterior',
           next: 'Siguiente',
-          seeAll: 'Ver todos los servicios',
-          bookOnline: 'Reservar online',
+          pagination: 'Paginacion de servicios',
+          goToService: 'Ir al servicio',
         }
       : {
           title: 'Services',
           previous: 'Previous',
           next: 'Next',
-          seeAll: 'See all services',
-          bookOnline: 'Book online',
+          pagination: 'Services pagination',
+          goToService: 'Go to service',
         };
 
   const localizedServices = useMemo(
@@ -61,14 +59,9 @@ export function ServiceCards({ id }: ServiceCardsProps) {
           language === 'es'
             ? ES_TITLE_BY_KEY[service.key] || service.title
             : EN_TITLE_BY_KEY[service.key] || service.title;
-        const localizedMeta =
-          language === 'es'
-            ? service.duration.replace(/^From/i, 'Desde')
-            : service.duration;
         return {
           ...service,
           localizedTitle,
-          localizedMeta,
         };
       }),
     [language]
@@ -125,17 +118,6 @@ export function ServiceCards({ id }: ServiceCardsProps) {
                       />
                       <div className={styles.overlay}>
                         <h3 className={styles.overlayTitle}>{service.localizedTitle}</h3>
-                        <p className={styles.overlayMeta}>{service.localizedMeta}</p>
-                        <div className={styles.activeDivider} />
-                        <a className={styles.btnPrimary} href={bookingLink(service.bookingParam)}>
-                          {copy.bookOnline}
-                        </a>
-                        <div className={styles.inactiveDetail}>
-                          <div className={styles.inactiveLine} />
-                          <div className={styles.inactiveDots} aria-hidden="true">
-                            • • • • •
-                          </div>
-                        </div>
                       </div>
                     </div>
                   </article>
@@ -151,21 +133,17 @@ export function ServiceCards({ id }: ServiceCardsProps) {
       </div>
 
       <div className={styles.footer}>
-        <div className={styles.dots} role="tablist" aria-label="Paginación de servicios">
+        <div className={styles.dots} role="tablist" aria-label={copy.pagination}>
           {scrollSnaps.map((_, index) => (
             <button
               key={index}
               className={`${styles.dot} ${index === selectedIndex ? styles.dotCurrent : ''}`}
               onClick={() => scrollTo(index)}
-              aria-label={`Ir al servicio ${index + 1}`}
+              aria-label={`${copy.goToService} ${index + 1}`}
               aria-current={index === selectedIndex ? 'true' : 'false'}
             />
           ))}
         </div>
-
-        <a className={styles.all} href={bookingLink()}>
-          {copy.seeAll} <span aria-hidden>→</span>
-        </a>
       </div>
     </section>
   );

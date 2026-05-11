@@ -20,17 +20,17 @@ export function Hero() {
   return (
     <section className="relative min-h-[calc(100svh-5rem)] overflow-hidden lg:min-h-screen">
       <Image
-        src="/images/hero/New-hero.jpg.avif"
-        alt="Amor Amar beauty salon interior in Ibiza"
+        src="/images/hero/hero-stylist.png"
+        alt="Amor Amar stylists transforming a client in Ibiza"
         fill
         priority
         sizes="100vw"
-        className="object-cover"
+        className="object-cover object-center"
       />
 
       <div className="absolute inset-0 bg-gradient-to-b from-[#4A3D34]/45 via-[#4A3D34]/32 to-[#4A3D34]/20" />
 
-      <div className="relative mx-auto flex min-h-[calc(100svh-5rem)] max-w-6xl flex-col items-center justify-center px-4 py-24 text-center sm:px-6 lg:min-h-screen lg:px-8">
+      <div className="relative mx-auto flex min-h-[calc(100svh-5rem)] max-w-6xl flex-col items-center justify-end px-4 pb-20 pt-24 text-center sm:px-6 sm:pb-24 lg:min-h-screen lg:px-8 lg:pb-28">
         <motion.p
           initial={{ opacity: 0, y: 18 }}
           whileInView={{ opacity: 1, y: 0 }}

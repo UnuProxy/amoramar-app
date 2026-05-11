@@ -3,13 +3,22 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/shared/hooks/useAuth';
-import { getBookings, getServices, getEmployees, getClient, updateBooking } from '@/shared/lib/firestore';
+import { getBookings, getClient, getServiceCatalogConfig, updateBooking } from '@/shared/lib/firestore';
 import { Loading } from '@/shared/components/Loading';
-import type { Booking, Service, Employee, BookingFormData, Client } from '@/shared/lib/types';
+import type { Booking, Service, Employee, BookingFormData, Client, ServiceCatalogConfig } from '@/shared/lib/types';
 import { formatDate, formatTime, formatCurrency, cn, canCancelWithNotice, hoursUntilBooking } from '@/shared/lib/utils';
 import Link from 'next/link';
 import { loadStripe, type Stripe, type StripeCardElement, type StripeElements } from '@stripe/stripe-js';
 import { getLocalizedServiceDescription } from '@/shared/lib/serviceLocalization';
+import {
+  DEFAULT_SALON_ID,
+  compareServicesByDisplayOrder,
+  getCatalogGroupLabel,
+  getCatalogSubgroupLabel,
+  getDefaultServiceCatalogConfig,
+  getServiceGroupId,
+  getServiceSubgroupId,
+} from '@/shared/lib/serviceCatalog';
 
 export default function ClientBookingsPage() {
   const { user } = useAuth();
@@ -17,6 +26,9 @@ export default function ClientBookingsPage() {
   const searchParams = useSearchParams();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [services, setServices] = useState<Service[]>([]);
+  const [catalogConfig, setCatalogConfig] = useState<ServiceCatalogConfig>(() =>
+    getDefaultServiceCatalogConfig(DEFAULT_SALON_ID)
+  );
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
@@ -50,6 +62,8 @@ export default function ClientBookingsPage() {
   const paymentRequestMountId = 'client-booking-wallet-element';
   const stripePublicKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '';
   const [walletLabel, setWalletLabel] = useState<string | null>(null);
+  const [selectedMainGroupId, setSelectedMainGroupId] = useState<string | null>(null);
+  const [selectedSubgroupId, setSelectedSubgroupId] = useState<string | null>(null);
 
   // Fetch services and employees immediately (like the homepage does)
   useEffect(() => {
@@ -70,6 +84,13 @@ export default function ClientBookingsPage() {
         if (employeesData.success) {
           const activeEmployees = employeesData.data.filter((e: Employee) => e.status === 'active');
           setEmployees(activeEmployees);
+        }
+        try {
+          const config = await getServiceCatalogConfig(DEFAULT_SALON_ID);
+          setCatalogConfig(config);
+        } catch (catalogError) {
+          console.error('Error fetching service catalog config:', catalogError);
+          setCatalogConfig(getDefaultServiceCatalogConfig(DEFAULT_SALON_ID));
         }
       } catch (error) {
         console.error('Error fetching services/employees:', error);
@@ -468,6 +489,8 @@ export default function ClientBookingsPage() {
     setShowNewBookingModal(true);
     setBookingStep(1);
     setSelectedService(null);
+    setSelectedMainGroupId(null);
+    setSelectedSubgroupId(null);
     setSelectedEmployee(null);
     setFormData({ date: '', time: '', employeeId: '' });
     resetPaymentState();
@@ -484,6 +507,8 @@ export default function ClientBookingsPage() {
 
     setShowNewBookingModal(true);
     setSelectedService(service);
+    setSelectedMainGroupId(getServiceGroupId(service));
+    setSelectedSubgroupId(getServiceSubgroupId(service));
     setSelectedEmployee(preferredEmployee);
     setBookingStep(preferredEmployee ? 3 : 2);
     setFormData({
@@ -499,6 +524,8 @@ export default function ClientBookingsPage() {
     setShowNewBookingModal(false);
     setBookingStep(1);
     setSelectedService(null);
+    setSelectedMainGroupId(null);
+    setSelectedSubgroupId(null);
     setSelectedEmployee(null);
     setFormData({ date: '', time: '', employeeId: '' });
     setAvailableSlots([]);
@@ -630,6 +657,72 @@ export default function ClientBookingsPage() {
     if (bookingStep === 3) return !!(formData.date && formData.time);
     return true;
   }, [bookingStep, selectedService, formData]);
+
+  const groupedBookingServices = useMemo(() => {
+    const sortedServices = [...services]
+      .filter((service) => service.isActive !== false)
+      .sort(compareServicesByDisplayOrder);
+
+    return catalogConfig.groups.map((group) => {
+      const groupServices = sortedServices.filter((service) => getServiceGroupId(service) === group.id);
+      const subgroupSections = group.subgroups
+        .map((subgroup) => ({
+          id: subgroup.id,
+          label: getCatalogSubgroupLabel(subgroup, 'es'),
+          services: groupServices.filter((service) => getServiceSubgroupId(service) === subgroup.id),
+        }))
+        .filter((subgroup) => subgroup.services.length > 0);
+
+      const knownSubgroupIds = new Set(group.subgroups.map((subgroup) => subgroup.id));
+      const uncataloguedServices = groupServices.filter(
+        (service) => !knownSubgroupIds.has(getServiceSubgroupId(service))
+      );
+      if (uncataloguedServices.length > 0) {
+        subgroupSections.push({
+          id: `${group.id}-other`,
+          label: 'Otros servicios',
+          services: uncataloguedServices,
+        });
+      }
+
+      return {
+        id: group.id,
+        label: getCatalogGroupLabel(group, 'es'),
+        count: groupServices.length,
+        subgroups: subgroupSections,
+      };
+    });
+  }, [services, catalogConfig]);
+
+  const activeBookingGroup = selectedMainGroupId
+    ? groupedBookingServices.find((group) => group.id === selectedMainGroupId) || null
+    : null;
+  const activeBookingSubgroup =
+    activeBookingGroup?.subgroups.find((subgroup) => subgroup.id === selectedSubgroupId) ||
+    activeBookingGroup?.subgroups[0] ||
+    null;
+
+  useEffect(() => {
+    if (!showNewBookingModal || bookingStep !== 1 || !selectedMainGroupId) return;
+    const groupExists = groupedBookingServices.some((group) => group.id === selectedMainGroupId);
+    if (groupExists) return;
+    setSelectedMainGroupId(null);
+    setSelectedSubgroupId(null);
+    setSelectedService(null);
+  }, [showNewBookingModal, bookingStep, groupedBookingServices, selectedMainGroupId]);
+
+  useEffect(() => {
+    if (!selectedMainGroupId) return;
+    const group = groupedBookingServices.find((item) => item.id === selectedMainGroupId);
+    if (!group) return;
+    if (group.subgroups.length === 0) {
+      setSelectedSubgroupId(null);
+      return;
+    }
+    if (!selectedSubgroupId || !group.subgroups.some((subgroup) => subgroup.id === selectedSubgroupId)) {
+      setSelectedSubgroupId(group.subgroups[0].id);
+    }
+  }, [selectedMainGroupId, selectedSubgroupId, groupedBookingServices]);
 
   useEffect(() => {
     const rebookId = searchParams.get('rebook');
@@ -893,28 +986,133 @@ export default function ClientBookingsPage() {
               {bookingStep === 1 && (
                 <div className="space-y-8">
                   <h3 className="text-xl font-black text-neutral-900 uppercase tracking-widest border-b border-neutral-100 pb-4">Selecciona una Experiencia</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {services.map((service) => (
-                      <button
-                        key={service.id}
-                        onClick={() => setSelectedService(service)}
-                        className={cn(
-                          "rounded-[24px] border-2 p-5 text-left transition-all sm:rounded-[32px] sm:p-8",
-                          selectedService?.id === service.id
-                            ? "border-rose-600 bg-rose-50/50 shadow-xl"
-                            : "border-neutral-100 hover:border-rose-200 hover:bg-neutral-50"
-                        )}
-                      >
-                        <h4 className="mb-2 text-xl font-black uppercase tracking-tighter text-neutral-900 sm:text-2xl">{service.serviceName}</h4>
-                        <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-6 line-clamp-2">
-                          {getLocalizedServiceDescription(service, 'es')}
+                  <div className="space-y-6">
+                    {!selectedMainGroupId ? (
+                      <div>
+                        <p className="mb-3 text-[10px] font-black uppercase tracking-[0.22em] text-neutral-400">
+                          1. Grupo principal
                         </p>
-                        <div className="flex items-center justify-between">
-                          <span className="text-xl font-black text-rose-600 tabular-nums">{formatCurrency(service.price)}</span>
-                          <span className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">{service.duration} MIN</span>
+                        <div className="grid grid-cols-2 gap-3">
+                          {groupedBookingServices.map((group) => (
+                            <button
+                              key={group.id}
+                              onClick={() => {
+                                setSelectedMainGroupId(group.id);
+                                setSelectedSubgroupId(group.subgroups[0]?.id || null);
+                                setSelectedService(null);
+                              }}
+                              className="rounded-2xl border-2 border-neutral-100 p-3 text-left transition-all hover:border-rose-200 hover:bg-neutral-50 sm:p-4"
+                            >
+                              <p className="text-sm font-black uppercase leading-tight tracking-tight text-neutral-900">
+                                {group.label}
+                              </p>
+                              <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-neutral-400">
+                                {group.count} servicios
+                              </p>
+                            </button>
+                          ))}
                         </div>
-                      </button>
-                    ))}
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-neutral-400">
+                              Grupo seleccionado
+                            </p>
+                            <p className="text-sm font-black uppercase text-neutral-900">{activeBookingGroup?.label}</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedMainGroupId(null);
+                              setSelectedSubgroupId(null);
+                              setSelectedService(null);
+                            }}
+                            className="rounded-xl border border-neutral-200 px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-neutral-500 transition-all hover:border-neutral-400 hover:text-neutral-900"
+                          >
+                            Volver a grupos
+                          </button>
+                        </div>
+
+                        {activeBookingGroup && (
+                          <div>
+                            <p className="mb-3 text-[10px] font-black uppercase tracking-[0.22em] text-neutral-400">
+                              2. Subgrupo
+                            </p>
+                            {activeBookingGroup.subgroups.length > 0 ? (
+                              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                {activeBookingGroup.subgroups.map((subgroup) => (
+                                  <button
+                                    key={subgroup.id}
+                                    onClick={() => {
+                                      setSelectedSubgroupId(subgroup.id);
+                                      setSelectedService(null);
+                                    }}
+                                    className={cn(
+                                      'rounded-2xl border-2 p-4 text-left transition-all',
+                                      selectedSubgroupId === subgroup.id
+                                        ? 'border-rose-600 bg-rose-50/50 shadow-lg'
+                                        : 'border-neutral-100 hover:border-rose-200 hover:bg-neutral-50'
+                                    )}
+                                  >
+                                    <p className="text-sm font-black uppercase tracking-tight text-neutral-900">
+                                      {subgroup.label}
+                                    </p>
+                                    <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-neutral-400">
+                                      {subgroup.services.length} servicios
+                                    </p>
+                                  </button>
+                                ))}
+                              </div>
+                            ) : (
+                              <div className="rounded-2xl border border-dashed border-neutral-200 bg-neutral-50 p-5 text-center">
+                                <p className="text-xs font-bold uppercase tracking-[0.16em] text-neutral-400">
+                                  No hay subgrupos con servicios en este grupo
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {activeBookingSubgroup && (
+                          <div>
+                            <p className="mb-3 text-[10px] font-black uppercase tracking-[0.22em] text-neutral-400">
+                              3. Servicio
+                            </p>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                              {activeBookingSubgroup.services.map((service) => (
+                                <button
+                                  key={service.id}
+                                  onClick={() => setSelectedService(service)}
+                                  className={cn(
+                                    'rounded-[24px] border-2 p-5 text-left transition-all sm:rounded-[32px] sm:p-8',
+                                    selectedService?.id === service.id
+                                      ? 'border-rose-600 bg-rose-50/50 shadow-xl'
+                                      : 'border-neutral-100 hover:border-rose-200 hover:bg-neutral-50'
+                                  )}
+                                >
+                                  <h4 className="mb-2 text-xl font-black uppercase tracking-tighter text-neutral-900 sm:text-2xl">
+                                    {service.serviceName}
+                                  </h4>
+                                  <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-6 line-clamp-2">
+                                    {getLocalizedServiceDescription(service, 'es')}
+                                  </p>
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xl font-black text-rose-600 tabular-nums">
+                                      {formatCurrency(service.price)}
+                                    </span>
+                                    <span className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">
+                                      {service.duration} MIN
+                                    </span>
+                                  </div>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
                   </div>
                 </div>
               )}
