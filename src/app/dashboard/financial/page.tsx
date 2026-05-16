@@ -94,6 +94,7 @@ export default function FinancialDashboard() {
   const [savingExpense, setSavingExpense] = useState(false);
   const [savingRevenue, setSavingRevenue] = useState(false);
   const [expandedRevenueItems, setExpandedRevenueItems] = useState<string[]>([]);
+  const [showRevenueByServiceModal, setShowRevenueByServiceModal] = useState(false);
   const [payoutDetail, setPayoutDetail] = useState<{
     employee: Employee;
     bookings: Booking[];
@@ -150,6 +151,9 @@ export default function FinancialDashboard() {
           last3Months: 'ULTIMOS 3 MESES',
           oneYear: '1 ANO',
           allTime: 'TODO EL TIEMPO',
+          periodLabel: 'Periodo',
+          quickRanges: 'Rangos rapidos',
+          customMonth: 'Mes personalizado',
           specificMonthLabel: 'MES ESPECIFICO',
           specificMonthHint: 'Elige un mes natural completo',
           clearSpecificMonth: 'Limpiar',
@@ -209,6 +213,7 @@ export default function FinancialDashboard() {
           placeholderCategory: 'ESCRIBE O ELIGE CATEGORIA',
           expand: 'Ver mas',
           collapse: 'Ver menos',
+          viewAllServices: 'Ver todos',
           expensesWord: 'GASTOS',
           dateVendor: 'Fecha / Proveedor',
           description: 'Descripcion',
@@ -271,6 +276,9 @@ export default function FinancialDashboard() {
           last3Months: 'LAST 3 MONTHS',
           oneYear: '1 YEAR',
           allTime: 'ALL TIME',
+          periodLabel: 'Period',
+          quickRanges: 'Quick ranges',
+          customMonth: 'Custom month',
           specificMonthLabel: 'SPECIFIC MONTH',
           specificMonthHint: 'Pick an exact calendar month',
           clearSpecificMonth: 'Clear',
@@ -330,6 +338,7 @@ export default function FinancialDashboard() {
           placeholderCategory: 'TYPE OR PICK CATEGORY',
           expand: 'See more',
           collapse: 'Show less',
+          viewAllServices: 'View all',
           expensesWord: 'EXPENSES',
           dateVendor: 'Date / Vendor',
           description: 'Description',
@@ -448,7 +457,7 @@ export default function FinancialDashboard() {
     loadData();
   }, []);
 
-  const overlayOpen = showAddExpense || showAddRevenue || Boolean(payoutDetail);
+  const overlayOpen = showAddExpense || showAddRevenue || showRevenueByServiceModal || Boolean(payoutDetail);
 
   useEffect(() => {
     if (overlayOpen) {
@@ -559,7 +568,7 @@ export default function FinancialDashboard() {
     let end = new Date(year, month + 1, 0);
 
     if (dateRange === 'quarter') {
-      start = new Date(year, month - 3, 1);
+      start = new Date(year, month - 2, 1);
     } else if (dateRange === 'year') {
       start = new Date(year - 1, month, 1);
     } else if (dateRange === 'all') {
@@ -1148,6 +1157,21 @@ export default function FinancialDashboard() {
   };
 
   const displayLocale = language === 'es' ? 'es-ES' : 'en-US';
+  const rangeOptions: { value: DateRange; label: string }[] = [
+    { value: 'month', label: copy.thisMonth },
+    { value: 'quarter', label: copy.last3Months },
+    { value: 'year', label: copy.oneYear },
+    { value: 'all', label: copy.allTime },
+  ];
+  const activePeriodLabel = `${new Date(`${startDate}T00:00:00`).toLocaleDateString(displayLocale, {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  })} - ${new Date(`${endDate}T00:00:00`).toLocaleDateString(displayLocale, {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  })}`;
 
   if (loading) {
     return (
@@ -1174,49 +1198,69 @@ export default function FinancialDashboard() {
         </div>
 
         <div className="flex flex-wrap items-center gap-4">
-          <select
-            value={dateRange}
-            onChange={(e) => {
-              setDateRange(e.target.value as DateRange);
-              // Picking any preset cancels the specific-month override.
-              setSpecificMonth('');
-            }}
-            disabled={Boolean(specificMonth)}
-            className="px-6 py-4 bg-white border border-slate-100 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] focus:border-sky-500 outline-none cursor-pointer shadow-sm hover:shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <option value="month">{copy.thisMonth}</option>
-            <option value="quarter">{copy.last3Months}</option>
-            <option value="year">{copy.oneYear}</option>
-            <option value="all">{copy.allTime}</option>
-          </select>
+          <div className="flex w-full flex-col gap-3 rounded-[24px] border border-slate-100 bg-white p-3 shadow-sm lg:w-auto">
+            <div className="flex flex-col gap-1 px-1 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
+              <p className="text-[9px] font-black uppercase tracking-[0.22em] text-slate-400">{copy.periodLabel}</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-sky-600">{activePeriodLabel}</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {rangeOptions.map((option) => {
+                const isActive = !specificMonth && dateRange === option.value;
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => {
+                      setDateRange(option.value);
+                      setSpecificMonth('');
+                    }}
+                    className={cn(
+                      'rounded-2xl px-4 py-3 text-[10px] font-black uppercase tracking-[0.16em] transition-all',
+                      isActive
+                        ? 'bg-slate-800 text-white shadow-lg shadow-slate-900/10'
+                        : 'bg-slate-50 text-slate-500 hover:bg-sky-50 hover:text-sky-700'
+                    )}
+                  >
+                    {option.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
           <div
             className={cn(
-              "flex items-center gap-2 rounded-2xl border px-4 py-2 shadow-sm transition-all",
+              "flex w-full flex-col gap-2 rounded-[24px] border p-3 shadow-sm transition-all sm:w-auto",
               specificMonth
                 ? "bg-sky-50 border-sky-300 ring-1 ring-sky-200"
                 : "bg-white border-slate-100 hover:border-sky-300"
             )}
-            title={copy.specificMonthHint}
           >
-            <label className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-500 whitespace-nowrap">
-              {copy.specificMonthLabel}
+            <label
+              htmlFor="financial-specific-month"
+              className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-500"
+            >
+              {copy.customMonth}
             </label>
-            <input
-              type="month"
-              value={specificMonth}
-              onChange={(e) => setSpecificMonth(e.target.value)}
-              className="bg-transparent text-[10px] font-black uppercase tracking-[0.15em] text-slate-700 outline-none cursor-pointer"
-            />
-            {specificMonth && (
-              <button
-                type="button"
-                onClick={() => setSpecificMonth('')}
-                className="ml-1 px-2 py-1 rounded-lg bg-white text-[9px] font-black uppercase tracking-[0.15em] text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors border border-slate-200"
-              >
-                {copy.clearSpecificMonth}
-              </button>
-            )}
+            <div className="flex items-center gap-2">
+              <input
+                id="financial-specific-month"
+                type="month"
+                value={specificMonth}
+                onChange={(e) => setSpecificMonth(e.target.value)}
+                aria-label={copy.specificMonthHint}
+                className="min-h-10 rounded-xl border border-slate-100 bg-white px-3 text-[11px] font-black uppercase tracking-[0.12em] text-slate-700 outline-none cursor-pointer focus:border-sky-500"
+              />
+              {specificMonth && (
+                <button
+                  type="button"
+                  onClick={() => setSpecificMonth('')}
+                  className="px-3 py-2 rounded-xl bg-white text-[9px] font-black uppercase tracking-[0.15em] text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors border border-slate-200"
+                >
+                  {copy.clearSpecificMonth}
+                </button>
+              )}
+            </div>
           </div>
 
           <button
@@ -1405,8 +1449,17 @@ export default function FinancialDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
         {/* Revenue by Service */}
         <div className="bg-white border-2 border-sky-100/50 rounded-[48px] overflow-hidden shadow-sm">
-          <div className="px-10 py-8 border-b-2 border-sky-100/50 bg-sky-50/30">
-            <h2 className="text-sm font-black text-slate-800 tracking-[0.3em] uppercase text-center">{copy.revenueByService}</h2>
+          <div className="px-10 py-8 border-b-2 border-sky-100/50 bg-sky-50/30 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <h2 className="text-sm font-black text-slate-800 tracking-[0.3em] uppercase text-center sm:text-left">{copy.revenueByService}</h2>
+            {financials.revenueByService.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setShowRevenueByServiceModal(true)}
+                className="rounded-2xl bg-white px-5 py-3 text-[10px] font-black uppercase tracking-[0.2em] text-sky-600 shadow-sm transition-all hover:bg-sky-600 hover:text-white"
+              >
+                {copy.viewAllServices}
+              </button>
+            )}
           </div>
           
           <div className="p-10">
@@ -1414,10 +1467,7 @@ export default function FinancialDashboard() {
               <div className="text-center py-12 text-slate-200 font-bold uppercase tracking-widest text-[10px]">{copy.noDataAvailable}</div>
             ) : (
               <div className="space-y-8">
-                {financials.revenueByService.map((item, index) => {
-                  const shouldShowToggle = item.service.serviceName.length > 70;
-                  const isExpanded = expandedRevenueItems.includes(item.service.id);
-
+                {financials.revenueByService.slice(0, 5).map((item, index) => {
                   return (
                     <div key={item.service.id} className="group">
                       <div className="mb-4 space-y-3 lg:space-y-0 lg:grid lg:grid-cols-[auto,minmax(0,1fr),auto] lg:items-start lg:gap-x-4 lg:gap-y-3">
@@ -1426,37 +1476,9 @@ export default function FinancialDashboard() {
                             {index + 1}
                           </div>
                           <div className="min-w-0 flex-1">
-                            <p
-                              className="text-lg font-black text-slate-800 uppercase tracking-tighter leading-[1.05] break-words"
-                              style={
-                                !isExpanded
-                                  ? {
-                                      display: '-webkit-box',
-                                      WebkitBoxOrient: 'vertical',
-                                      WebkitLineClamp: 3,
-                                      overflow: 'hidden',
-                                    }
-                                  : undefined
-                              }
-                            >
+                            <p className="line-clamp-2 text-lg font-black text-slate-800 uppercase tracking-tighter leading-[1.05] break-words">
                               {item.service.serviceName}
                             </p>
-                            <button
-                              type="button"
-                              onClick={() => toggleRevenueItemExpansion(item.service.id)}
-                              className="mt-2 text-[10px] font-black uppercase tracking-[0.2em] text-sky-600 hover:text-sky-700 transition-colors sm:hidden"
-                            >
-                              {isExpanded ? copy.collapse : copy.expand}
-                            </button>
-                            {shouldShowToggle && (
-                              <button
-                                type="button"
-                                onClick={() => toggleRevenueItemExpansion(item.service.id)}
-                                className="mt-2 text-[10px] font-black uppercase tracking-[0.2em] text-sky-600 hover:text-sky-700 transition-colors hidden sm:inline-flex"
-                              >
-                                {isExpanded ? copy.collapse : copy.expand}
-                              </button>
-                            )}
                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">{item.bookingsCount} {item.countLabel || copy.bookings}</p>
                           </div>
                         </div>
@@ -1474,6 +1496,15 @@ export default function FinancialDashboard() {
                     </div>
                   );
                 })}
+                {financials.revenueByService.length > 5 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowRevenueByServiceModal(true)}
+                    className="w-full rounded-2xl border-2 border-dashed border-sky-100 px-5 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-sky-600 transition-all hover:border-sky-300 hover:bg-sky-50"
+                  >
+                    {copy.viewAllServices} ({financials.revenueByService.length})
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -2039,6 +2070,93 @@ export default function FinancialDashboard() {
             <div className="px-6 sm:px-10 py-6 bg-slate-50 border-t border-slate-100 flex items-center justify-end">
               <button
                 onClick={() => setPayoutDetail(null)}
+                className="px-8 py-3 text-sm font-black uppercase tracking-[0.2em] text-slate-500 hover:text-slate-900 transition-colors"
+              >
+                {copy.close}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showRevenueByServiceModal && (
+        <div className="fixed inset-0 z-[120] flex items-start sm:items-center justify-center bg-slate-900/70 backdrop-blur-lg p-4">
+          <div className="w-full max-w-4xl bg-white rounded-[32px] sm:rounded-[40px] shadow-2xl overflow-hidden border border-slate-100 max-h-[90vh] flex flex-col">
+            <div className="px-6 sm:px-10 py-6 sm:py-8 flex items-start sm:items-center justify-between gap-4 border-b border-slate-100">
+              <div className="space-y-2">
+                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">
+                  {copy.periodLabel} • {activePeriodLabel}
+                </p>
+                <h3 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight leading-none">
+                  {copy.revenueByService}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowRevenueByServiceModal(false)}
+                className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 hover:bg-slate-800 hover:text-white transition-all flex items-center justify-center"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="px-6 sm:px-10 py-6 bg-slate-50/60 border-b border-slate-100 flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.25em] text-slate-500">{copy.grossIncome}</p>
+                <p className="text-3xl font-black text-sky-600">{formatCurrency(financials.totalRevenue)}</p>
+              </div>
+              <div className="text-left sm:text-right">
+                <p className="text-xs font-black uppercase tracking-[0.25em] text-slate-500">{copy.totalServices}</p>
+                <p className="text-xl font-black text-slate-900">{financials.revenueByService.length}</p>
+              </div>
+            </div>
+
+            <div className="flex-1 min-h-0 overflow-y-auto px-6 sm:px-10 py-6 space-y-5">
+              {financials.revenueByService.length === 0 ? (
+                <div className="text-center py-12 text-slate-300 font-bold uppercase tracking-widest text-xs">
+                  {copy.noDataAvailable}
+                </div>
+              ) : (
+                financials.revenueByService.map((item, index) => (
+                  <div key={item.service.id} className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="flex min-w-0 items-start gap-4">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-800 text-sm font-black text-white shadow-md">
+                          {index + 1}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-base font-black uppercase leading-tight tracking-tight text-slate-900">
+                            {item.service.serviceName}
+                          </p>
+                          <p className="mt-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                            {item.bookingsCount} {item.countLabel || copy.bookings}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-left sm:text-right">
+                        <p className="text-xl font-black tabular-nums text-sky-600">{formatCurrency(item.revenue)}</p>
+                        <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                          {item.percentage.toFixed(0)}{copy.ofTotal}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="mt-4 h-1.5 w-full overflow-hidden rounded-full bg-sky-50">
+                      <div
+                        className="h-full rounded-full bg-sky-500 transition-all duration-1000"
+                        style={{ width: `${item.percentage}%` }}
+                      />
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="px-6 sm:px-10 py-6 bg-slate-50 border-t border-slate-100 flex items-center justify-end">
+              <button
+                type="button"
+                onClick={() => setShowRevenueByServiceModal(false)}
                 className="px-8 py-3 text-sm font-black uppercase tracking-[0.2em] text-slate-500 hover:text-slate-900 transition-colors"
               >
                 {copy.close}

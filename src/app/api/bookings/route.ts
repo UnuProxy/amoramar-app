@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getBookings, createBooking, getService, getEmployee } from '@/shared/lib/firestore';
+import { getBookings, createBooking, getService, getEmployee, getEmployeeServices } from '@/shared/lib/firestore';
 import { sendBookingConfirmation, sendEmployeeNotification } from '@/shared/lib/email';
 import type { ApiResponse, Booking, BookingFormData } from '@/shared/lib/types';
 import { getPaymentIntent } from '@/shared/lib/stripe';
@@ -85,6 +85,31 @@ export async function POST(request: NextRequest) {
         },
         { status: 404 }
       );
+    }
+
+    if (!employee) {
+      return NextResponse.json<ApiResponse<null>>(
+        {
+          success: false,
+          error: 'Employee not found for this booking',
+        },
+        { status: 404 }
+      );
+    }
+
+    if (createdByRole === 'employee') {
+      const employeeServices = await getEmployeeServices(data.employeeId, data.serviceId);
+      const canOfferService = employeeServices.some((employeeService) => employeeService.isOffered !== false);
+
+      if (!canOfferService) {
+        return NextResponse.json<ApiResponse<null>>(
+          {
+            success: false,
+            error: 'You can only create bookings for services assigned to you.',
+          },
+          { status: 403 }
+        );
+      }
     }
 
     const isClientOnlineBooking = createdByRole === 'client';

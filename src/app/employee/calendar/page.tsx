@@ -773,7 +773,6 @@ export default function EmployeeCalendarPage() {
     return bookings.find(
       (booking) => {
         if (booking.bookingDate !== date || booking.status === 'cancelled') return false;
-        if (booking.paymentStatus === 'paid') return false; // Hide paid bookings from calendar slots
         const bookingStart = minutesFromTime(booking.bookingTime);
         const bookingDuration = booking.isConsultation
           ? booking.consultationDuration || 20
@@ -781,6 +780,15 @@ export default function EmployeeCalendarPage() {
         const bookingEnd = bookingStart + bookingDuration;
         return hasOverlap(slotStart, slotEnd, bookingStart, bookingEnd);
       }
+    );
+  };
+
+  const findBookingStartingAtSlot = (date: string, time: string) => {
+    return bookings.find(
+      (booking) =>
+        booking.bookingDate === date &&
+        booking.bookingTime === time &&
+        booking.status !== 'cancelled'
     );
   };
 
@@ -1410,6 +1418,18 @@ export default function EmployeeCalendarPage() {
               </option>
             ))}
           </select>
+          <button
+            type="button"
+            onClick={() =>
+              openNewBooking({
+                serviceId: selectedServiceId || services[0]?.id || '',
+              })
+            }
+            disabled={services.length === 0}
+            className="w-full rounded-2xl bg-accent-600 px-6 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-white shadow-lg shadow-accent-600/20 transition-all hover:bg-neutral-900 disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto"
+          >
+            Crear Reserva
+          </button>
         </div>
       </div>
 
@@ -1522,6 +1542,9 @@ export default function EmployeeCalendarPage() {
                     generateTimeSlots(avail.startTime, avail.endTime, slotDuration).forEach((slot) => slotSet.add(slot));
                   });
                 }
+                bookings
+                  .filter((booking) => booking.bookingDate === day.date && booking.status !== 'cancelled')
+                  .forEach((booking) => slotSet.add(booking.bookingTime));
                 const slotsForDay = Array.from(slotSet).sort();
 
                 return (
@@ -1543,7 +1566,7 @@ export default function EmployeeCalendarPage() {
                     ) : (
                       <div className="p-3 space-y-2">
                         {slotsForDay.map((slot) => {
-                          const booking = findBookingForSlot(day.date, slot);
+                          const booking = findBookingStartingAtSlot(day.date, slot);
                           const blocked = findBlockedSlot(day.date, slot);
                           const isPast = isSlotInPast(day.date, slot);
                           const pastClass = isPast ? 'opacity-50' : '';
