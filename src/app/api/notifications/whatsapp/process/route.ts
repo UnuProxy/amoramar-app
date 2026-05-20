@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { ApiResponse } from '@/shared/lib/types';
 import { processDueWhatsAppJobs } from '@/shared/lib/whatsappJobs';
+import { processDueEmailReminderJobs } from '@/shared/lib/emailReminderJobs';
 
 const isAuthorized = (request: NextRequest): boolean => {
   const secret = process.env.CRON_SECRET;
@@ -22,7 +23,11 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const result = await processDueWhatsAppJobs(25);
+    const [whatsApp, emailReminders] = await Promise.all([
+      processDueWhatsAppJobs(25),
+      processDueEmailReminderJobs(25),
+    ]);
+    const result = { whatsApp, emailReminders };
     return NextResponse.json<ApiResponse<typeof result>>({
       success: true,
       data: result,

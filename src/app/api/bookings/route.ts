@@ -5,9 +5,10 @@ import type { ApiResponse, Booking, BookingFormData } from '@/shared/lib/types';
 import { getPaymentIntent } from '@/shared/lib/stripe';
 import { BookingScheduleValidationError, validateBookingSchedule } from '@/shared/lib/bookingAvailability';
 import { enqueueWhatsAppJobsForConfirmedBooking } from '@/shared/lib/whatsappJobs';
+import { enqueueEmailReminderForBooking } from '@/shared/lib/emailReminderJobs';
 
 export const runtime = 'nodejs';
-const EMAIL_CONFIRMATIONS_ENABLED = process.env.ENABLE_BOOKING_EMAILS === 'true';
+const EMAIL_CONFIRMATIONS_ENABLED = process.env.ENABLE_BOOKING_EMAILS !== 'false';
 
 export async function GET(request: NextRequest) {
   try {
@@ -324,6 +325,17 @@ export async function POST(request: NextRequest) {
           emailError = 'missing_client_email';
         }
       }
+
+      enqueueEmailReminderForBooking({
+        id: bookingId,
+        clientName: data.clientName,
+        clientEmail: data.clientEmail,
+        serviceName: isConsultation ? `Consulta Gratuita - ${service.serviceName}` : service.serviceName,
+        employeeName: `${employee.firstName} ${employee.lastName}`,
+        bookingDate: data.bookingDate,
+        bookingTime: data.bookingTime,
+        status: isConsultation ? 'confirmed' : (allowUnpaid ? 'pending' : 'confirmed'),
+      }).catch((error) => console.error('[email] reminder enqueue failed for booking', bookingId, error));
 
       // Send notification email to employee (async, don't wait)
       // NOTE: Resend free tier can only send to verified email (unujulian@gmail.com)
