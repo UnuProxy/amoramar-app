@@ -15,7 +15,7 @@ function getResendClient(): Resend | null {
 // Email sender: use RESEND_FROM_EMAIL as full "Name <email@domain.com>" or plain email.
 // The fallback must be a verified Resend sender for Amor Amar client notifications.
 const FROM_EMAIL = (process.env.RESEND_FROM_EMAIL || 'Amor Amar <info@amoramarbeauty.com>').trim();
-const SALON_NAME = 'Amoramar Spa';
+const SALON_NAME = 'Amor Amar Beauty Salon';
 
 export interface BookingConfirmationData {
   clientName: string;

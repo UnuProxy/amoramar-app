@@ -610,11 +610,11 @@ export default function DashboardPage() {
         throw new Error(json?.error || 'Could not create booking');
       }
       const waErr = json.data?.whatsappError as string | undefined;
-      if (waErr) {
-        alert(`Reserva guardada, pero WhatsApp no se envió.\n\n${waErr}`);
-      }
       if (json.data?.emailSent === false) {
         alert(`Reserva guardada, pero el email no se envió.\n\n${json.data?.emailError || 'Error desconocido'}`);
+      } else if (waErr) {
+        const emailMessage = json.data?.emailSent === true ? '\n\nEmail enviado al cliente correctamente.' : '';
+        alert(`Reserva guardada, pero WhatsApp no se envió.\n\n${waErr}${emailMessage}`);
       }
       const newBooking: Booking = {
         id: json.data.id,

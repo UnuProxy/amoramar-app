@@ -8,7 +8,6 @@ import { enqueueWhatsAppJobsForConfirmedBooking } from '@/shared/lib/whatsappJob
 import { enqueueEmailReminderForBooking } from '@/shared/lib/emailReminderJobs';
 
 export const runtime = 'nodejs';
-const EMAIL_CONFIRMATIONS_ENABLED = process.env.ENABLE_BOOKING_EMAILS !== 'false';
 
 export async function GET(request: NextRequest) {
   try {
@@ -298,32 +297,27 @@ export async function POST(request: NextRequest) {
     if (!service || !employee) {
       console.error('Service or employee not found for email notification');
     } else {
-      if (!EMAIL_CONFIRMATIONS_ENABLED) {
-        emailSent = false;
-        emailError = 'email_confirmations_paused';
-      } else {
-        const clientEmailTrimmed = data.clientEmail?.trim() || '';
-        if (clientEmailTrimmed) {
-          const emailResult = await sendBookingConfirmation({
-            clientName: data.clientName,
-            clientEmail: clientEmailTrimmed,
-            serviceName: isConsultation ? `Consulta Gratuita - ${service.serviceName}` : service.serviceName,
-            employeeName: `${employee.firstName} ${employee.lastName}`,
-            bookingDate: data.bookingDate,
-            bookingTime: data.bookingTime,
-            duration: isConsultation && data.consultationDuration ? data.consultationDuration : service.duration,
-            price: isConsultation ? '0' : servicePrice.toString(),
-          });
-          emailSent = emailResult.success;
-          emailError = emailResult.error;
-          if (!emailResult.success) {
-            console.error('[email] confirmation failed for booking', bookingId, emailResult.error);
-          }
-        } else {
-          console.warn('[email] skip confirmation: no client email', bookingId);
-          emailSent = false;
-          emailError = 'missing_client_email';
+      const clientEmailTrimmed = data.clientEmail?.trim() || '';
+      if (clientEmailTrimmed) {
+        const emailResult = await sendBookingConfirmation({
+          clientName: data.clientName,
+          clientEmail: clientEmailTrimmed,
+          serviceName: isConsultation ? `Consulta Gratuita - ${service.serviceName}` : service.serviceName,
+          employeeName: `${employee.firstName} ${employee.lastName}`,
+          bookingDate: data.bookingDate,
+          bookingTime: data.bookingTime,
+          duration: isConsultation && data.consultationDuration ? data.consultationDuration : service.duration,
+          price: isConsultation ? '0' : servicePrice.toString(),
+        });
+        emailSent = emailResult.success;
+        emailError = emailResult.error;
+        if (!emailResult.success) {
+          console.error('[email] confirmation failed for booking', bookingId, emailResult.error);
         }
+      } else {
+        console.warn('[email] skip confirmation: no client email', bookingId);
+        emailSent = false;
+        emailError = 'missing_client_email';
       }
 
       enqueueEmailReminderForBooking({
