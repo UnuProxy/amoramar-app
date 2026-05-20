@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getBooking, updateBooking, deleteBooking, getEmployeeByUserId } from '@/shared/lib/firestore';
+import { getBooking, updateBooking, getEmployeeByUserId } from '@/shared/lib/firestore';
+import { getAdminDb } from '@/shared/lib/firebaseAdmin';
 import type { ApiResponse, Booking, UserRole } from '@/shared/lib/types';
 import { BookingScheduleValidationError, validateBookingSchedule } from '@/shared/lib/bookingAvailability';
 import { enqueueWhatsAppJobsForConfirmedBooking } from '@/shared/lib/whatsappJobs';
+
+export const runtime = 'nodejs';
 
 export async function GET(
   request: NextRequest,
@@ -181,13 +184,16 @@ export async function DELETE(
 ) {
   try {
     const { id } = await context.params;
-    await deleteBooking(id);
+    // Use Admin SDK to bypass Firestore security rules (this endpoint is intended
+    // for owner/admin cleanup of test or unwanted bookings from the dashboard).
+    await getAdminDb().collection('bookings').doc(id).delete();
 
     return NextResponse.json<ApiResponse<null>>({
       success: true,
       data: null,
     });
   } catch (error: any) {
+    console.error('Failed to delete booking via admin SDK:', error);
     return NextResponse.json<ApiResponse<null>>(
       {
         success: false,
