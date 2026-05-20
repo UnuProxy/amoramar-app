@@ -14,7 +14,10 @@ function getResendClient(): Resend | null {
 
 // Email sender: use RESEND_FROM_EMAIL as full "Name <email@domain.com>" or plain email.
 // The fallback must be a verified Resend sender for Amor Amar client notifications.
-const FROM_EMAIL = (process.env.RESEND_FROM_EMAIL || 'Amor Amar <info@amoramarbeauty.com>').trim();
+// Read at call time (not module-load) so Vercel env updates take effect without warm-cache stale values.
+function getFromEmail(): string {
+  return (process.env.RESEND_FROM_EMAIL || 'Amor Amar <info@amoramarbeauty.com>').trim();
+}
 const SALON_NAME = 'Amor Amar Beauty Salon';
 
 export interface BookingConfirmationData {
@@ -80,7 +83,7 @@ export async function sendBookingConfirmation(data: BookingConfirmationData): Pr
     }
 
     const { data: emailData, error } = await resendClient.emails.send({
-      from: FROM_EMAIL,
+      from: getFromEmail(),
       to: data.clientEmail.trim(),
       subject: `✓ Reserva Confirmada - ${SALON_NAME}`,
       html: getBookingConfirmationTemplate(data),
@@ -114,7 +117,7 @@ export async function sendBookingReminder(data: BookingReminderData): Promise<{ 
     }
 
     const { data: emailData, error } = await resendClient.emails.send({
-      from: FROM_EMAIL,
+      from: getFromEmail(),
       to: data.clientEmail,
       subject: `🔔 Recordatorio: Tu cita en ${data.hoursUntil}h - ${SALON_NAME}`,
       html: getBookingReminderTemplate(data),
@@ -150,7 +153,7 @@ export async function sendEmployeeNotification(data: EmployeeNotificationData): 
     };
 
     const { data: emailData, error } = await resendClient.emails.send({
-      from: FROM_EMAIL,
+      from: getFromEmail(),
       to: data.employeeEmail,
       subject: `${subjectMap[data.action]} - ${SALON_NAME}`,
       html: getEmployeeNotificationTemplate(data),
@@ -180,7 +183,7 @@ export async function sendBookingCancellation(data: BookingCancellationData): Pr
     }
 
     const { data: emailData, error } = await resendClient.emails.send({
-      from: FROM_EMAIL,
+      from: getFromEmail(),
       to: data.clientEmail,
       subject: `Reserva Cancelada - ${SALON_NAME}`,
       html: getCancellationTemplate(data),
@@ -210,7 +213,7 @@ export async function sendBookingReschedule(data: BookingRescheduleData): Promis
     }
 
     const { data: emailData, error } = await resendClient.emails.send({
-      from: FROM_EMAIL,
+      from: getFromEmail(),
       to: data.clientEmail,
       subject: `Reserva Modificada - ${SALON_NAME}`,
       html: getRescheduleTemplate(data),
