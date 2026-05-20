@@ -24,6 +24,7 @@ import {
   CalendarDays,
   LayoutGrid,
   List,
+  Trash2,
 } from 'lucide-react';
 
 type ViewMode = 'day' | 'week';
@@ -542,6 +543,8 @@ interface BookingCardProps {
   employeeName: string;
   detailHref: string;
   compact?: boolean;
+  onDelete?: (booking: Booking) => void;
+  isDeleting?: boolean;
 }
 
 const BookingCard: React.FC<BookingCardProps> = ({
@@ -550,6 +553,8 @@ const BookingCard: React.FC<BookingCardProps> = ({
   employeeName,
   detailHref,
   compact = false,
+  onDelete,
+  isDeleting = false,
 }) => {
   const { t } = useLanguage();
   const now = new Date();
@@ -632,6 +637,21 @@ const BookingCard: React.FC<BookingCardProps> = ({
           <span className={cn('px-2 lg:px-3 py-1 rounded-full text-[9px] lg:text-[10px] font-bold uppercase tracking-wide', status.bg, status.text)}>
             {status.label}
           </span>
+          {onDelete && (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                onDelete(booking);
+              }}
+              disabled={isDeleting}
+              aria-label={t('delete') || 'Delete'}
+              className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 hover:text-rose-700 disabled:opacity-40 transition-colors"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
           <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-slate-600 group-hover:translate-x-1 transition-all hidden sm:block" />
         </div>
       </Link>
@@ -703,14 +723,25 @@ const BookingCard: React.FC<BookingCardProps> = ({
       </div>
 
       {/* Footer */}
-      <div className="px-4 lg:px-5 pb-4 lg:pb-5">
+      <div className="px-4 lg:px-5 pb-4 lg:pb-5 flex items-center gap-2">
         <Link
           href={detailHref}
-          className="flex items-center justify-center gap-2 w-full py-2.5 lg:py-3 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 rounded-xl text-sm font-semibold text-slate-700 transition-colors"
+          className="flex-1 flex items-center justify-center gap-2 py-2.5 lg:py-3 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 rounded-xl text-sm font-semibold text-slate-700 transition-colors"
         >
           {t('view_details')}
           <ArrowRight className="w-4 h-4" />
         </Link>
+        {onDelete && (
+          <button
+            type="button"
+            onClick={() => onDelete(booking)}
+            disabled={isDeleting}
+            aria-label={t('delete') || 'Delete'}
+            className="flex items-center justify-center gap-2 px-4 py-2.5 lg:py-3 bg-rose-50 hover:bg-rose-100 active:bg-rose-200 text-rose-600 hover:text-rose-700 rounded-xl text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        )}
       </div>
     </div>
   );
@@ -1009,6 +1040,7 @@ export default function BookingsPage() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deletingBookingId, setDeletingBookingId] = useState<string | null>(null);
 
   // Date & View State
   const [selectedDate, setSelectedDate] = useState<Date>(() => {
@@ -1157,6 +1189,35 @@ export default function BookingsPage() {
 
     return booking.status;
   }, []);
+
+  const handleDeleteBooking = useCallback(
+    async (booking: Booking) => {
+      const confirmMessage =
+        language === 'es'
+          ? `¿Eliminar definitivamente la reserva de ${booking.clientName || 'este cliente'} el ${booking.bookingDate} a las ${booking.bookingTime}?\n\nEsta acción no se puede deshacer.`
+          : `Permanently delete the booking for ${booking.clientName || 'this client'} on ${booking.bookingDate} at ${booking.bookingTime}?\n\nThis cannot be undone.`;
+      if (!window.confirm(confirmMessage)) return;
+
+      setDeletingBookingId(booking.id);
+      try {
+        const response = await fetch(`/api/bookings/${booking.id}`, { method: 'DELETE' });
+        const json = await response.json().catch(() => ({ success: response.ok }));
+        if (!response.ok || json.success === false) {
+          throw new Error(json.error || 'Failed to delete booking');
+        }
+        setBookings((prev) => prev.filter((b) => b.id !== booking.id));
+      } catch (error: any) {
+        console.error('Failed to delete booking:', error);
+        window.alert(
+          (language === 'es' ? 'No se pudo eliminar la reserva.\n\n' : 'Could not delete booking.\n\n') +
+            (error?.message || 'Unknown error')
+        );
+      } finally {
+        setDeletingBookingId(null);
+      }
+    },
+    [language]
+  );
 
   // Booking counts by date
   const bookingCounts = useMemo(() => {
@@ -1610,6 +1671,8 @@ export default function BookingsPage() {
                         serviceName={getServiceName(booking.serviceId)}
                         employeeName={getEmployeeName(booking.employeeId)}
                         detailHref={detailHrefForBooking(booking.id)}
+                        onDelete={handleDeleteBooking}
+                        isDeleting={deletingBookingId === booking.id}
                       />
                     ))}
                   </div>
@@ -1714,6 +1777,8 @@ export default function BookingsPage() {
                                 employeeName={getEmployeeName(booking.employeeId)}
                                 detailHref={detailHrefForBooking(booking.id)}
                                 compact
+                                onDelete={handleDeleteBooking}
+                                isDeleting={deletingBookingId === booking.id}
                               />
                             ))}
                           </div>
