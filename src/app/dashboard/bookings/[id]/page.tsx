@@ -41,7 +41,28 @@ export default function BookingDetailPage() {
   const [updatingDateTime, setUpdatingDateTime] = useState(false);
   const [showClosingSaleModal, setShowClosingSaleModal] = useState(false);
   const [processingPayment, setProcessingPayment] = useState(false);
+  const [deletingBooking, setDeletingBooking] = useState(false);
   const returnTo = searchParams.get('returnTo') || '/dashboard/bookings';
+
+  const handleDeleteBooking = async () => {
+    if (!booking) return;
+    const confirmMessage = `¿Eliminar definitivamente la reserva de ${booking.clientName || 'este cliente'} el ${booking.bookingDate} a las ${booking.bookingTime}?\n\nEsta acción no se puede deshacer.`;
+    if (!window.confirm(confirmMessage)) return;
+
+    setDeletingBooking(true);
+    try {
+      const response = await fetch(`/api/bookings/${booking.id}`, { method: 'DELETE' });
+      const json = await response.json().catch(() => ({ success: response.ok }));
+      if (!response.ok || json.success === false) {
+        throw new Error(json.error || 'Failed to delete booking');
+      }
+      router.push(returnTo);
+    } catch (error: any) {
+      console.error('Failed to delete booking:', error);
+      window.alert(`No se pudo eliminar la reserva.\n\n${error?.message || 'Error desconocido'}`);
+      setDeletingBooking(false);
+    }
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -421,9 +442,19 @@ export default function BookingDetailPage() {
           <h1 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">Detalles de la Reserva</h1>
           <p className="text-slate-500 text-sm font-medium">Ficha completa del cliente y la cita</p>
         </div>
-        <Button variant="outline" onClick={() => router.push(returnTo)}>
-          Volver
-        </Button>
+        <div className="flex flex-wrap gap-3">
+          <Button variant="outline" onClick={() => router.push(returnTo)}>
+            Volver
+          </Button>
+          <button
+            type="button"
+            onClick={handleDeleteBooking}
+            disabled={deletingBooking}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-rose-600 text-white text-sm font-bold uppercase tracking-wider shadow-lg shadow-rose-600/20 hover:bg-rose-700 active:bg-rose-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {deletingBooking ? 'Eliminando…' : 'Eliminar reserva'}
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
