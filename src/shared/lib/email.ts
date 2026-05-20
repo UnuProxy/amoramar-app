@@ -1,15 +1,18 @@
 import { Resend } from 'resend';
-// Lazy initialization of Resend (only when needed)
-let resend: Resend | null = null;
+// Cache the Resend client per API key so env updates on warm Lambdas take effect
+// (avoid stale clients bound to a previous key) without paying the cost of constructing
+// a fresh client on every single email send.
+let cachedResend: { key: string; client: Resend } | null = null;
 
 function getResendClient(): Resend | null {
-  if (!process.env.RESEND_API_KEY) {
+  const key = process.env.RESEND_API_KEY;
+  if (!key) {
     return null;
   }
-  if (!resend) {
-    resend = new Resend(process.env.RESEND_API_KEY);
+  if (!cachedResend || cachedResend.key !== key) {
+    cachedResend = { key, client: new Resend(key) };
   }
-  return resend;
+  return cachedResend.client;
 }
 
 // Email sender: use RESEND_FROM_EMAIL as full "Name <email@domain.com>" or plain email.
