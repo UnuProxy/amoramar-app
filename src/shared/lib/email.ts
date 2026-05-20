@@ -85,8 +85,16 @@ export async function sendBookingConfirmation(data: BookingConfirmationData): Pr
       return { success: false, error: 'Email service not configured' };
     }
 
+    const fromEmail = getFromEmail();
+    const keyPrefix = (process.env.RESEND_API_KEY || '').slice(0, 8);
+    console.log('[email] sendBookingConfirmation', {
+      from: fromEmail,
+      to: data.clientEmail.trim(),
+      keyPrefix,
+    });
+
     const { data: emailData, error } = await resendClient.emails.send({
-      from: getFromEmail(),
+      from: fromEmail,
       to: data.clientEmail.trim(),
       subject: `✓ Reserva Confirmada - ${SALON_NAME}`,
       html: getBookingConfirmationTemplate(data),
