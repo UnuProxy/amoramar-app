@@ -499,6 +499,9 @@ export default function EmployeeCalendarPage() {
         if (waErr) {
           alert(`Reserva guardada, pero WhatsApp no se envió.\n\n${waErr}`);
         }
+        if (json.data?.emailSent === false) {
+          alert(`Reserva guardada, pero el email no se envió.\n\n${json.data?.emailError || 'Error desconocido'}`);
+        }
         if (employee && selectedServiceId) {
           await loadCalendarData(employee.id, selectedServiceId, calendarStartDate);
         }
