@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBookings, createBooking, getService, getEmployee, getEmployeeServices } from '@/shared/lib/firestore';
-import { sendBookingConfirmation, sendEmployeeNotification } from '@/shared/lib/email';
+import { sendEmployeeNotification } from '@/shared/lib/email';
 import type { ApiResponse, Booking, BookingFormData } from '@/shared/lib/types';
 import { getPaymentIntent } from '@/shared/lib/stripe';
 import { BookingScheduleValidationError, validateBookingSchedule } from '@/shared/lib/bookingAvailability';
 import { enqueueWhatsAppJobsForConfirmedBooking } from '@/shared/lib/whatsappJobs';
-import { enqueueEmailReminderForBooking } from '@/shared/lib/emailReminderJobs';
+import { enqueueEmailConfirmationForBooking, enqueueEmailReminderForBooking } from '@/shared/lib/emailReminderJobs';
 
 export const runtime = 'nodejs';
 
@@ -299,20 +299,22 @@ export async function POST(request: NextRequest) {
     } else {
       const clientEmailTrimmed = data.clientEmail?.trim() || '';
       if (clientEmailTrimmed) {
-        const emailResult = await sendBookingConfirmation({
+        const confirmationQueueResult = await enqueueEmailConfirmationForBooking({
+          id: bookingId,
           clientName: data.clientName,
           clientEmail: clientEmailTrimmed,
           serviceName: isConsultation ? `Consulta Gratuita - ${service.serviceName}` : service.serviceName,
           employeeName: `${employee.firstName} ${employee.lastName}`,
           bookingDate: data.bookingDate,
           bookingTime: data.bookingTime,
+          status: isConsultation ? 'confirmed' : (allowUnpaid ? 'pending' : 'confirmed'),
           duration: isConsultation && data.consultationDuration ? data.consultationDuration : service.duration,
           price: isConsultation ? '0' : servicePrice.toString(),
         });
-        emailSent = emailResult.success;
-        emailError = emailResult.error;
-        if (!emailResult.success) {
-          console.error('[email] confirmation failed for booking', bookingId, emailResult.error);
+        if (!confirmationQueueResult.queued && confirmationQueueResult.skippedReason !== 'already_handled') {
+          emailSent = false;
+          emailError = `confirmation_queue_skipped:${confirmationQueueResult.skippedReason || 'unknown'}`;
+          console.error('[email] confirmation enqueue skipped for booking', bookingId, emailError);
         }
       } else {
         console.warn('[email] skip confirmation: no client email', bookingId);

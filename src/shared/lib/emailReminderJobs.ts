@@ -1,18 +1,20 @@
 import { FieldValue, Timestamp, type DocumentReference, type QueryDocumentSnapshot } from 'firebase-admin/firestore';
 import type { Booking } from '@/shared/lib/types';
 import { getAdminDb } from '@/shared/lib/firebaseAdmin';
-import { sendBookingReminder } from '@/shared/lib/email';
+import { sendBookingConfirmation, sendBookingReminder } from '@/shared/lib/email';
 
 type EmailReminderJob = {
   bookingId: string;
-  type: 'EMAIL_REMINDER_24H';
+  type: 'EMAIL_CONFIRMATION' | 'EMAIL_REMINDER_24H';
   toEmail: string;
   clientName: string;
   serviceName: string;
   employeeName: string;
   bookingDate: string;
   bookingTime: string;
-  hoursUntil: number;
+  hoursUntil?: number;
+  duration?: number;
+  price?: string;
   dueAt: Timestamp;
   status: 'queued' | 'processing' | 'sent' | 'failed';
   attempts: number;
@@ -24,7 +26,7 @@ type EmailReminderJob = {
 };
 
 const db = () => getAdminDb();
-const jobDocId = (bookingId: string) => `${bookingId}_EMAIL_REMINDER_24H`;
+const jobDocId = (bookingId: string, type: EmailReminderJob['type']) => `${bookingId}_${type}`;
 
 const bookingStartAt = (booking: Pick<Booking, 'bookingDate' | 'bookingTime'>): Date | null => {
   if (!booking.bookingDate || !booking.bookingTime) return null;
@@ -68,7 +70,7 @@ export const enqueueEmailReminderForBooking = async (
     dueMillis = now.toMillis() + 60 * 1000;
   }
 
-  const ref = db().collection('email_notification_jobs').doc(jobDocId(booking.id));
+  const ref = db().collection('email_notification_jobs').doc(jobDocId(booking.id, 'EMAIL_REMINDER_24H'));
   const existing = await ref.get();
   const status = existing.exists ? (existing.data() as EmailReminderJob | undefined)?.status : undefined;
   if (status === 'queued' || status === 'processing' || status === 'sent') {
@@ -87,6 +89,63 @@ export const enqueueEmailReminderForBooking = async (
       bookingTime: booking.bookingTime,
       hoursUntil: 24,
       dueAt: Timestamp.fromMillis(dueMillis),
+      status: 'queued',
+      attempts: 0,
+      createdAt: now,
+      updatedAt: now,
+    } satisfies EmailReminderJob,
+    { merge: true }
+  );
+
+  return { queued: true };
+};
+
+export const enqueueEmailConfirmationForBooking = async (
+  booking: Pick<
+    Booking,
+    | 'id'
+    | 'clientName'
+    | 'clientEmail'
+    | 'serviceName'
+    | 'bookingDate'
+    | 'bookingTime'
+    | 'status'
+  > & {
+    employeeName: string;
+    duration: number;
+    price: string;
+  }
+): Promise<{ queued: boolean; skippedReason?: string }> => {
+  if (booking.status === 'cancelled') {
+    return { queued: false, skippedReason: 'status_cancelled' };
+  }
+
+  const toEmail = booking.clientEmail?.trim();
+  if (!toEmail) {
+    return { queued: false, skippedReason: 'missing_client_email' };
+  }
+
+  const now = Timestamp.now();
+  const ref = db().collection('email_notification_jobs').doc(jobDocId(booking.id, 'EMAIL_CONFIRMATION'));
+  const existing = await ref.get();
+  const status = existing.exists ? (existing.data() as EmailReminderJob | undefined)?.status : undefined;
+  if (status === 'queued' || status === 'processing' || status === 'sent') {
+    return { queued: false, skippedReason: 'already_handled' };
+  }
+
+  await ref.set(
+    {
+      bookingId: booking.id,
+      type: 'EMAIL_CONFIRMATION',
+      toEmail,
+      clientName: booking.clientName || 'Cliente',
+      serviceName: booking.serviceName || 'Servicio',
+      employeeName: booking.employeeName || 'Amor Amar',
+      bookingDate: booking.bookingDate,
+      bookingTime: booking.bookingTime,
+      duration: booking.duration,
+      price: booking.price,
+      dueAt: now,
       status: 'queued',
       attempts: 0,
       createdAt: now,
@@ -120,15 +179,27 @@ const processEmailReminderJobRef = async (
   if (!claimed) return 'skipped';
 
   try {
-    const result = await sendBookingReminder({
-      clientName: claimed.clientName,
-      clientEmail: claimed.toEmail,
-      serviceName: claimed.serviceName,
-      employeeName: claimed.employeeName,
-      bookingDate: claimed.bookingDate,
-      bookingTime: claimed.bookingTime,
-      hoursUntil: claimed.hoursUntil,
-    });
+    const result =
+      claimed.type === 'EMAIL_CONFIRMATION'
+        ? await sendBookingConfirmation({
+            clientName: claimed.clientName,
+            clientEmail: claimed.toEmail,
+            serviceName: claimed.serviceName,
+            employeeName: claimed.employeeName,
+            bookingDate: claimed.bookingDate,
+            bookingTime: claimed.bookingTime,
+            duration: claimed.duration || 0,
+            price: claimed.price || '0',
+          })
+        : await sendBookingReminder({
+            clientName: claimed.clientName,
+            clientEmail: claimed.toEmail,
+            serviceName: claimed.serviceName,
+            employeeName: claimed.employeeName,
+            bookingDate: claimed.bookingDate,
+            bookingTime: claimed.bookingTime,
+            hoursUntil: claimed.hoursUntil || 24,
+          });
 
     if (!result.success) {
       throw new Error(result.error || 'Email reminder failed');
