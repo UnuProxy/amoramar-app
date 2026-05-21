@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { getBookings, getEmployees, getServices } from '@/shared/lib/firestore';
 import type { Booking, Employee, Service } from '@/shared/lib/types';
-import { formatTime, cn } from '@/shared/lib/utils';
+import { formatDate, formatTime, cn } from '@/shared/lib/utils';
 import { useLanguage } from '@/shared/context/LanguageContext';
 import type { Language } from '@/shared/lib/i18n';
 import { Loading } from '@/shared/components/Loading';
@@ -1194,8 +1194,8 @@ export default function BookingsPage() {
     async (booking: Booking) => {
       const confirmMessage =
         language === 'es'
-          ? `¿Eliminar definitivamente la reserva de ${booking.clientName || 'este cliente'} el ${booking.bookingDate} a las ${booking.bookingTime}?\n\nEsta acción no se puede deshacer.`
-          : `Permanently delete the booking for ${booking.clientName || 'this client'} on ${booking.bookingDate} at ${booking.bookingTime}?\n\nThis cannot be undone.`;
+          ? `¿Eliminar definitivamente la reserva de ${booking.clientName || 'este cliente'} el ${formatDate(booking.bookingDate)} a las ${booking.bookingTime}?\n\nEsta acción no se puede deshacer.`
+          : `Permanently delete the booking for ${booking.clientName || 'this client'} on ${formatDate(booking.bookingDate)} at ${booking.bookingTime}?\n\nThis cannot be undone.`;
       if (!window.confirm(confirmMessage)) return;
 
       setDeletingBookingId(booking.id);

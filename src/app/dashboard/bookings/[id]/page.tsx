@@ -46,7 +46,7 @@ export default function BookingDetailPage() {
 
   const handleDeleteBooking = async () => {
     if (!booking) return;
-    const confirmMessage = `¿Eliminar definitivamente la reserva de ${booking.clientName || 'este cliente'} el ${booking.bookingDate} a las ${booking.bookingTime}?\n\nEsta acción no se puede deshacer.`;
+    const confirmMessage = `¿Eliminar definitivamente la reserva de ${booking.clientName || 'este cliente'} el ${formatDate(booking.bookingDate)} a las ${booking.bookingTime}?\n\nEsta acción no se puede deshacer.`;
     if (!window.confirm(confirmMessage)) return;
 
     setDeletingBooking(true);

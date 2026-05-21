@@ -1,4 +1,5 @@
 import { Resend } from 'resend';
+import { formatDate } from '@/shared/lib/utils';
 // Cache the Resend client per API key so env updates on warm Lambdas take effect
 // (avoid stale clients bound to a previous key) without paying the cost of constructing
 // a fresh client on every single email send.
@@ -301,7 +302,7 @@ function getBookingConfirmationTemplate(data: BookingConfirmationData): string {
                       </tr>
                       <tr>
                         <td style="padding: 10px 0; color: #6b7280; font-size: 14px;">Fecha:</td>
-                        <td style="padding: 10px 0; color: #1f2937; font-size: 14px; font-weight: 600; text-align: right;">${data.bookingDate}</td>
+                        <td style="padding: 10px 0; color: #1f2937; font-size: 14px; font-weight: 600; text-align: right;">${formatDate(data.bookingDate)}</td>
                       </tr>
                       <tr>
                         <td style="padding: 10px 0; color: #6b7280; font-size: 14px;">Hora:</td>
@@ -404,7 +405,7 @@ function getBookingReminderTemplate(data: BookingReminderData): string {
                       </tr>
                       <tr>
                         <td style="padding: 10px 0; color: #92400e; font-size: 14px;">Fecha:</td>
-                        <td style="padding: 10px 0; color: #78350f; font-size: 14px; font-weight: 600; text-align: right;">${data.bookingDate}</td>
+                        <td style="padding: 10px 0; color: #78350f; font-size: 14px; font-weight: 600; text-align: right;">${formatDate(data.bookingDate)}</td>
                       </tr>
                       <tr>
                         <td style="padding: 10px 0; color: #92400e; font-size: 14px;">Hora:</td>
@@ -505,7 +506,7 @@ function getEmployeeNotificationTemplate(data: EmployeeNotificationData): string
                       </tr>
                       <tr>
                         <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Fecha:</td>
-                        <td style="padding: 8px 0; color: #1f2937; font-size: 14px; font-weight: 600; text-align: right;">${data.bookingDate}</td>
+                        <td style="padding: 8px 0; color: #1f2937; font-size: 14px; font-weight: 600; text-align: right;">${formatDate(data.bookingDate)}</td>
                       </tr>
                       <tr>
                         <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Hora:</td>
@@ -583,7 +584,7 @@ function getCancellationTemplate(data: BookingCancellationData): string {
                       </tr>
                       <tr>
                         <td style="padding: 10px 0; color: #7f1d1d; font-size: 14px;">Fecha:</td>
-                        <td style="padding: 10px 0; color: #991b1b; font-size: 14px; font-weight: 600; text-align: right;">${data.bookingDate}</td>
+                        <td style="padding: 10px 0; color: #991b1b; font-size: 14px; font-weight: 600; text-align: right;">${formatDate(data.bookingDate)}</td>
                       </tr>
                       <tr>
                         <td style="padding: 10px 0; color: #7f1d1d; font-size: 14px;">Hora:</td>
@@ -651,7 +652,7 @@ function getRescheduleTemplate(data: BookingRescheduleData): string {
                       <table role="presentation" style="width: 100%; border-collapse: collapse;">
                         <tr>
                           <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Fecha:</td>
-                          <td style="padding: 8px 0; color: #4b5563; font-size: 14px; font-weight: 600; text-align: right; text-decoration: line-through;">${data.oldBookingDate}</td>
+                          <td style="padding: 8px 0; color: #4b5563; font-size: 14px; font-weight: 600; text-align: right; text-decoration: line-through;">${formatDate(data.oldBookingDate)}</td>
                         </tr>
                         <tr>
                           <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Hora:</td>
@@ -681,7 +682,7 @@ function getRescheduleTemplate(data: BookingRescheduleData): string {
                         </tr>
                         <tr>
                           <td style="padding: 10px 0; color: #1e3a8a; font-size: 14px;">Nueva Fecha:</td>
-                          <td style="padding: 10px 0; color: #1e40af; font-size: 16px; font-weight: 700; text-align: right;">${data.newBookingDate}</td>
+                          <td style="padding: 10px 0; color: #1e40af; font-size: 16px; font-weight: 700; text-align: right;">${formatDate(data.newBookingDate)}</td>
                         </tr>
                         <tr>
                           <td style="padding: 10px 0; color: #1e3a8a; font-size: 14px;">Nueva Hora:</td>
