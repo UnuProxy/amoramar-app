@@ -34,6 +34,8 @@ export async function PUT(
     const { id } = await context.params;
     const body = await request.json();
     const newEmail = String(body?.email || '').trim().toLowerCase();
+    const hasPhoneUpdate = Object.prototype.hasOwnProperty.call(body || {}, 'phone');
+    const newPhone = hasPhoneUpdate ? String(body?.phone || '').trim() : undefined;
 
     if (!newEmail || !isValidEmail(newEmail)) {
       return NextResponse.json(
@@ -56,21 +58,25 @@ export async function PUT(
 
     const client = clientSnap.data() || {};
     const previousEmail = String(client.email || body?.previousEmail || '').trim().toLowerCase();
+    const previousPhone = String(client.phone || body?.previousPhone || '').trim();
+    const phoneChanged = hasPhoneUpdate && newPhone !== previousPhone;
 
-    if (previousEmail === newEmail) {
+    if (previousEmail === newEmail && !phoneChanged) {
       return NextResponse.json({
         success: true,
-        data: { email: newEmail, updatedBookings: 0 },
+        data: { email: newEmail, phone: previousPhone, updatedBookings: 0 },
       });
     }
 
-    const duplicateClients = await db.collection('clients').where('email', '==', newEmail).get();
-    const duplicateClient = duplicateClients.docs.find((doc) => doc.id !== id);
-    if (duplicateClient) {
-      return NextResponse.json(
-        { success: false, error: 'Ya existe otro cliente con este email.' },
-        { status: 409 }
-      );
+    if (previousEmail !== newEmail) {
+      const duplicateClients = await db.collection('clients').where('email', '==', newEmail).get();
+      const duplicateClient = duplicateClients.docs.find((doc) => doc.id !== id);
+      if (duplicateClient) {
+        return NextResponse.json(
+          { success: false, error: 'Ya existe otro cliente con este email.' },
+          { status: 409 }
+        );
+      }
     }
 
     let linkedUserId = typeof client.userId === 'string' ? client.userId.trim() : '';
@@ -86,6 +92,7 @@ export async function PUT(
       clientRef,
       {
         email: newEmail,
+        ...(hasPhoneUpdate ? { phone: newPhone } : {}),
         updatedAt: Timestamp.now(),
       },
       { merge: true }
@@ -97,16 +104,19 @@ export async function PUT(
         userRef,
         {
           email: newEmail,
+          ...(hasPhoneUpdate ? { phone: newPhone } : {}),
           updatedAt: Timestamp.now(),
         },
         { merge: true }
       );
 
-      try {
-        await auth.updateUser(linkedUserId, { email: newEmail });
-      } catch (error: any) {
-        if (error?.code !== 'auth/user-not-found') {
-          throw error;
+      if (previousEmail !== newEmail) {
+        try {
+          await auth.updateUser(linkedUserId, { email: newEmail });
+        } catch (error: any) {
+          if (error?.code !== 'auth/user-not-found') {
+            throw error;
+          }
         }
       }
     }
@@ -124,6 +134,7 @@ export async function PUT(
             bookingDoc.ref,
             {
               clientEmail: newEmail,
+              ...(hasPhoneUpdate ? { clientPhone: newPhone } : {}),
               updatedAt: FieldValue.serverTimestamp(),
             },
             { merge: true }
@@ -135,10 +146,10 @@ export async function PUT(
 
     return NextResponse.json({
       success: true,
-      data: { email: newEmail, updatedBookings },
+      data: { email: newEmail, phone: hasPhoneUpdate ? newPhone : previousPhone, updatedBookings },
     });
   } catch (error: any) {
-    console.error('Error updating client email:', error);
+    console.error('Error updating client details:', error);
     const status =
       error?.message === 'Permission denied.' || error?.message === 'Missing authorization token.'
         ? 403

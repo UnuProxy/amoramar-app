@@ -76,6 +76,8 @@ export default function DashboardPage() {
   const [clientDeleting, setClientDeleting] = useState(false);
   const [clientNotesSaving, setClientNotesSaving] = useState(false);
   const [clientEmailDraft, setClientEmailDraft] = useState('');
+  const [clientPhoneDraft, setClientPhoneDraft] = useState('');
+  const [clientDetailsEditing, setClientDetailsEditing] = useState(false);
   const [clientEmailSaving, setClientEmailSaving] = useState(false);
   const [clientEmailError, setClientEmailError] = useState<string | null>(null);
   const [bookingEmployeeSavingId, setBookingEmployeeSavingId] = useState<string | null>(null);
@@ -973,34 +975,44 @@ export default function DashboardPage() {
 
   useEffect(() => {
     setClientEmailDraft(selectedClientProfile?.email || selectedClient?.email || '');
+    setClientPhoneDraft(selectedClientProfile?.phone || selectedClient?.phone || '');
+    setClientDetailsEditing(false);
     setClientEmailError(null);
-  }, [selectedClientProfile?.id, selectedClientProfile?.email, selectedClient?.email]);
+  }, [
+    selectedClientProfile?.id,
+    selectedClientProfile?.email,
+    selectedClientProfile?.phone,
+    selectedClient?.email,
+    selectedClient?.phone,
+  ]);
 
-  const handleSaveClientEmail = async () => {
-    if (!selectedClientProfile) {
-      setClientEmailError('Este cliente no tiene un perfil guardado para actualizar.');
+  const handleSaveClientDetails = async () => {
+    if (!selectedClient) {
+      setClientEmailError('Selecciona un cliente para actualizar.');
       return;
     }
 
-    const previousEmail = selectedClientProfile.email.trim().toLowerCase();
+    const previousEmail = (selectedClientProfile?.email || selectedClient.email).trim().toLowerCase();
+    const previousPhone = (selectedClientProfile?.phone || selectedClient.phone || '').trim();
     const nextEmail = clientEmailDraft.trim().toLowerCase();
+    const nextPhone = clientPhoneDraft.trim();
 
     if (!nextEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(nextEmail)) {
       setClientEmailError('El email no es válido.');
       return;
     }
 
-    if (nextEmail === previousEmail) {
+    if (nextEmail === previousEmail && nextPhone === previousPhone) {
       setClientEmailError(null);
       return;
     }
 
-    if (clients.some((client) => client.id !== selectedClientProfile.id && client.email?.toLowerCase() === nextEmail)) {
+    if (clients.some((client) => client.id !== selectedClientProfile?.id && client.email?.toLowerCase() === nextEmail)) {
       setClientEmailError('Ya existe otro cliente con este email.');
       return;
     }
 
-    if (!firebaseUser) {
+    if (selectedClientProfile && !firebaseUser) {
       setClientEmailError('Debes iniciar sesión de nuevo para guardar cambios.');
       return;
     }
@@ -1009,41 +1021,61 @@ export default function DashboardPage() {
       setClientEmailSaving(true);
       setClientEmailError(null);
 
-      const token = await firebaseUser.getIdToken();
-      const response = await fetch(`/api/clients/${encodeURIComponent(selectedClientProfile.id)}/email`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          email: nextEmail,
-          previousEmail,
-        }),
-      });
-      const payload = await response.json();
+      if (selectedClientProfile) {
+        const token = await firebaseUser.getIdToken();
+        const response = await fetch(`/api/clients/${encodeURIComponent(selectedClientProfile.id)}/email`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            email: nextEmail,
+            phone: nextPhone,
+            previousEmail,
+            previousPhone,
+          }),
+        });
+        const payload = await response.json();
 
-      if (!response.ok || !payload.success) {
-        throw new Error(payload.error || 'No se pudo actualizar el email.');
+        if (!response.ok || !payload.success) {
+          throw new Error(payload.error || 'No se pudieron actualizar los datos del cliente.');
+        }
+      } else {
+        const matchingBookings = bookings.filter((booking) => booking.clientEmail.toLowerCase() === previousEmail);
+        await Promise.all(
+          matchingBookings.map((booking) =>
+            updateBooking(booking.id, {
+              clientEmail: nextEmail,
+              clientPhone: nextPhone,
+            })
+          )
+        );
       }
 
-      setClients((prev) =>
-        prev.map((client) =>
-          client.id === selectedClientProfile.id ? { ...client, email: nextEmail, updatedAt: new Date() } : client
-        )
-      );
+      if (selectedClientProfile) {
+        setClients((prev) =>
+          prev.map((client) =>
+            client.id === selectedClientProfile.id
+              ? { ...client, email: nextEmail, phone: nextPhone, updatedAt: new Date() }
+              : client
+          )
+        );
+      }
       setBookings((prev) =>
         prev.map((booking) =>
           booking.clientEmail.toLowerCase() === previousEmail
-            ? { ...booking, clientEmail: nextEmail, updatedAt: new Date() }
+            ? { ...booking, clientEmail: nextEmail, clientPhone: nextPhone, updatedAt: new Date() }
             : booking
         )
       );
       setSelectedClientEmail(nextEmail);
       setClientEmailDraft(nextEmail);
+      setClientPhoneDraft(nextPhone);
+      setClientDetailsEditing(false);
     } catch (error: any) {
-      console.error('Error updating client email:', error);
-      setClientEmailError(error.message || 'No se pudo actualizar el email.');
+      console.error('Error updating client details:', error);
+      setClientEmailError(error.message || 'No se pudieron actualizar los datos del cliente.');
     } finally {
       setClientEmailSaving(false);
     }
@@ -1512,32 +1544,46 @@ export default function DashboardPage() {
                       Nuevo cliente
                     </span>
                   )}
-                  {selectedClientProfile && (
+                  {clientDetailsEditing && (
                     <div className="w-full max-w-2xl space-y-3 pt-4">
                       <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
-                        Email del cliente
+                        Datos del cliente
                       </label>
-                      <div className="flex flex-col sm:flex-row gap-3">
-                        <input
-                          type="email"
-                          value={clientEmailDraft}
-                          onChange={(e) => {
-                            setClientEmailDraft(e.target.value);
-                            setClientEmailError(null);
-                          }}
-                          className="flex-1 w-full px-4 py-3 bg-slate-50 border-2 border-slate-100 rounded-[16px] text-slate-900 font-bold focus:border-sky-500 transition-all outline-none"
-                          placeholder="cliente@email.com"
-                        />
+                      <div className="flex flex-col gap-3">
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <input
+                            type="email"
+                            value={clientEmailDraft}
+                            onChange={(e) => {
+                              setClientEmailDraft(e.target.value);
+                              setClientEmailError(null);
+                            }}
+                            className="w-full px-4 py-3 bg-slate-50 border-2 border-slate-100 rounded-[16px] text-slate-900 font-bold focus:border-sky-500 transition-all outline-none"
+                            placeholder="cliente@email.com"
+                          />
+                          <input
+                            type="tel"
+                            value={clientPhoneDraft}
+                            onChange={(e) => {
+                              setClientPhoneDraft(e.target.value);
+                              setClientEmailError(null);
+                            }}
+                            className="w-full px-4 py-3 bg-slate-50 border-2 border-slate-100 rounded-[16px] text-slate-900 font-bold focus:border-sky-500 transition-all outline-none"
+                            placeholder="+34 600 000 000"
+                          />
+                        </div>
                         <button
                           type="button"
                           disabled={
                             clientEmailSaving ||
-                            clientEmailDraft.trim().toLowerCase() === selectedClientProfile.email.toLowerCase()
+                            (clientEmailDraft.trim().toLowerCase() ===
+                              (selectedClientProfile?.email || selectedClient.email).toLowerCase() &&
+                              clientPhoneDraft.trim() === (selectedClientProfile?.phone || selectedClient.phone || '').trim())
                           }
-                          onClick={handleSaveClientEmail}
-                          className="px-6 py-3 bg-slate-900 text-white text-[10px] font-black uppercase tracking-[0.2em] rounded-[14px] hover:bg-sky-600 transition disabled:opacity-60 disabled:cursor-not-allowed"
+                          onClick={handleSaveClientDetails}
+                          className="w-full sm:w-fit px-6 py-3 bg-slate-900 text-white text-[10px] font-black uppercase tracking-[0.2em] rounded-[14px] hover:bg-sky-600 transition disabled:opacity-60 disabled:cursor-not-allowed"
                         >
-                          {clientEmailSaving ? 'Saving...' : 'Save Email'}
+                          {clientEmailSaving ? 'Saving...' : 'Save Details'}
                         </button>
                       </div>
                       {clientEmailError && (
@@ -1556,6 +1602,13 @@ export default function DashboardPage() {
                       <div className="w-1.5 h-1.5 rounded-full bg-slate-300" />
                       <span className="text-sm font-black text-slate-400 uppercase tracking-widest">{selectedClient.phone}</span>
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => setClientDetailsEditing((isEditing) => !isEditing)}
+                      className="px-4 py-2 rounded-full bg-slate-900 text-white text-[10px] font-black uppercase tracking-[0.2em] hover:bg-sky-600 transition-all"
+                    >
+                      {clientDetailsEditing ? 'Cancel Edit' : 'Edit Details'}
+                    </button>
                     {selectedClientProfile?.city && (
                       <div className="flex items-center gap-2">
                         <div className="w-1.5 h-1.5 rounded-full bg-slate-300" />
