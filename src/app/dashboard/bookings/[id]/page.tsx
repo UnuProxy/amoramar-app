@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
-import { getBooking, getEmployee, getService, updateBooking, getClientByEmail, updateClient, createClient, getClients, getServices } from '@/shared/lib/firestore';
+import { getBooking, getEmployee, getEmployees, getService, updateBooking, getClientByEmail, updateClient, createClient, getClients, getServices } from '@/shared/lib/firestore';
 import { Loading } from '@/shared/components/Loading';
 import { Button } from '@/shared/components/Button';
 import { ClosingSaleModal } from '@/shared/components/ClosingSaleModal';
@@ -22,6 +22,7 @@ export default function BookingDetailPage() {
   const bookingId = params.id as string;
   const [booking, setBooking] = useState<Booking | null>(null);
   const [employee, setEmployee] = useState<Employee | null>(null);
+  const [employees, setEmployees] = useState<Employee[]>([]);
   const [service, setService] = useState<Service | null>(null);
   const [loading, setLoading] = useState(true);
   const [clientProfile, setClientProfile] = useState<Client | null>(null);
@@ -39,6 +40,7 @@ export default function BookingDetailPage() {
   const [newBookingDate, setNewBookingDate] = useState('');
   const [newBookingTime, setNewBookingTime] = useState('');
   const [updatingDateTime, setUpdatingDateTime] = useState(false);
+  const [updatingEmployee, setUpdatingEmployee] = useState(false);
   const [showClosingSaleModal, setShowClosingSaleModal] = useState(false);
   const [processingPayment, setProcessingPayment] = useState(false);
   const [deletingBooking, setDeletingBooking] = useState(false);
@@ -107,12 +109,14 @@ export default function BookingDetailPage() {
           }
 
           setBooking(normalizedBooking);
-          const [employeeData, serviceData, servicesData] = await Promise.all([
+          const [employeeData, allEmployees, serviceData, servicesData] = await Promise.all([
             getEmployee(normalizedBooking.employeeId),
+            getEmployees(),
             getService(normalizedBooking.serviceId),
             getServices(),
           ]);
           setEmployee(employeeData);
+          setEmployees(allEmployees);
           setService(serviceData);
           setAvailableServices(servicesData);
 
@@ -331,6 +335,24 @@ export default function BookingDetailPage() {
     }
   };
 
+  const handleUpdateEmployee = async (employeeId: string) => {
+    if (!booking || !employeeId || employeeId === booking.employeeId) return;
+
+    const nextEmployee = employees.find((item) => item.id === employeeId) || null;
+
+    try {
+      setUpdatingEmployee(true);
+      await updateBooking(booking.id, { employeeId });
+      setBooking({ ...booking, employeeId, updatedAt: new Date() });
+      setEmployee(nextEmployee);
+    } catch (error) {
+      console.error('Error updating booking employee:', error);
+      alert('Error al cambiar el empleado');
+    } finally {
+      setUpdatingEmployee(false);
+    }
+  };
+
   const handleConfirmFinalPayment = async (paymentMethod: PaymentMethod, finalAmount: number, notes: string) => {
     if (!booking || !user) return;
 
@@ -488,7 +510,24 @@ export default function BookingDetailPage() {
         </div>
         <div className="p-4 rounded-2xl bg-gradient-to-br from-rose-50 to-white border border-rose-100">
           <p className="text-xs uppercase tracking-[0.25em] text-rose-700 mb-2">Empleado</p>
-          <div className="text-xl font-black text-rose-900">{employee ? `${employee.firstName} ${employee.lastName}` : '—'}</div>
+          <select
+            value={booking.employeeId}
+            onChange={(event) => handleUpdateEmployee(event.target.value)}
+            disabled={updatingEmployee || employees.length === 0}
+            className="w-full rounded-xl border-2 border-rose-100 bg-white px-3 py-2 text-base font-black text-rose-900 outline-none transition focus:border-rose-300 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {employees.length === 0 && employee && (
+              <option value={employee.id}>{`${employee.firstName} ${employee.lastName}`}</option>
+            )}
+            {employees.map((item) => (
+              <option key={item.id} value={item.id}>
+                {`${item.firstName} ${item.lastName || ''}`.trim()}
+              </option>
+            ))}
+          </select>
+          {updatingEmployee && (
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-rose-700 mt-2">Guardando...</p>
+          )}
           <p className="text-sm text-rose-700 mt-2">{service?.serviceName}</p>
         </div>
       </div>
@@ -546,7 +585,26 @@ export default function BookingDetailPage() {
             </div>
             <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Empleado</p>
-              <p className="text-lg font-semibold text-slate-900 mt-1">{employee ? `${employee.firstName} ${employee.lastName}` : '—'}</p>
+              <select
+                value={booking.employeeId}
+                onChange={(event) => handleUpdateEmployee(event.target.value)}
+                disabled={updatingEmployee || employees.length === 0}
+                className="mt-2 w-full rounded-xl border-2 border-slate-200 bg-white px-3 py-2 text-slate-900 font-semibold outline-none transition focus:border-sky-500 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {employees.length === 0 && employee && (
+                  <option value={employee.id}>{`${employee.firstName} ${employee.lastName}`}</option>
+                )}
+                {employees.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {`${item.firstName} ${item.lastName || ''}`.trim()}
+                  </option>
+                ))}
+              </select>
+              {updatingEmployee && (
+                <p className="mt-2 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+                  Guardando...
+                </p>
+              )}
             </div>
             
             {/* Date/Time Section - Editable */}

@@ -57,7 +57,7 @@ interface ClientData {
 }
 
 export default function DashboardPage() {
-  const { user } = useAuth();
+  const { user, firebaseUser } = useAuth();
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const router = useRouter();
@@ -75,6 +75,10 @@ export default function DashboardPage() {
   const [clientSuggestionsOpen, setClientSuggestionsOpen] = useState(false);
   const [clientDeleting, setClientDeleting] = useState(false);
   const [clientNotesSaving, setClientNotesSaving] = useState(false);
+  const [clientEmailDraft, setClientEmailDraft] = useState('');
+  const [clientEmailSaving, setClientEmailSaving] = useState(false);
+  const [clientEmailError, setClientEmailError] = useState<string | null>(null);
+  const [bookingEmployeeSavingId, setBookingEmployeeSavingId] = useState<string | null>(null);
   
   // Filters
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('all');
@@ -834,6 +838,24 @@ export default function DashboardPage() {
     }
   };
 
+  const handleBookingEmployeeChange = async (booking: Booking, employeeId: string) => {
+    if (!employeeId || employeeId === booking.employeeId) return;
+
+    try {
+      setBookingEmployeeSavingId(booking.id);
+      await updateBooking(booking.id, { employeeId });
+      setBookings((prev) =>
+        prev.map((item) => (item.id === booking.id ? { ...item, employeeId, updatedAt: new Date() } : item))
+      );
+      setBookingRefreshKey((prev) => prev + 1);
+    } catch (error) {
+      console.error('Error changing booking therapist:', error);
+      alert('Could not change the therapist for this booking.');
+    } finally {
+      setBookingEmployeeSavingId(null);
+    }
+  };
+
   const confirmStatusChange = async () => {
     if (!actionConfirm) return;
     try {
@@ -948,6 +970,84 @@ export default function DashboardPage() {
   const selectedClientProfile = selectedClientEmail
     ? clients.find((c) => c.email?.toLowerCase() === selectedClientEmail.toLowerCase())
     : null;
+
+  useEffect(() => {
+    setClientEmailDraft(selectedClientProfile?.email || selectedClient?.email || '');
+    setClientEmailError(null);
+  }, [selectedClientProfile?.id, selectedClientProfile?.email, selectedClient?.email]);
+
+  const handleSaveClientEmail = async () => {
+    if (!selectedClientProfile) {
+      setClientEmailError('Este cliente no tiene un perfil guardado para actualizar.');
+      return;
+    }
+
+    const previousEmail = selectedClientProfile.email.trim().toLowerCase();
+    const nextEmail = clientEmailDraft.trim().toLowerCase();
+
+    if (!nextEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(nextEmail)) {
+      setClientEmailError('El email no es válido.');
+      return;
+    }
+
+    if (nextEmail === previousEmail) {
+      setClientEmailError(null);
+      return;
+    }
+
+    if (clients.some((client) => client.id !== selectedClientProfile.id && client.email?.toLowerCase() === nextEmail)) {
+      setClientEmailError('Ya existe otro cliente con este email.');
+      return;
+    }
+
+    if (!firebaseUser) {
+      setClientEmailError('Debes iniciar sesión de nuevo para guardar cambios.');
+      return;
+    }
+
+    try {
+      setClientEmailSaving(true);
+      setClientEmailError(null);
+
+      const token = await firebaseUser.getIdToken();
+      const response = await fetch(`/api/clients/${encodeURIComponent(selectedClientProfile.id)}/email`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          email: nextEmail,
+          previousEmail,
+        }),
+      });
+      const payload = await response.json();
+
+      if (!response.ok || !payload.success) {
+        throw new Error(payload.error || 'No se pudo actualizar el email.');
+      }
+
+      setClients((prev) =>
+        prev.map((client) =>
+          client.id === selectedClientProfile.id ? { ...client, email: nextEmail, updatedAt: new Date() } : client
+        )
+      );
+      setBookings((prev) =>
+        prev.map((booking) =>
+          booking.clientEmail.toLowerCase() === previousEmail
+            ? { ...booking, clientEmail: nextEmail, updatedAt: new Date() }
+            : booking
+        )
+      );
+      setSelectedClientEmail(nextEmail);
+      setClientEmailDraft(nextEmail);
+    } catch (error: any) {
+      console.error('Error updating client email:', error);
+      setClientEmailError(error.message || 'No se pudo actualizar el email.');
+    } finally {
+      setClientEmailSaving(false);
+    }
+  };
 
   // Build complete client directory from both Client profiles AND booking records
   const allClientSuggestions = useMemo(() => {
@@ -1412,6 +1512,41 @@ export default function DashboardPage() {
                       Nuevo cliente
                     </span>
                   )}
+                  {selectedClientProfile && (
+                    <div className="w-full max-w-2xl space-y-3 pt-4">
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
+                        Email del cliente
+                      </label>
+                      <div className="flex flex-col sm:flex-row gap-3">
+                        <input
+                          type="email"
+                          value={clientEmailDraft}
+                          onChange={(e) => {
+                            setClientEmailDraft(e.target.value);
+                            setClientEmailError(null);
+                          }}
+                          className="flex-1 w-full px-4 py-3 bg-slate-50 border-2 border-slate-100 rounded-[16px] text-slate-900 font-bold focus:border-sky-500 transition-all outline-none"
+                          placeholder="cliente@email.com"
+                        />
+                        <button
+                          type="button"
+                          disabled={
+                            clientEmailSaving ||
+                            clientEmailDraft.trim().toLowerCase() === selectedClientProfile.email.toLowerCase()
+                          }
+                          onClick={handleSaveClientEmail}
+                          className="px-6 py-3 bg-slate-900 text-white text-[10px] font-black uppercase tracking-[0.2em] rounded-[14px] hover:bg-sky-600 transition disabled:opacity-60 disabled:cursor-not-allowed"
+                        >
+                          {clientEmailSaving ? 'Saving...' : 'Save Email'}
+                        </button>
+                      </div>
+                      {clientEmailError && (
+                        <p className="text-[10px] font-black text-red-500 uppercase tracking-[0.15em]">
+                          {clientEmailError}
+                        </p>
+                      )}
+                    </div>
+                  )}
                   <div className="flex flex-wrap justify-center md:justify-start gap-6 pt-2">
                     <div className="flex items-center gap-2">
                       <div className="w-1.5 h-1.5 rounded-full bg-sky-600" />
@@ -1759,7 +1894,28 @@ export default function DashboardPage() {
                         </td>
                         <td className="px-10 py-10">
                           <div className="text-lg font-black text-slate-700 uppercase tracking-tight leading-none mb-1">{service?.serviceName}</div>
-                          <div className="text-[10px] font-black text-sky-400 uppercase tracking-[0.2em]">{employee?.firstName}</div>
+                          <div className="space-y-2">
+                            <label className="block text-[9px] font-black text-slate-300 uppercase tracking-[0.2em]">
+                              Therapist
+                            </label>
+                            <select
+                              value={booking.employeeId}
+                              onChange={(e) => handleBookingEmployeeChange(booking, e.target.value)}
+                              disabled={bookingEmployeeSavingId === booking.id}
+                              className="w-full min-w-[180px] rounded-xl border-2 border-slate-100 bg-slate-50 px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-sky-500 outline-none transition-all focus:border-sky-500 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              {employees.map((emp) => (
+                                <option key={emp.id} value={emp.id}>
+                                  {`${emp.firstName} ${emp.lastName || ''}`.trim().toUpperCase()}
+                                </option>
+                              ))}
+                            </select>
+                            {bookingEmployeeSavingId === booking.id && (
+                              <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">
+                                Saving...
+                              </p>
+                            )}
+                          </div>
                         </td>
                         <td className="px-10 py-10 text-center">
                           <span
