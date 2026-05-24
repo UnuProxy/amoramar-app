@@ -412,6 +412,7 @@ export interface BookingFormData {
   finalPaymentMethod?: PaymentMethod;
   depositAmount?: number; // Optional offline-recorded deposit amount in cents
   allowUnpaid?: boolean;
+  deferNotificationsUntilPaid?: boolean;
   isConsultation?: boolean;
   consultationDuration?: number;
 }

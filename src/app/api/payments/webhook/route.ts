@@ -1,11 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
+import { Timestamp } from 'firebase-admin/firestore';
 import { stripe } from '@/shared/lib/stripe';
-import { getBookingByPaymentIntentId, updateBooking } from '@/shared/lib/firestore';
+import { getAdminDb } from '@/shared/lib/firebaseAdmin';
+import { enqueueWhatsAppJobsForConfirmedBooking } from '@/shared/lib/whatsappJobs';
+import { enqueueEmailConfirmationForBooking, enqueueEmailReminderForBooking } from '@/shared/lib/emailReminderJobs';
+import type { Booking, Employee, Service } from '@/shared/lib/types';
 
 export const runtime = 'nodejs';
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+const getBookingDocByPaymentIntentId = async (paymentIntentId: string) => {
+  const snap = await getAdminDb()
+    .collection('bookings')
+    .where('paymentIntentId', '==', paymentIntentId)
+    .limit(1)
+    .get();
+  const doc = snap.docs[0];
+  if (!doc) return null;
+  return { ref: doc.ref, booking: { id: doc.id, ...doc.data() } as Booking };
+};
+
+const getAdminDoc = async <T,>(collection: string, id: string): Promise<T | null> => {
+  const snap = await getAdminDb().collection(collection).doc(id).get();
+  return snap.exists ? ({ id: snap.id, ...snap.data() } as T) : null;
+};
 
 export async function POST(request: NextRequest) {
   if (!stripe) {
@@ -33,26 +53,75 @@ export async function POST(request: NextRequest) {
     switch (event.type) {
       case 'payment_intent.succeeded': {
         const intent = event.data.object as Stripe.PaymentIntent;
-        const booking = await getBookingByPaymentIntentId(intent.id);
+        const bookingDoc = await getBookingDocByPaymentIntentId(intent.id);
+        const booking = bookingDoc?.booking;
         if (booking) {
-          await updateBooking(booking.id, {
+          const wasAlreadyPaid =
+            booking.depositPaid === true ||
+            booking.paymentStatus === 'deposit_paid' ||
+            booking.paymentStatus === 'paid';
+
+          await bookingDoc.ref.set({
             paymentStatus: 'deposit_paid',
             depositPaid: true,
             depositAmount: intent.amount_received || intent.amount || booking.depositAmount,
             status: booking.status === 'pending' ? 'confirmed' : booking.status,
-          });
+            updatedAt: Timestamp.now(),
+          }, { merge: true });
+
+          if (!wasAlreadyPaid) {
+            const [service, employee] = await Promise.all([
+              getAdminDoc<Service>('services', booking.serviceId),
+              getAdminDoc<Employee>('employees', booking.employeeId),
+            ]);
+
+            if (service && employee && booking.clientEmail) {
+              await enqueueEmailConfirmationForBooking({
+                id: booking.id,
+                clientName: booking.clientName,
+                clientEmail: booking.clientEmail,
+                serviceName: booking.isConsultation ? `Consulta Gratuita - ${service.serviceName}` : service.serviceName,
+                employeeName: `${employee.firstName} ${employee.lastName || ''}`.trim(),
+                bookingDate: booking.bookingDate,
+                bookingTime: booking.bookingTime,
+                status: 'confirmed',
+                duration: booking.isConsultation && booking.consultationDuration ? booking.consultationDuration : service.duration,
+                price: booking.isConsultation ? '0' : service.price.toString(),
+              }).catch((error) => console.error('[stripe webhook] confirmation enqueue failed', booking.id, error));
+
+              enqueueEmailReminderForBooking({
+                id: booking.id,
+                clientName: booking.clientName,
+                clientEmail: booking.clientEmail,
+                serviceName: booking.isConsultation ? `Consulta Gratuita - ${service.serviceName}` : service.serviceName,
+                employeeName: `${employee.firstName} ${employee.lastName || ''}`.trim(),
+                bookingDate: booking.bookingDate,
+                bookingTime: booking.bookingTime,
+                status: 'confirmed',
+              }).catch((error) => console.error('[stripe webhook] reminder enqueue failed', booking.id, error));
+            }
+
+            enqueueWhatsAppJobsForConfirmedBooking({
+              ...booking,
+              depositPaid: true,
+              depositAmount: intent.amount_received || intent.amount || booking.depositAmount,
+              paymentStatus: 'deposit_paid',
+              status: 'confirmed',
+            }).catch((error) => console.error('[stripe webhook] WhatsApp enqueue failed', booking.id, error));
+          }
         }
         break;
       }
 
       case 'payment_intent.payment_failed': {
         const intent = event.data.object as Stripe.PaymentIntent;
-        const booking = await getBookingByPaymentIntentId(intent.id);
-        if (booking) {
-          await updateBooking(booking.id, {
+        const bookingDoc = await getBookingDocByPaymentIntentId(intent.id);
+        if (bookingDoc) {
+          await bookingDoc.ref.set({
             paymentStatus: 'failed',
             depositPaid: false,
-          });
+            updatedAt: Timestamp.now(),
+          }, { merge: true });
         }
         break;
       }
@@ -61,12 +130,13 @@ export async function POST(request: NextRequest) {
         const charge = event.data.object as Stripe.Charge;
         const paymentIntentId = typeof charge.payment_intent === 'string' ? charge.payment_intent : null;
         if (paymentIntentId) {
-          const booking = await getBookingByPaymentIntentId(paymentIntentId);
-          if (booking) {
-            await updateBooking(booking.id, {
+          const bookingDoc = await getBookingDocByPaymentIntentId(paymentIntentId);
+          if (bookingDoc) {
+            await bookingDoc.ref.set({
               paymentStatus: 'refunded',
               depositPaid: false,
-            });
+              updatedAt: Timestamp.now(),
+            }, { merge: true });
           }
         }
         break;

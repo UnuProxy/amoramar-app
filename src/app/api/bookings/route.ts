@@ -56,6 +56,7 @@ export async function POST(request: NextRequest) {
 
     const isConsultation = data.isConsultation === true;
     const allowUnpaid = data.allowUnpaid === true || isConsultation;
+    const deferNotificationsUntilPaid = data.deferNotificationsUntilPaid === true;
     const createdByRole = data.createdByRole ?? (allowUnpaid ? (isConsultation ? 'client' : 'employee') : 'client');
     const createdByName = data.createdByName ?? (createdByRole === 'client' ? data.clientName : undefined);
     const createdByUserId = data.createdByUserId;
@@ -243,7 +244,7 @@ export async function POST(request: NextRequest) {
 
     // Skip WhatsApp only for unpaid client online bookings (pending deposit). Staff manual bookings
     // (createdByRole !== 'client') still enqueue, including allowUnpaid.
-    const shouldEnqueueWhatsApp = isConsultation || !allowUnpaid || createdByRole !== 'client';
+    const shouldEnqueueWhatsApp = !deferNotificationsUntilPaid && (isConsultation || !allowUnpaid || createdByRole !== 'client');
 
     let whatsappAttempted = false;
     let whatsappError: string | undefined;
@@ -301,7 +302,7 @@ export async function POST(request: NextRequest) {
     } else {
       const bookingStatus = isConsultation ? 'confirmed' : (allowUnpaid ? 'pending' : 'confirmed');
       const clientEmailTrimmed = data.clientEmail?.trim() || '';
-      if (clientEmailTrimmed) {
+      if (clientEmailTrimmed && !deferNotificationsUntilPaid) {
         const confirmationQueueResult = await enqueueEmailConfirmationForBooking({
           id: bookingId,
           clientName: data.clientName,
@@ -319,22 +320,24 @@ export async function POST(request: NextRequest) {
           emailError = `confirmation_queue_skipped:${confirmationQueueResult.skippedReason || 'unknown'}`;
           console.error('[email] confirmation enqueue skipped for booking', bookingId, emailError);
         }
-      } else {
+      } else if (!deferNotificationsUntilPaid) {
         console.warn('[email] skip confirmation: no client email', bookingId);
         emailSent = false;
         emailError = 'missing_client_email';
       }
 
-      enqueueEmailReminderForBooking({
-        id: bookingId,
-        clientName: data.clientName,
-        clientEmail: data.clientEmail,
-        serviceName: isConsultation ? `Consulta Gratuita - ${service.serviceName}` : service.serviceName,
-        employeeName: `${employee.firstName} ${employee.lastName}`,
-        bookingDate: data.bookingDate,
-        bookingTime: data.bookingTime,
-        status: isConsultation ? 'confirmed' : (allowUnpaid ? 'pending' : 'confirmed'),
-      }).catch((error) => console.error('[email] reminder enqueue failed for booking', bookingId, error));
+      if (!deferNotificationsUntilPaid) {
+        enqueueEmailReminderForBooking({
+          id: bookingId,
+          clientName: data.clientName,
+          clientEmail: data.clientEmail,
+          serviceName: isConsultation ? `Consulta Gratuita - ${service.serviceName}` : service.serviceName,
+          employeeName: `${employee.firstName} ${employee.lastName}`,
+          bookingDate: data.bookingDate,
+          bookingTime: data.bookingTime,
+          status: isConsultation ? 'confirmed' : (allowUnpaid ? 'pending' : 'confirmed'),
+        }).catch((error) => console.error('[email] reminder enqueue failed for booking', bookingId, error));
+      }
 
       // Send notification email to employee (async, don't wait)
       // NOTE: Resend free tier can only send to verified email (unujulian@gmail.com)

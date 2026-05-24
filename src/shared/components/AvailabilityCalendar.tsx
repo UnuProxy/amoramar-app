@@ -105,8 +105,8 @@ export function AvailabilityCalendar({
     
     const days: (Date | null)[] = [];
     
-    // Add empty cells for days before the first day of the month
-    const firstDayOfWeek = firstDay.getDay();
+    // Add empty cells for days before the first day of the month, with Monday as first column.
+    const firstDayOfWeek = (firstDay.getDay() + 6) % 7;
     for (let i = 0; i < firstDayOfWeek; i++) {
       days.push(null);
     }
@@ -129,7 +129,7 @@ export function AvailabilityCalendar({
 
   const days = getDaysInMonth();
   const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
   return (
     <div className={cn(

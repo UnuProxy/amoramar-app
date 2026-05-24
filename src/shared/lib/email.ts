@@ -22,6 +22,20 @@ function getResendClient(): Resend | null {
 function getFromEmail(): string {
   return (process.env.RESEND_FROM_EMAIL || 'Amor Amar <info@amoramarbeauty.com>').trim();
 }
+
+function getPublicSiteUrl(): string {
+  return (
+    process.env.NEXT_PUBLIC_BASE_URL ||
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    process.env.NEXT_PUBLIC_APP_URL ||
+    'https://amoramar.com'
+  ).replace(/\/+$/, '');
+}
+
+function getBackofficeUrl(): string {
+  return (process.env.NEXT_PUBLIC_BACKOFFICE_URL || getPublicSiteUrl()).replace(/\/+$/, '');
+}
+
 const SALON_NAME = 'Amor Amar Beauty Salon';
 
 export interface BookingConfirmationData {
@@ -390,7 +404,7 @@ function getBookingConfirmationTemplate(data: BookingConfirmationData): string {
               </p>
               
               <div style="text-align: center; margin: 30px 0;">
-                <a href="${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}" style="display: inline-block; padding: 14px 30px; background-color: #059669; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 16px; font-weight: 500;">
+                <a href="${getPublicSiteUrl()}/client/bookings" style="display: inline-block; padding: 14px 30px; background-color: #059669; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 16px; font-weight: 500;">
                   Ver Mi Reserva
                 </a>
               </div>
@@ -582,7 +596,7 @@ function getEmployeeNotificationTemplate(data: EmployeeNotificationData): string
               </table>
               
               <div style="text-align: center; margin: 30px 0;">
-                <a href="${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/employee/calendar" style="display: inline-block; padding: 14px 30px; background-color: #1f2937; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 16px; font-weight: 500;">
+                <a href="${getBackofficeUrl()}/employee/calendar" style="display: inline-block; padding: 14px 30px; background-color: #1f2937; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 16px; font-weight: 500;">
                   Ver Mi Calendario
                 </a>
               </div>
@@ -610,7 +624,7 @@ function getAdminBookingNotificationTemplate(data: AdminBookingNotificationData)
   const depositDisplay = typeof data.depositAmount === 'number'
     ? `${(data.depositAmount / 100).toFixed(2)} EUR`
     : 'No aplica';
-  const dashboardUrl = process.env.NEXT_PUBLIC_BACKOFFICE_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+  const dashboardUrl = getBackofficeUrl();
 
   return `
 <!DOCTYPE html>
@@ -762,7 +776,7 @@ function getCancellationTemplate(data: BookingCancellationData): string {
                 Si tienes alguna pregunta o deseas agendar una nueva cita, no dudes en contactarnos.
               </p>
               <div style="text-align: center; margin: 30px 0;">
-                <a href="${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}" style="display: inline-block; padding: 14px 30px; background-color: #059669; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 16px; font-weight: 500;">Hacer Nueva Reserva</a>
+                <a href="${getPublicSiteUrl()}/book" style="display: inline-block; padding: 14px 30px; background-color: #059669; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 16px; font-weight: 500;">Hacer Nueva Reserva</a>
               </div>
             </td>
           </tr>

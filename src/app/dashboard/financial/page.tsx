@@ -210,6 +210,9 @@ export default function FinancialDashboard() {
           errorAddingRevenue: 'Error al anadir el ingreso.',
           confirmDeleteRevenue: 'Estas seguro de que quieres eliminar este ingreso?',
           placeholderRevenueConcept: 'SERVICIO EXTERNO, BONO, VENTA...',
+          existingIncomeGroups: 'Grupos de ingresos existentes',
+          existingIncomeGroupsHelp: 'Elige un grupo para reutilizar su concepto y categoria, o escribe uno nuevo arriba.',
+          newIncomeGroupHelp: 'Si escribes un concepto nuevo, se creara como nuevo grupo de ingresos.',
           placeholderCategory: 'ESCRIBE O ELIGE CATEGORIA',
           expand: 'Ver mas',
           collapse: 'Ver menos',
@@ -265,6 +268,9 @@ export default function FinancialDashboard() {
           errorAddingExpense: 'Error al anadir el gasto.',
           confirmDeleteExpense: 'Estas seguro de que quieres eliminar este gasto?',
           placeholderConcept: 'ALQUILER, PRODUCTOS...',
+          existingExpenseGroups: 'Grupos de gastos existentes',
+          existingExpenseGroupsHelp: 'Elige un grupo para reutilizar su concepto y categoria, o escribe uno nuevo arriba.',
+          newExpenseGroupHelp: 'Si escribes un concepto nuevo, se creara como nuevo grupo de gastos.',
           cancel: 'Cancelar',
           registerExpense: 'Registrar gasto',
           savingExpense: 'Guardando...',
@@ -335,6 +341,9 @@ export default function FinancialDashboard() {
           errorAddingRevenue: 'Error adding revenue.',
           confirmDeleteRevenue: 'Are you sure you want to delete this revenue entry?',
           placeholderRevenueConcept: 'EXTERNAL SERVICE, PACKAGE, SALE...',
+          existingIncomeGroups: 'Existing income groups',
+          existingIncomeGroupsHelp: 'Choose a group to reuse its concept and category, or type a new one above.',
+          newIncomeGroupHelp: 'Typing a new concept will create a new income group.',
           placeholderCategory: 'TYPE OR PICK CATEGORY',
           expand: 'See more',
           collapse: 'Show less',
@@ -390,6 +399,9 @@ export default function FinancialDashboard() {
           errorAddingExpense: 'Error adding expense.',
           confirmDeleteExpense: 'Are you sure you want to delete this expense?',
           placeholderConcept: 'RENT, PRODUCTS...',
+          existingExpenseGroups: 'Existing expense groups',
+          existingExpenseGroupsHelp: 'Choose a group to reuse its concept and category, or type a new one above.',
+          newExpenseGroupHelp: 'Typing a new concept will create a new expense group.',
           cancel: 'Cancel',
           registerExpense: 'Register Expense',
           savingExpense: 'Saving...',
@@ -427,6 +439,68 @@ export default function FinancialDashboard() {
     return options;
   }, [defaultExpenseCategoryOptions, expenses, newExpense.category]);
 
+  const expenseGroupOptions = useMemo(() => {
+    const groups = new Map<
+      string,
+      {
+        name: string;
+        category: ExpenseCategory;
+        vendor?: string;
+        count: number;
+        total: number;
+        latestDate: string;
+      }
+    >();
+
+    expenses.forEach((expense) => {
+      const name = expense.name?.trim();
+      if (!name) return;
+
+      const key = name.toLowerCase();
+      const current = groups.get(key);
+      const category = normalizeCategoryValue(String(expense.category || 'other')) as ExpenseCategory;
+
+      if (!current) {
+        groups.set(key, {
+          name,
+          category,
+          vendor: expense.vendor,
+          count: 1,
+          total: expense.amount || 0,
+          latestDate: expense.date || '',
+        });
+        return;
+      }
+
+      current.count += 1;
+      current.total += expense.amount || 0;
+
+      if ((expense.date || '') >= current.latestDate) {
+        current.category = category;
+        current.vendor = expense.vendor || current.vendor;
+        current.latestDate = expense.date || current.latestDate;
+      }
+    });
+
+    EXPENSE_NAME_SUGGESTIONS.forEach((name) => {
+      const key = name.toLowerCase();
+      if (!groups.has(key)) {
+        groups.set(key, {
+          name,
+          category: 'other',
+          count: 0,
+          total: 0,
+          latestDate: '',
+        });
+      }
+    });
+
+    return Array.from(groups.values()).sort((a, b) => {
+      if (b.count !== a.count) return b.count - a.count;
+      return a.name.localeCompare(b.name);
+    });
+  }, [expenses]);
+
   const manualRevenueCategoryOptions = useMemo(() => {
     const options = MANUAL_REVENUE_CATEGORIES.map((category) => ({
       value: category.value,
@@ -452,6 +526,68 @@ export default function FinancialDashboard() {
 
     return options;
   }, [language, manualRevenues, newManualRevenue.category]);
+
+  const manualRevenueGroupOptions = useMemo(() => {
+    const groups = new Map<
+      string,
+      {
+        serviceName: string;
+        category: string;
+        notes?: string;
+        count: number;
+        total: number;
+        latestDate: string;
+      }
+    >();
+
+    manualRevenues.forEach((item) => {
+      const serviceName = item.serviceName?.trim();
+      if (!serviceName) return;
+
+      const key = serviceName.toLowerCase();
+      const current = groups.get(key);
+      const category = normalizeCategoryValue(String(item.category || 'other'));
+
+      if (!current) {
+        groups.set(key, {
+          serviceName,
+          category,
+          notes: item.notes,
+          count: 1,
+          total: item.amount || 0,
+          latestDate: item.date || '',
+        });
+        return;
+      }
+
+      current.count += 1;
+      current.total += item.amount || 0;
+
+      if ((item.date || '') >= current.latestDate) {
+        current.category = category;
+        current.notes = item.notes || current.notes;
+        current.latestDate = item.date || current.latestDate;
+      }
+    });
+
+    MANUAL_REVENUE_SUGGESTIONS.forEach((serviceName) => {
+      const key = serviceName.toLowerCase();
+      if (!groups.has(key)) {
+        groups.set(key, {
+          serviceName,
+          category: 'other',
+          count: 0,
+          total: 0,
+          latestDate: '',
+        });
+      }
+    });
+
+    return Array.from(groups.values()).sort((a, b) => {
+      if (b.count !== a.count) return b.count - a.count;
+      return a.serviceName.localeCompare(b.serviceName);
+    });
+  }, [manualRevenues]);
 
   useEffect(() => {
     loadData();
@@ -987,6 +1123,15 @@ export default function FinancialDashboard() {
     };
   };
 
+  const selectManualRevenueGroup = (group: { serviceName: string; category: string; notes?: string }) => {
+    setNewManualRevenue((current) => ({
+      ...current,
+      serviceName: group.serviceName,
+      category: group.category,
+      notes: group.notes || current.notes,
+    }));
+  };
+
   const handleAddManualRevenue = async () => {
     if (!newManualRevenue.serviceName || !newManualRevenue.amount) {
       alert(copy.fillRequiredFields);
@@ -1027,6 +1172,15 @@ export default function FinancialDashboard() {
     } finally {
       setSavingRevenue(false);
     }
+  };
+
+  const selectExpenseGroup = (group: { name: string; category: ExpenseCategory; vendor?: string }) => {
+    setNewExpense((current) => ({
+      ...current,
+      name: group.name,
+      category: group.category,
+      vendor: group.vendor || current.vendor,
+    }));
   };
 
   const handleAddExpense = async () => {
@@ -2191,14 +2345,26 @@ export default function FinancialDashboard() {
                   <input
                     type="text"
                     value={newManualRevenue.serviceName}
-                    onChange={(e) => setNewManualRevenue({ ...newManualRevenue, serviceName: e.target.value })}
+                    onChange={(e) => {
+                      const nextServiceName = e.target.value;
+                      const existingGroup = manualRevenueGroupOptions.find(
+                        (group) => group.serviceName.toLowerCase() === nextServiceName.trim().toLowerCase()
+                      );
+
+                      if (existingGroup) {
+                        selectManualRevenueGroup(existingGroup);
+                        return;
+                      }
+
+                      setNewManualRevenue({ ...newManualRevenue, serviceName: nextServiceName });
+                    }}
                     list="manual-revenue-concepts"
                     className="w-full px-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-2xl text-slate-800 font-bold focus:border-sky-500 transition-all outline-none"
                     placeholder={copy.placeholderRevenueConcept}
                   />
                   <datalist id="manual-revenue-concepts">
-                    {MANUAL_REVENUE_SUGGESTIONS.map((item) => (
-                      <option key={item} value={item} />
+                    {manualRevenueGroupOptions.map((item) => (
+                      <option key={item.serviceName} value={item.serviceName} />
                     ))}
                   </datalist>
                 </div>
@@ -2230,6 +2396,54 @@ export default function FinancialDashboard() {
                     placeholder="0.00"
                   />
                 </div>
+              </div>
+
+              <div className="space-y-3 rounded-3xl border border-slate-100 bg-slate-50/70 p-4 sm:p-5">
+                <div className="flex flex-col gap-1">
+                  <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-500">
+                    {copy.existingIncomeGroups}
+                  </p>
+                  <p className="text-xs font-semibold text-slate-400">
+                    {manualRevenueGroupOptions.length > 0 ? copy.existingIncomeGroupsHelp : copy.newIncomeGroupHelp}
+                  </p>
+                </div>
+
+                {manualRevenueGroupOptions.length > 0 && (
+                  <div className="flex gap-2 overflow-x-auto pb-1">
+                    {manualRevenueGroupOptions.slice(0, 12).map((group) => {
+                      const category = manualRevenueCategoryOptions.find(
+                        (option) => categoryKey(option.value) === categoryKey(String(group.category || 'other'))
+                      );
+                      const active = newManualRevenue.serviceName.trim().toLowerCase() === group.serviceName.toLowerCase();
+
+                      return (
+                        <button
+                          key={group.serviceName}
+                          type="button"
+                          onClick={() => selectManualRevenueGroup(group)}
+                          className={cn(
+                            "min-w-[160px] rounded-2xl border px-4 py-3 text-left transition-all",
+                            active
+                              ? "border-sky-300 bg-white shadow-sm ring-2 ring-sky-100"
+                              : "border-slate-100 bg-white/80 hover:border-slate-300"
+                          )}
+                        >
+                          <p className="truncate text-xs font-black uppercase tracking-[0.16em] text-slate-800">
+                            {group.serviceName}
+                          </p>
+                          <p className="mt-1 truncate text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+                            {category?.label || formatCategoryLabel(String(group.category || 'other'))}
+                          </p>
+                          {group.count > 0 && (
+                            <p className="mt-2 text-[10px] font-black uppercase tracking-[0.16em] text-sky-600">
+                              {group.count} {group.count === 1 ? copy.transactionSingular : copy.transactionsLower}
+                            </p>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -2327,14 +2541,26 @@ export default function FinancialDashboard() {
                   <input
                     type="text"
                     value={newExpense.name}
-                    onChange={(e) => setNewExpense({ ...newExpense, name: e.target.value })}
+                    onChange={(e) => {
+                      const nextName = e.target.value;
+                      const existingGroup = expenseGroupOptions.find(
+                        (group) => group.name.toLowerCase() === nextName.trim().toLowerCase()
+                      );
+
+                      if (existingGroup) {
+                        selectExpenseGroup(existingGroup);
+                        return;
+                      }
+
+                      setNewExpense({ ...newExpense, name: nextName });
+                    }}
                     list="expense-concepts"
                     className="w-full px-4 sm:px-6 py-4 sm:py-5 bg-slate-50 border-2 border-slate-100 rounded-2xl text-slate-800 font-bold focus:border-rose-500 transition-all outline-none"
                     placeholder={copy.placeholderConcept}
                   />
                   <datalist id="expense-concepts">
-                    {EXPENSE_NAME_SUGGESTIONS.map((item) => (
-                      <option key={item} value={item} />
+                    {expenseGroupOptions.map((item) => (
+                      <option key={item.name} value={item.name} />
                     ))}
                   </datalist>
                 </div>
@@ -2356,6 +2582,54 @@ export default function FinancialDashboard() {
                     ))}
                   </datalist>
                 </div>
+              </div>
+
+              <div className="space-y-3 rounded-3xl border border-slate-100 bg-slate-50/70 p-4 sm:p-5">
+                <div className="flex flex-col gap-1">
+                  <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-500">
+                    {copy.existingExpenseGroups}
+                  </p>
+                  <p className="text-xs font-semibold text-slate-400">
+                    {expenseGroupOptions.length > 0 ? copy.existingExpenseGroupsHelp : copy.newExpenseGroupHelp}
+                  </p>
+                </div>
+
+                {expenseGroupOptions.length > 0 && (
+                  <div className="flex gap-2 overflow-x-auto pb-1">
+                    {expenseGroupOptions.slice(0, 12).map((group) => {
+                      const category = expenseCategoryOptions.find(
+                        (option) => categoryKey(option.value) === categoryKey(String(group.category || 'other'))
+                      );
+                      const active = newExpense.name.trim().toLowerCase() === group.name.toLowerCase();
+
+                      return (
+                        <button
+                          key={group.name}
+                          type="button"
+                          onClick={() => selectExpenseGroup(group)}
+                          className={cn(
+                            "min-w-[160px] rounded-2xl border px-4 py-3 text-left transition-all",
+                            active
+                              ? "border-rose-300 bg-white shadow-sm ring-2 ring-rose-100"
+                              : "border-slate-100 bg-white/80 hover:border-slate-300"
+                          )}
+                        >
+                          <p className="truncate text-xs font-black uppercase tracking-[0.16em] text-slate-800">
+                            {group.name}
+                          </p>
+                          <p className="mt-1 truncate text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+                            {category?.label || formatCategoryLabel(String(group.category || 'other'))}
+                          </p>
+                          {group.count > 0 && (
+                            <p className="mt-2 text-[10px] font-black uppercase tracking-[0.16em] text-emerald-600">
+                              {group.count} {group.count === 1 ? copy.transactionSingular : copy.transactionsLower}
+                            </p>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8">

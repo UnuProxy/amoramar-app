@@ -3,11 +3,18 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { getBookings, getEmployees, getServices } from '@/shared/lib/firestore';
-import type { Booking, Employee, Service } from '@/shared/lib/types';
-import { formatDate, formatTime, cn } from '@/shared/lib/utils';
+import { getBookings, getEmployees, getEmployeeServices, getServices } from '@/shared/lib/firestore';
+import type { Booking, BookingFormData, Employee, EmployeeService, Service } from '@/shared/lib/types';
+import { formatCurrency, formatDate, formatTime, cn } from '@/shared/lib/utils';
 import { useLanguage } from '@/shared/context/LanguageContext';
+import { useAuth } from '@/shared/hooks/useAuth';
 import type { Language } from '@/shared/lib/i18n';
+import {
+  compareServicesByDisplayOrder,
+  getCatalogGroupLabel,
+  getDefaultServiceCatalogConfig,
+  getServiceGroupId,
+} from '@/shared/lib/serviceCatalog';
 import { Loading } from '@/shared/components/Loading';
 import {
   ChevronLeft,
@@ -25,10 +32,30 @@ import {
   LayoutGrid,
   List,
   Trash2,
+  Copy,
+  Check,
+  ExternalLink,
 } from 'lucide-react';
 
 type ViewMode = 'day' | 'week';
 type StatusFilter = 'all' | Booking['status'];
+
+type AdminPaymentLinkForm = {
+  bookingDate: string;
+  bookingTime: string;
+  serviceId: string;
+  employeeId: string;
+  clientName: string;
+  clientEmail: string;
+  clientPhone: string;
+  notes: string;
+};
+
+type GeneratedPaymentLink = {
+  bookingId: string;
+  paymentUrl: string;
+  amount: number;
+};
 
 // ============================================================================
 // DATE UTILITIES
@@ -114,6 +141,21 @@ const formatDateShort = (date: Date, language: Language): string => {
     return `${date.getDate()} ${monthShort}`;
   }
   return `${monthShort} ${date.getDate()}`;
+};
+
+const minutesFromTime = (time: string): number => {
+  const [hours, minutes] = time.split(':').map(Number);
+  return (hours || 0) * 60 + (minutes || 0);
+};
+
+const timeFromMinutes = (minutes: number): string => {
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+};
+
+const rangesOverlap = (startA: number, endA: number, startB: number, endB: number): boolean => {
+  return startA < endB && startB < endA;
 };
 
 // ============================================================================
@@ -1033,12 +1075,14 @@ const FiltersContent: React.FC<FiltersContentProps> = ({
 
 export default function BookingsPage() {
   const { t, language } = useLanguage();
+  const { user } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [services, setServices] = useState<Service[]>([]);
+  const [employeeServices, setEmployeeServices] = useState<EmployeeService[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingBookingId, setDeletingBookingId] = useState<string | null>(null);
 
@@ -1074,6 +1118,11 @@ export default function BookingsPage() {
   });
   const [searchTerm, setSearchTerm] = useState(() => searchParams.get('q') || '');
   const [employeeFilter, setEmployeeFilter] = useState<string>(() => searchParams.get('employee') || 'all');
+  const [adminBookingForm, setAdminBookingForm] = useState<AdminPaymentLinkForm | null>(null);
+  const [selectedAdminServiceGroupId, setSelectedAdminServiceGroupId] = useState<string | null>(null);
+  const [creatingPaymentLink, setCreatingPaymentLink] = useState(false);
+  const [generatedPaymentLink, setGeneratedPaymentLink] = useState<GeneratedPaymentLink | null>(null);
+  const [copiedPaymentLink, setCopiedPaymentLink] = useState(false);
 
   const hasActiveFilters = statusFilter !== 'all' || employeeFilter !== 'all' || searchTerm !== '';
 
@@ -1147,14 +1196,16 @@ export default function BookingsPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [bookingsData, employeesData, servicesData] = await Promise.all([
+        const [bookingsData, employeesData, servicesData, employeeServicesData] = await Promise.all([
           getBookings(),
           getEmployees(),
           getServices(),
+          getEmployeeServices(),
         ]);
         setBookings(bookingsData);
         setEmployees(employeesData);
         setServices(servicesData);
+        setEmployeeServices(employeeServicesData);
       } catch (error) {
         console.error('Error fetching bookings:', error);
       } finally {
@@ -1189,6 +1240,221 @@ export default function BookingsPage() {
 
     return booking.status;
   }, []);
+
+  const serviceCatalogConfig = useMemo(() => getDefaultServiceCatalogConfig(), []);
+
+  const activeServices = useMemo(
+    () => services.filter((service) => service.isActive !== false).sort(compareServicesByDisplayOrder),
+    [services]
+  );
+
+  const adminEmployeeServices = useMemo(() => {
+    if (!adminBookingForm?.employeeId) return [];
+
+    const offeredServiceIds = new Set(
+      employeeServices
+        .filter((item) => item.employeeId === adminBookingForm.employeeId && item.isOffered !== false)
+        .map((item) => item.serviceId)
+    );
+    const seenServiceKeys = new Set<string>();
+
+    return activeServices.filter((service) => {
+      if (!offeredServiceIds.has(service.id)) return false;
+
+      const dedupeKey = [
+        service.serviceName.trim().toLowerCase(),
+        Number(service.price || 0).toFixed(2),
+        String(service.duration || 0),
+        getServiceGroupId(service),
+      ].join('|');
+      if (seenServiceKeys.has(dedupeKey)) return false;
+
+      seenServiceKeys.add(dedupeKey);
+      return true;
+    });
+  }, [activeServices, adminBookingForm?.employeeId, employeeServices]);
+
+  const selectedAdminService = adminBookingForm
+    ? services.find((service) => service.id === adminBookingForm.serviceId)
+    : undefined;
+
+  const selectedAdminEmployee = adminBookingForm
+    ? employees.find((employee) => employee.id === adminBookingForm.employeeId)
+    : undefined;
+
+  const adminServiceGroups = useMemo(() => {
+    const groups = serviceCatalogConfig.groups
+      .map((group) => ({
+        id: group.id,
+        label: getCatalogGroupLabel(group, language === 'es' ? 'es' : 'en'),
+        services: adminEmployeeServices.filter((service) => getServiceGroupId(service) === group.id),
+      }))
+      .filter((group) => group.services.length > 0);
+
+    const knownGroupIds = new Set(serviceCatalogConfig.groups.map((group) => group.id));
+    const uncataloguedServices = adminEmployeeServices.filter((service) => !knownGroupIds.has(getServiceGroupId(service)));
+    if (uncataloguedServices.length > 0) {
+      groups.push({
+        id: 'other-services',
+        label: language === 'es' ? 'Otros' : 'Other',
+        services: uncataloguedServices,
+      });
+    }
+
+    return groups;
+  }, [adminEmployeeServices, language, serviceCatalogConfig]);
+
+  const activeAdminServiceGroup =
+    adminServiceGroups.find((group) => group.id === selectedAdminServiceGroupId) ||
+    (selectedAdminService ? adminServiceGroups.find((group) => group.id === getServiceGroupId(selectedAdminService)) : undefined) ||
+    adminServiceGroups[0] ||
+    null;
+
+  const openAdminBookingModal = useCallback(
+    (time: string) => {
+      const selectedDateKey = toDateKey(selectedDate);
+
+      setAdminBookingForm({
+        bookingDate: selectedDateKey,
+        bookingTime: time,
+        serviceId: '',
+        employeeId: '',
+        clientName: '',
+        clientEmail: '',
+        clientPhone: '',
+        notes: '',
+      });
+      setGeneratedPaymentLink(null);
+      setCopiedPaymentLink(false);
+      setSelectedAdminServiceGroupId(null);
+    },
+    [selectedDate]
+  );
+
+  const closeAdminBookingModal = () => {
+    if (creatingPaymentLink) return;
+    setAdminBookingForm(null);
+    setSelectedAdminServiceGroupId(null);
+    setGeneratedPaymentLink(null);
+    setCopiedPaymentLink(false);
+  };
+
+  const handleCreateAdminPaymentLink = async () => {
+    if (!adminBookingForm) return;
+    if (!adminBookingForm.serviceId || !adminBookingForm.employeeId || !adminBookingForm.clientName.trim()) {
+      window.alert(language === 'es'
+        ? 'Elige servicio, profesional y nombre del cliente.'
+        : 'Choose a service, professional, and client name.');
+      return;
+    }
+
+    const service = services.find((item) => item.id === adminBookingForm.serviceId);
+    if (!service) {
+      window.alert(language === 'es' ? 'Servicio no encontrado.' : 'Service not found.');
+      return;
+    }
+
+    const depositAmount = Math.round((Number(service.price) || 0) * 0.5 * 100);
+    const createdByName = user?.firstName
+      ? `${user.firstName} ${user.lastName || ''}`.trim()
+      : user?.email || 'Admin';
+
+    setCreatingPaymentLink(true);
+    setCopiedPaymentLink(false);
+
+    try {
+      const bookingPayload: BookingFormData = {
+        serviceId: adminBookingForm.serviceId,
+        employeeId: adminBookingForm.employeeId,
+        bookingDate: adminBookingForm.bookingDate,
+        bookingTime: adminBookingForm.bookingTime,
+        clientName: adminBookingForm.clientName.trim(),
+        clientEmail: adminBookingForm.clientEmail.trim(),
+        clientPhone: adminBookingForm.clientPhone.trim(),
+        notes: adminBookingForm.notes.trim() || undefined,
+        allowUnpaid: true,
+        deferNotificationsUntilPaid: true,
+        depositAmount,
+        createdByRole: user?.role ?? 'owner',
+        createdByName,
+        createdByUserId: user?.id,
+        paymentNotes: 'Admin payment link pending',
+      };
+
+      const bookingResponse = await fetch('/api/bookings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(bookingPayload),
+      });
+      const bookingJson = await bookingResponse.json();
+      if (!bookingResponse.ok || !bookingJson?.success || !bookingJson.data?.id) {
+        throw new Error(bookingJson?.error || 'Could not create booking');
+      }
+
+      const paymentResponse = await fetch(`/api/bookings/${bookingJson.data.id}/payment-link`, {
+        method: 'POST',
+      });
+      const paymentJson = await paymentResponse.json();
+      if (!paymentResponse.ok || !paymentJson?.success || !paymentJson.data?.paymentUrl) {
+        throw new Error(paymentJson?.error || 'Could not create payment link');
+      }
+
+      const newBooking: Booking = {
+        id: bookingJson.data.id,
+        salonId: 'default-salon-id',
+        employeeId: adminBookingForm.employeeId,
+        serviceId: adminBookingForm.serviceId,
+        serviceName: service.serviceName,
+        clientName: adminBookingForm.clientName.trim(),
+        clientEmail: adminBookingForm.clientEmail.trim(),
+        clientPhone: adminBookingForm.clientPhone.trim(),
+        bookingDate: adminBookingForm.bookingDate,
+        bookingTime: adminBookingForm.bookingTime,
+        status: 'pending',
+        requiresDeposit: true,
+        depositAmount,
+        depositPaid: false,
+        paymentIntentId: paymentJson.data.paymentIntentId,
+        paymentStatus: 'pending',
+        paymentNotes: 'Admin payment link pending',
+        createdByRole: user?.role ?? 'owner',
+        createdByName,
+        createdByUserId: user?.id,
+        notes: adminBookingForm.notes.trim() || undefined,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      setBookings((prev) => [newBooking, ...prev]);
+      setGeneratedPaymentLink({
+        bookingId: bookingJson.data.id,
+        paymentUrl: paymentJson.data.paymentUrl,
+        amount: paymentJson.data.amount,
+      });
+    } catch (error: any) {
+      console.error('Failed to create admin payment link:', error);
+      window.alert(
+        (language === 'es' ? 'No se pudo crear el enlace de pago.\n\n' : 'Could not create the payment link.\n\n') +
+          (error?.message || 'Unknown error')
+      );
+    } finally {
+      setCreatingPaymentLink(false);
+    }
+  };
+
+  const copyGeneratedPaymentLink = async () => {
+    if (!generatedPaymentLink?.paymentUrl) return;
+    try {
+      await navigator.clipboard.writeText(generatedPaymentLink.paymentUrl);
+      setCopiedPaymentLink(true);
+      window.setTimeout(() => setCopiedPaymentLink(false), 2000);
+    } catch (_error) {
+      window.prompt(
+        language === 'es' ? 'Copia este enlace de pago:' : 'Copy this payment link:',
+        generatedPaymentLink.paymentUrl
+      );
+    }
+  };
 
   const handleDeleteBooking = useCallback(
     async (booking: Booking) => {
@@ -1290,6 +1556,52 @@ export default function BookingsPage() {
       return acc;
     }, {});
   }, [filteredBookings]);
+
+  const serviceDurationById = useMemo(
+    () => new Map(services.map((service) => [service.id, service.duration])),
+    [services]
+  );
+
+  const dayDiarySlots = useMemo(() => {
+    const selectedDateKey = toDateKey(selectedDate);
+    const dayBookings = filteredBookings
+      .filter((booking) => booking.bookingDate === selectedDateKey && booking.status !== 'cancelled')
+      .sort((a, b) => a.bookingTime.localeCompare(b.bookingTime));
+
+    const starts = dayBookings.map((booking) => minutesFromTime(booking.bookingTime));
+    const defaultStart = 9 * 60;
+    const defaultEnd = 20 * 60;
+    const earliestStart = starts.length ? Math.min(defaultStart, Math.min(...starts)) : defaultStart;
+    const latestEnd = dayBookings.reduce((latest, booking) => {
+      const start = minutesFromTime(booking.bookingTime);
+      const duration = booking.isConsultation
+        ? booking.consultationDuration || 20
+        : serviceDurationById.get(booking.serviceId) || 30;
+      return Math.max(latest, start + duration);
+    }, defaultEnd);
+
+    const startMinute = Math.floor(earliestStart / 30) * 30;
+    const endMinute = Math.ceil(latestEnd / 30) * 30;
+
+    return Array.from({ length: Math.max(0, (endMinute - startMinute) / 30) }, (_, index) => {
+      const slotStart = startMinute + index * 30;
+      const slotEnd = slotStart + 30;
+      const startingBookings = dayBookings.filter((booking) => minutesFromTime(booking.bookingTime) === slotStart);
+      const overlappingBooking = dayBookings.find((booking) => {
+        const bookingStart = minutesFromTime(booking.bookingTime);
+        const duration = booking.isConsultation
+          ? booking.consultationDuration || 20
+          : serviceDurationById.get(booking.serviceId) || 30;
+        return rangesOverlap(slotStart, slotEnd, bookingStart, bookingStart + duration);
+      });
+
+      return {
+        time: timeFromMinutes(slotStart),
+        startingBookings,
+        occupiedByContinuation: Boolean(overlappingBooking && startingBookings.length === 0),
+      };
+    });
+  }, [filteredBookings, selectedDate, serviceDurationById]);
 
   // Navigation handlers
   const goToToday = () => {
@@ -1651,30 +1963,111 @@ export default function BookingsPage() {
             {/* Bookings Content */}
             {viewMode === 'day' ? (
               // Day View
-              <div className="space-y-3 lg:space-y-4">
-                {filteredBookings.length === 0 ? (
-                  <div className="bg-white rounded-2xl border border-slate-200 p-8 lg:p-12 text-center">
-                    <div className="w-14 h-14 lg:w-16 lg:h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <Calendar className="w-7 h-7 lg:w-8 lg:h-8 text-slate-400" />
+              <div className="space-y-5 lg:space-y-6">
+                <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                  <div className="border-b border-slate-100 bg-slate-50 px-4 py-3 lg:px-6 lg:py-4">
+                    <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">
+                          {language === 'es' ? 'Diario visual' : 'Visual diary'}
+                        </p>
+                        <h2 className="text-base font-bold text-slate-900 lg:text-lg">
+                          {formatDateLong(selectedDate, language)}
+                        </h2>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-3 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+                        <span className="inline-flex items-center gap-1.5">
+                          <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                          {language === 'es' ? 'Libre' : 'Free'}
+                        </span>
+                        <span className="inline-flex items-center gap-1.5">
+                          <span className="h-2 w-2 rounded-full bg-slate-900" />
+                          {language === 'es' ? 'Reserva' : 'Booking'}
+                        </span>
+                      </div>
                     </div>
-                    <h3 className="text-base lg:text-lg font-semibold text-slate-900 mb-1">{t('no_bookings')}</h3>
-                    <p className="text-sm text-slate-500">
-                      {t('no_bookings_day')}
-                    </p>
                   </div>
-                ) : (
+
+                  <div className="divide-y divide-slate-100">
+                    {dayDiarySlots.map((slot) => (
+                      <div key={slot.time} className="grid grid-cols-[72px_1fr] lg:grid-cols-[92px_1fr]">
+                        <div className="border-r border-slate-100 bg-slate-50/70 px-3 py-3 text-right">
+                          <span className="text-xs font-black tabular-nums tracking-tight text-slate-500">
+                            {slot.time}
+                          </span>
+                        </div>
+                        <div className="min-h-[54px] px-3 py-2 lg:px-4">
+                          {slot.startingBookings.length > 0 ? (
+                            <div className="space-y-2">
+                              {slot.startingBookings.map((booking) => {
+                                const serviceName = getServiceName(booking.serviceId);
+                                const employeeName = getEmployeeName(booking.employeeId);
+                                const duration = booking.isConsultation
+                                  ? booking.consultationDuration || 20
+                                  : serviceDurationById.get(booking.serviceId) || 30;
+
+                                return (
+                                  <Link
+                                    key={booking.id}
+                                    href={detailHrefForBooking(booking.id)}
+                                    className="block rounded-xl border border-slate-200 bg-slate-900 px-4 py-3 text-white shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
+                                  >
+                                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                                      <div className="min-w-0">
+                                        <p className="truncate text-sm font-black uppercase tracking-tight">
+                                          {booking.clientName || t('no_name')}
+                                        </p>
+                                        <p className="mt-1 truncate text-xs font-semibold text-white/70">
+                                          {serviceName} · {employeeName}
+                                        </p>
+                                      </div>
+                                      <p className="shrink-0 text-[10px] font-black uppercase tracking-[0.18em] text-white/60">
+                                        {formatTime(booking.bookingTime)} · {duration} min
+                                      </p>
+                                    </div>
+                                  </Link>
+                                );
+                              })}
+                            </div>
+                          ) : slot.occupiedByContinuation ? (
+                            <div className="flex h-full min-h-[38px] items-center rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4">
+                              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-300">
+                                {language === 'es' ? 'Ocupado' : 'Occupied'}
+                              </span>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => openAdminBookingModal(slot.time)}
+                              className="flex h-full min-h-[38px] w-full items-center justify-between rounded-xl border border-emerald-100 bg-emerald-50/70 px-4 text-left transition-all hover:border-emerald-300 hover:bg-emerald-100"
+                            >
+                              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600">
+                                {language === 'es' ? 'Libre' : 'Free'}
+                              </span>
+                              <span className="text-[9px] font-black uppercase tracking-[0.18em] text-emerald-700">
+                                {language === 'es' ? 'Crear reserva + pago' : 'Create booking + pay'}
+                              </span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {filteredBookings.length > 0 && (
                   <div className="grid gap-3 lg:gap-4 sm:grid-cols-2 xl:grid-cols-3">
                     {filteredBookings.map((booking) => (
-                      <BookingCard
-                        key={booking.id}
-                        booking={booking}
-                        serviceName={getServiceName(booking.serviceId)}
-                        employeeName={getEmployeeName(booking.employeeId)}
-                        detailHref={detailHrefForBooking(booking.id)}
-                        onDelete={handleDeleteBooking}
-                        isDeleting={deletingBookingId === booking.id}
-                      />
-                    ))}
+                    <BookingCard
+                      key={booking.id}
+                      booking={booking}
+                      serviceName={getServiceName(booking.serviceId)}
+                      employeeName={getEmployeeName(booking.employeeId)}
+                      detailHref={detailHrefForBooking(booking.id)}
+                      onDelete={handleDeleteBooking}
+                      isDeleting={deletingBookingId === booking.id}
+                    />
+                  ))}
                   </div>
                 )}
               </div>
@@ -1861,6 +2254,298 @@ export default function BookingsPage() {
           </div>
         </div>
       </Drawer>
+
+      {adminBookingForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
+          <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-3xl bg-white shadow-2xl">
+            <div className="flex items-start justify-between border-b border-slate-100 px-6 py-5">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.24em] text-emerald-600">
+                  {language === 'es' ? 'Reserva con enlace de pago' : 'Booking payment link'}
+                </p>
+                <h2 className="mt-1 text-2xl font-black tracking-tight text-slate-900">
+                  {formatDateLong(new Date(`${adminBookingForm.bookingDate}T12:00:00`), language)} · {adminBookingForm.bookingTime}
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={closeAdminBookingModal}
+                className="rounded-xl bg-slate-100 p-2 text-slate-500 transition hover:bg-slate-900 hover:text-white"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-5 px-6 py-6">
+              {!generatedPaymentLink ? (
+                <>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <label className="space-y-2">
+                      <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+                        {language === 'es' ? 'Profesional' : 'Professional'}
+                      </span>
+                      <select
+                        value={adminBookingForm.employeeId}
+                        onChange={(event) => {
+                          setSelectedAdminServiceGroupId(null);
+                          setAdminBookingForm((prev) => prev ? { ...prev, employeeId: event.target.value, serviceId: '' } : prev);
+                        }}
+                        className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-emerald-400"
+                      >
+                        <option value="">{language === 'es' ? 'Elige profesional' : 'Choose professional'}</option>
+                        {employees.map((employee) => (
+                          <option key={employee.id} value={employee.id}>
+                            {`${employee.firstName} ${employee.lastName || ''}`.trim()}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+
+                  <div className="space-y-3 rounded-3xl border border-slate-100 bg-slate-50/70 p-3">
+                    <div className="flex flex-col gap-1 px-1 sm:flex-row sm:items-end sm:justify-between">
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+                          {language === 'es' ? 'Servicio' : 'Service'}
+                        </p>
+                        <p className="text-xs font-semibold text-slate-500">
+                          {!adminBookingForm.employeeId
+                            ? (language === 'es' ? 'Primero elige profesional' : 'Choose a professional first')
+                            : (language === 'es'
+                              ? `Servicios que ofrece ${selectedAdminEmployee?.firstName || 'este profesional'}`
+                              : `Services offered by ${selectedAdminEmployee?.firstName || 'this professional'}`)}
+                        </p>
+                      </div>
+                      {selectedAdminService && (
+                        <span className="rounded-full bg-emerald-100 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-emerald-700">
+                          {language === 'es' ? 'Seleccionado' : 'Selected'}
+                        </span>
+                      )}
+                    </div>
+
+                    {!adminBookingForm.employeeId ? (
+                      <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-6 text-center text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+                        {language === 'es' ? 'Elige profesional para ver sus servicios' : 'Choose a professional to see services'}
+                      </div>
+                    ) : adminEmployeeServices.length === 0 ? (
+                      <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-6 text-center text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+                        {language === 'es' ? 'Este profesional no tiene servicios asignados' : 'This professional has no assigned services'}
+                      </div>
+                    ) : (
+                      <>
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                      {adminServiceGroups.map((group) => {
+                        const isActive = activeAdminServiceGroup?.id === group.id;
+                        return (
+                          <button
+                            key={group.id}
+                            type="button"
+                            onClick={() => setSelectedAdminServiceGroupId(group.id)}
+                            className={cn(
+                              'rounded-2xl border px-3 py-3 text-left transition-all',
+                              isActive
+                                ? 'border-emerald-300 bg-white shadow-sm'
+                                : 'border-slate-100 bg-white/70 hover:border-slate-300'
+                            )}
+                          >
+                            <p className={cn(
+                              'text-[10px] font-black uppercase tracking-[0.14em] leading-tight',
+                              isActive ? 'text-emerald-700' : 'text-slate-700'
+                            )}>
+                              {group.label}
+                            </p>
+                            <p className="mt-1 text-[9px] font-black uppercase tracking-[0.16em] text-slate-400">
+                              {group.services.length} {language === 'es' ? 'servicios' : 'services'}
+                            </p>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {activeAdminServiceGroup && (
+                      <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
+                        {activeAdminServiceGroup.services.map((service) => {
+                          const isSelected = service.id === adminBookingForm.serviceId;
+                          return (
+                            <button
+                              key={service.id}
+                              type="button"
+                              onClick={() => {
+                                setSelectedAdminServiceGroupId(getServiceGroupId(service));
+                                setAdminBookingForm((prev) => prev ? { ...prev, serviceId: service.id } : prev);
+                              }}
+                              className={cn(
+                                'w-full rounded-2xl border px-4 py-3 text-left transition-all',
+                                isSelected
+                                  ? 'border-slate-900 bg-slate-900 text-white shadow-lg'
+                                  : 'border-slate-100 bg-white text-slate-800 hover:border-emerald-300 hover:shadow-sm'
+                              )}
+                            >
+                              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                                <p className="text-xs font-black uppercase tracking-[0.1em] leading-snug">
+                                  {service.serviceName}
+                                </p>
+                                <p className={cn(
+                                  'shrink-0 text-[10px] font-black uppercase tracking-[0.16em]',
+                                  isSelected ? 'text-white/70' : 'text-slate-400'
+                                )}>
+                                  {formatCurrency(service.price)} · {service.duration} min
+                                </p>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                      </>
+                    )}
+                  </div>
+
+                  <div className="grid gap-4 sm:grid-cols-3">
+                    <label className="space-y-2">
+                      <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+                        {language === 'es' ? 'Cliente' : 'Client'}
+                      </span>
+                      <input
+                        value={adminBookingForm.clientName}
+                        onChange={(event) => setAdminBookingForm((prev) => prev ? { ...prev, clientName: event.target.value } : prev)}
+                        placeholder={language === 'es' ? 'Nombre completo' : 'Full name'}
+                        className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-emerald-400"
+                      />
+                    </label>
+                    <label className="space-y-2">
+                      <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Email</span>
+                      <input
+                        type="email"
+                        value={adminBookingForm.clientEmail}
+                        onChange={(event) => setAdminBookingForm((prev) => prev ? { ...prev, clientEmail: event.target.value } : prev)}
+                        placeholder="cliente@email.com"
+                        className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-emerald-400"
+                      />
+                    </label>
+                    <label className="space-y-2">
+                      <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+                        {language === 'es' ? 'Telefono' : 'Phone'}
+                      </span>
+                      <input
+                        value={adminBookingForm.clientPhone}
+                        onChange={(event) => setAdminBookingForm((prev) => prev ? { ...prev, clientPhone: event.target.value } : prev)}
+                        placeholder="+34..."
+                        className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-emerald-400"
+                      />
+                    </label>
+                  </div>
+
+                  <label className="block space-y-2">
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+                      {language === 'es' ? 'Notas internas' : 'Internal notes'}
+                    </span>
+                    <textarea
+                      value={adminBookingForm.notes}
+                      onChange={(event) => setAdminBookingForm((prev) => prev ? { ...prev, notes: event.target.value } : prev)}
+                      rows={3}
+                      className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-emerald-400"
+                    />
+                  </label>
+
+                  {selectedAdminService && (
+                    <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-5 py-4">
+                      <p className="text-[10px] font-black uppercase tracking-[0.22em] text-emerald-700">
+                        {language === 'es' ? 'Deposito a cobrar' : 'Deposit to collect'}
+                      </p>
+                      <p className="mt-1 text-2xl font-black text-emerald-900">
+                        {formatCurrency(selectedAdminService.price * 0.5)}
+                      </p>
+                      <p className="mt-1 text-xs font-semibold text-emerald-700">
+                        50% {language === 'es' ? 'de' : 'of'} {formatCurrency(selectedAdminService.price)}
+                        {selectedAdminEmployee ? ` · ${selectedAdminEmployee.firstName}` : ''}
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+                    <button
+                      type="button"
+                      onClick={closeAdminBookingModal}
+                      className="rounded-2xl border border-slate-200 px-5 py-3 text-sm font-black uppercase tracking-[0.16em] text-slate-500 transition hover:border-slate-400"
+                    >
+                      {language === 'es' ? 'Cancelar' : 'Cancel'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleCreateAdminPaymentLink}
+                      disabled={creatingPaymentLink}
+                      className="rounded-2xl bg-slate-900 px-5 py-3 text-sm font-black uppercase tracking-[0.16em] text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {creatingPaymentLink
+                        ? (language === 'es' ? 'Creando...' : 'Creating...')
+                        : (language === 'es' ? 'Crear enlace 50%' : 'Create 50% link')}
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div className="space-y-5">
+                  <div className="rounded-3xl border border-emerald-100 bg-emerald-50 p-6 text-center">
+                    <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-white text-emerald-600">
+                      <Check className="h-7 w-7" />
+                    </div>
+                    <h3 className="mt-4 text-xl font-black text-slate-900">
+                      {language === 'es' ? 'Enlace listo para enviar' : 'Payment link ready'}
+                    </h3>
+                    <p className="mt-2 text-sm font-semibold text-slate-500">
+                      {language === 'es'
+                        ? 'La reserva queda pendiente hasta que el cliente pague el deposito.'
+                        : 'The booking stays pending until the client pays the deposit.'}
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+                      {language === 'es' ? 'Importe del enlace' : 'Link amount'}
+                    </p>
+                    <p className="mt-1 text-2xl font-black text-slate-900">
+                      {formatCurrency(generatedPaymentLink.amount / 100)}
+                    </p>
+                    <div className="mt-4 break-all rounded-xl bg-white p-3 text-xs font-semibold text-slate-600">
+                      {generatedPaymentLink.paymentUrl}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-3 sm:flex-row">
+                    <button
+                      type="button"
+                      onClick={copyGeneratedPaymentLink}
+                      className="inline-flex flex-1 items-center justify-center gap-2 rounded-2xl bg-slate-900 px-5 py-3 text-sm font-black uppercase tracking-[0.16em] text-white transition hover:bg-emerald-700"
+                    >
+                      {copiedPaymentLink ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                      {copiedPaymentLink
+                        ? (language === 'es' ? 'Copiado' : 'Copied')
+                        : (language === 'es' ? 'Copiar enlace' : 'Copy link')}
+                    </button>
+                    <a
+                      href={generatedPaymentLink.paymentUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex flex-1 items-center justify-center gap-2 rounded-2xl border border-slate-200 px-5 py-3 text-sm font-black uppercase tracking-[0.16em] text-slate-700 transition hover:border-slate-400"
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                      {language === 'es' ? 'Abrir' : 'Open'}
+                    </a>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={closeAdminBookingModal}
+                    className="w-full rounded-2xl bg-slate-100 px-5 py-3 text-sm font-black uppercase tracking-[0.16em] text-slate-600 transition hover:bg-slate-200"
+                  >
+                    {language === 'es' ? 'Cerrar' : 'Close'}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Add custom scrollbar hide utility */}
       <style jsx global>{`

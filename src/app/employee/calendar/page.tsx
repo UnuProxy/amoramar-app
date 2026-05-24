@@ -284,6 +284,7 @@ export default function EmployeeCalendarPage() {
   const [catalogConfig, setCatalogConfig] = useState<ServiceCatalogConfig>(getDefaultServiceCatalogConfig());
   const [availability, setAvailability] = useState<Availability[]>([]);
   const [selectedServiceId, setSelectedServiceId] = useState<string | undefined>(undefined);
+  const [selectedCalendarServiceGroupId, setSelectedCalendarServiceGroupId] = useState<string | null>(null);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [blockedSlots, setBlockedSlots] = useState<BlockedSlot[]>([]);
   const [clientDirectory, setClientDirectory] = useState<ClientSuggestion[]>([]);
@@ -399,6 +400,11 @@ export default function EmployeeCalendarPage() {
       serviceId: service.id,
       bookingTime: '',
     }));
+  };
+
+  const selectCalendarService = (service: Service) => {
+    setSelectedCalendarServiceGroupId(getServiceGroupId(service));
+    setSelectedServiceId(service.id);
   };
 
   const getSelfBookingClientDefaults = () => {
@@ -583,6 +589,10 @@ export default function EmployeeCalendarPage() {
         setLoadingClients(false);
         const defaultServiceId = assignedServices[0]?.id;
         setSelectedServiceId(defaultServiceId);
+        if (defaultServiceId) {
+          const defaultService = assignedServices.find((service) => service.id === defaultServiceId);
+          setSelectedCalendarServiceGroupId(defaultService ? getServiceGroupId(defaultService) : null);
+        }
 
         if (defaultServiceId) {
           await Promise.all([
@@ -673,6 +683,51 @@ export default function EmployeeCalendarPage() {
     () => new Map(services.map((service) => [service.id, service.duration])),
     [services]
   );
+  const selectedServiceGroupId = selectedService ? getServiceGroupId(selectedService) : undefined;
+  const calendarServiceGroups = useMemo(() => {
+    const sortedServices = [...services]
+      .filter((service) => service.isActive !== false)
+      .sort(compareServicesByDisplayOrder);
+
+    const seenServiceKeys = new Set<string>();
+    const uniqueServices = sortedServices.filter((service) => {
+      const dedupeKey = [
+        service.serviceName.trim().toLowerCase(),
+        Number(service.price || 0).toFixed(2),
+        String(service.duration || 0),
+        getServiceGroupId(service),
+        getServiceSubgroupId(service),
+      ].join('|');
+      if (seenServiceKeys.has(dedupeKey)) return false;
+      seenServiceKeys.add(dedupeKey);
+      return true;
+    });
+
+    const groups = catalogConfig.groups
+      .map((group) => ({
+        id: group.id,
+        label: getCatalogGroupLabel(group, 'es'),
+        services: uniqueServices.filter((service) => getServiceGroupId(service) === group.id),
+      }))
+      .filter((group) => group.services.length > 0);
+
+    const knownGroupIds = new Set(catalogConfig.groups.map((group) => group.id));
+    const uncataloguedServices = uniqueServices.filter((service) => !knownGroupIds.has(getServiceGroupId(service)));
+    if (uncataloguedServices.length > 0) {
+      groups.push({
+        id: 'other-services',
+        label: 'Otros',
+        services: uncataloguedServices,
+      });
+    }
+
+    return groups;
+  }, [services, catalogConfig]);
+  const activeCalendarServiceGroup =
+    calendarServiceGroups.find((group) => group.id === selectedCalendarServiceGroupId) ||
+    calendarServiceGroups.find((group) => group.id === selectedServiceGroupId) ||
+    calendarServiceGroups[0] ||
+    null;
   const normalizedServiceSearch = serviceSearchTerm.trim().toLowerCase();
   const groupedBookingServices = useMemo(() => {
     const sortedServices = [...services]
@@ -1408,19 +1463,79 @@ export default function EmployeeCalendarPage() {
             {currentTime.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-4 w-full lg:w-auto">
-          <select
-            value={selectedServiceId || ''}
-            onChange={(e) => setSelectedServiceId(e.target.value || undefined)}
-            className="w-full max-w-full min-w-0 lg:w-auto px-4 sm:px-6 py-4 bg-white border border-neutral-200 rounded-2xl text-[9px] sm:text-[10px] font-black uppercase tracking-[0.08em] sm:tracking-[0.2em] focus:border-accent-600 outline-none cursor-pointer shadow-sm transition-all"
-          >
-            {services.length === 0 && <option value="">NO SERVICES</option>}
-            {services.map((service) => (
-              <option key={service.id} value={service.id}>
-                {service.serviceName.toUpperCase()} • {service.duration}MIN
-              </option>
-            ))}
-          </select>
+        <div className="flex flex-col gap-4 w-full lg:max-w-3xl">
+          {services.length === 0 ? (
+            <div className="rounded-3xl border border-dashed border-neutral-200 bg-white px-5 py-4 text-center text-[10px] font-black uppercase tracking-[0.2em] text-neutral-400">
+              No hay servicios asignados
+            </div>
+          ) : (
+            <div className="rounded-[28px] border border-neutral-100 bg-white p-3 shadow-sm">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {calendarServiceGroups.map((group) => {
+                  const isActive = activeCalendarServiceGroup?.id === group.id;
+                  return (
+                    <button
+                      key={group.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedCalendarServiceGroupId(group.id);
+                        if (group.services[0]) {
+                          setSelectedServiceId(group.services[0].id);
+                        }
+                      }}
+                      className={cn(
+                        "rounded-2xl border px-3 py-3 text-left transition-all",
+                        isActive
+                          ? "border-accent-300 bg-accent-50 shadow-sm"
+                          : "border-neutral-100 bg-neutral-50 hover:border-neutral-300"
+                      )}
+                    >
+                      <p className={cn(
+                        "text-[10px] font-black uppercase tracking-[0.18em] leading-tight",
+                        isActive ? "text-accent-700" : "text-neutral-700"
+                      )}>
+                        {group.label}
+                      </p>
+                      <p className="mt-1 text-[9px] font-black uppercase tracking-[0.18em] text-neutral-400">
+                        {group.services.length} servicios
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {activeCalendarServiceGroup && (
+                <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+                  {activeCalendarServiceGroup.services.map((service) => {
+                    const isActive = service.id === selectedServiceId;
+                    return (
+                      <button
+                        key={service.id}
+                        type="button"
+                        onClick={() => selectCalendarService(service)}
+                        className={cn(
+                          "min-w-[210px] rounded-2xl border px-4 py-3 text-left transition-all",
+                          isActive
+                            ? "border-neutral-900 bg-neutral-900 text-white shadow-lg"
+                            : "border-neutral-100 bg-white text-neutral-800 hover:border-neutral-300"
+                        )}
+                      >
+                        <p className="line-clamp-2 text-xs font-black uppercase tracking-[0.12em] leading-snug">
+                          {service.serviceName}
+                        </p>
+                        <p className={cn(
+                          "mt-2 text-[10px] font-black uppercase tracking-[0.18em]",
+                          isActive ? "text-white/60" : "text-neutral-400"
+                        )}>
+                          {formatCurrency(service.price)} · {service.duration} min
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
           <button
             type="button"
             onClick={() =>
@@ -1570,6 +1685,7 @@ export default function EmployeeCalendarPage() {
                       <div className="p-3 space-y-2">
                         {slotsForDay.map((slot) => {
                           const booking = findBookingStartingAtSlot(day.date, slot);
+                          const overlappingBooking = findBookingForSlot(day.date, slot);
                           const blocked = findBlockedSlot(day.date, slot);
                           const isPast = isSlotInPast(day.date, slot);
                           const pastClass = isPast ? 'opacity-50' : '';
@@ -1603,6 +1719,40 @@ export default function EmployeeCalendarPage() {
                                 </div>
                                 <p className="text-[10px] font-black uppercase truncate tracking-tight opacity-90 group-hover:opacity-100">
                                   {booking.clientName}
+                                </p>
+                              </button>
+                            );
+                          }
+
+                          if (overlappingBooking) {
+                            const bookingStart = minutesFromTime(overlappingBooking.bookingTime);
+                            const bookingDuration = overlappingBooking.isConsultation
+                              ? overlappingBooking.consultationDuration || 20
+                              : serviceDurationById.get(overlappingBooking.serviceId) || slotDuration;
+                            const bookingEnd = addMinutesToTime(overlappingBooking.bookingTime, bookingDuration);
+
+                            return (
+                              <button
+                                key={slot}
+                                type="button"
+                                onClick={() => openBookingModal(overlappingBooking)}
+                                className={cn(
+                                  "w-full text-left px-4 py-3 rounded-2xl border-2 border-info-200 bg-info-50 text-info-700 shadow-sm transition-all",
+                                  "hover:-translate-y-0.5 hover:border-info-400 hover:shadow-md",
+                                  pastClass
+                                )}
+                              >
+                                <div className="flex items-center justify-between mb-1">
+                                  <span className="text-xs font-black tabular-nums tracking-tight">{slot}</span>
+                                  <span className="rounded-full bg-info-100 px-2 py-0.5 text-[8px] font-black uppercase tracking-[0.16em] text-info-700">
+                                    Booked
+                                  </span>
+                                </div>
+                                <p className="text-[9px] font-black uppercase tracking-tight truncate">
+                                  {overlappingBooking.clientName}
+                                </p>
+                                <p className="mt-1 text-[8px] font-black uppercase tracking-[0.14em] text-info-500">
+                                  Ocupado {overlappingBooking.bookingTime} - {bookingEnd}
                                 </p>
                               </button>
                             );
@@ -1653,16 +1803,20 @@ export default function EmployeeCalendarPage() {
                             <div
                               key={slot}
                               className={cn(
-                                "group relative w-full p-3 rounded-2xl bg-card border border-neutral-200 transition-all",
-                                "hover:-translate-y-0.5 hover:shadow-md",
-                                "border-l-4 border-success-500",
+                                "group relative w-full p-3 rounded-2xl bg-success-50 border-2 border-success-200 transition-all",
+                                "hover:-translate-y-0.5 hover:border-success-400 hover:shadow-md",
                                 pastClass
                               )}
                             >
                               <div className="flex items-center justify-between mb-2">
-                                <span className="text-xs font-black text-primary-900 tabular-nums tracking-tight">{slot}</span>
-                                <div className="w-1.5 h-1.5 rounded-full bg-success-500 opacity-80" />
+                                <span className="text-xs font-black text-success-800 tabular-nums tracking-tight">{slot}</span>
+                                <span className="rounded-full bg-success-100 px-2 py-0.5 text-[8px] font-black uppercase tracking-[0.16em] text-success-700">
+                                  Libre
+                                </span>
                               </div>
+                              <p className="mb-2 text-[9px] font-black uppercase tracking-[0.16em] text-success-600">
+                                Disponible para reservar
+                              </p>
                               <div className="grid grid-cols-1 gap-2 opacity-100 pointer-events-auto sm:opacity-0 sm:pointer-events-none sm:group-hover:opacity-100 sm:group-hover:pointer-events-auto sm:group-focus-within:opacity-100 sm:group-focus-within:pointer-events-auto transition-opacity duration-150">
                                 <button
                                   type="button"
