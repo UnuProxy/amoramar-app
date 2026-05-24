@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBookings, createBooking, getService, getEmployee, getEmployeeServices } from '@/shared/lib/firestore';
-import { sendEmployeeNotification } from '@/shared/lib/email';
+import { sendAdminBookingNotification, sendEmployeeNotification } from '@/shared/lib/email';
 import type { ApiResponse, Booking, BookingFormData } from '@/shared/lib/types';
 import { getPaymentIntent } from '@/shared/lib/stripe';
 import { BookingScheduleValidationError, validateBookingSchedule } from '@/shared/lib/bookingAvailability';
@@ -293,10 +293,13 @@ export async function POST(request: NextRequest) {
 
     let emailSent: boolean | undefined;
     let emailError: string | undefined;
+    let adminEmailSent: boolean | undefined;
+    let adminEmailError: string | undefined;
 
     if (!service || !employee) {
       console.error('Service or employee not found for email notification');
     } else {
+      const bookingStatus = isConsultation ? 'confirmed' : (allowUnpaid ? 'pending' : 'confirmed');
       const clientEmailTrimmed = data.clientEmail?.trim() || '';
       if (clientEmailTrimmed) {
         const confirmationQueueResult = await enqueueEmailConfirmationForBooking({
@@ -347,10 +350,39 @@ export async function POST(request: NextRequest) {
           action: 'new',
         }).catch((error) => console.error('Error sending employee notification:', error));
       }
+
+      if (createdByRole === 'client') {
+        const adminNotificationResult = await sendAdminBookingNotification({
+          bookingId,
+          clientName: data.clientName,
+          clientEmail: clientEmailTrimmed || data.clientEmail,
+          clientPhone: data.clientPhone,
+          serviceName: isConsultation ? `Consulta Gratuita - ${service.serviceName}` : service.serviceName,
+          employeeName: `${employee.firstName} ${employee.lastName}`,
+          bookingDate: data.bookingDate,
+          bookingTime: data.bookingTime,
+          status: bookingStatus,
+          isConsultation,
+          depositAmount: isConsultation ? 0 : depositAmount,
+        });
+        adminEmailSent = adminNotificationResult.success;
+        if (!adminNotificationResult.success) {
+          adminEmailError = adminNotificationResult.error || 'admin_notification_failed';
+          console.error('[email] admin booking notification failed for booking', bookingId, adminEmailError);
+        }
+      }
     }
 
     return NextResponse.json<
-      ApiResponse<{ id: string; emailSent?: boolean; emailError?: string; whatsappAttempted?: boolean; whatsappError?: string }>
+      ApiResponse<{
+        id: string;
+        emailSent?: boolean;
+        emailError?: string;
+        adminEmailSent?: boolean;
+        adminEmailError?: string;
+        whatsappAttempted?: boolean;
+        whatsappError?: string;
+      }>
     >({
       success: true,
       data: {
@@ -359,6 +391,8 @@ export async function POST(request: NextRequest) {
         ...(whatsappError && { whatsappError }),
         ...(emailSent !== undefined && { emailSent }),
         ...(emailError && { emailError }),
+        ...(adminEmailSent !== undefined && { adminEmailSent }),
+        ...(adminEmailError && { adminEmailError }),
       },
     });
   } catch (error: any) {

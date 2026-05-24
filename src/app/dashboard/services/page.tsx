@@ -34,6 +34,7 @@ export default function ServicesPage() {
   const [catalogConfig, setCatalogConfig] = useState<ServiceCatalogConfig>(getDefaultServiceCatalogConfig());
   const [loading, setLoading] = useState(true);
   const [copiedGeneral, setCopiedGeneral] = useState(false);
+  const [copiedServiceId, setCopiedServiceId] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [catalogMessage, setCatalogMessage] = useState<string | null>(null);
   const [catalogSaving, setCatalogSaving] = useState(false);
@@ -669,6 +670,22 @@ export default function ServicesPage() {
     }
   };
 
+  const copyServiceBookingLink = async (serviceId: string) => {
+    const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+    const link = `${baseUrl}/book/${serviceId}`;
+
+    try {
+      const didCopy = await copyToClipboard(link);
+      if (!didCopy) return;
+      setCopiedServiceId(serviceId);
+      setTimeout(() => {
+        setCopiedServiceId((current) => (current === serviceId ? null : current));
+      }, 2000);
+    } catch (err) {
+      console.error('Error copying link:', err);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -971,6 +988,19 @@ export default function ServicesPage() {
                                   >
                                     <span className="block whitespace-normal break-words leading-snug">{service.serviceName}</span>
                                   </Link>
+                                  <button
+                                    type="button"
+                                    draggable={false}
+                                    onClick={(event) => {
+                                      event.preventDefault();
+                                      event.stopPropagation();
+                                      void copyServiceBookingLink(service.id);
+                                    }}
+                                    className="shrink-0 rounded-full bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-600 transition-all hover:bg-slate-100 hover:text-slate-900"
+                                    title={copy.copyLink}
+                                  >
+                                    {copiedServiceId === service.id ? copy.copied : copy.link}
+                                  </button>
                                 </div>
                               </div>
                             );

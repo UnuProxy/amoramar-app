@@ -55,6 +55,21 @@ export interface EmployeeNotificationData {
   action: 'new' | 'cancelled' | 'rescheduled';
 }
 
+export interface AdminBookingNotificationData {
+  bookingId: string;
+  adminEmails?: string[];
+  clientName: string;
+  clientEmail: string;
+  clientPhone: string;
+  serviceName: string;
+  employeeName: string;
+  bookingDate: string;
+  bookingTime: string;
+  status: string;
+  isConsultation?: boolean;
+  depositAmount?: number;
+}
+
 export interface BookingCancellationData {
   clientName: string;
   clientEmail: string;
@@ -180,6 +195,55 @@ export async function sendEmployeeNotification(data: EmployeeNotificationData): 
   } catch (error: any) {
     console.error('Error sending employee notification:', error);
     return { success: false, error: error.message || 'Failed to send email' };
+  }
+}
+
+function getAdminNotificationEmails(): string[] {
+  return (process.env.BOOKING_ADMIN_NOTIFICATION_EMAIL || process.env.ADMIN_NOTIFICATION_EMAIL || '')
+    .split(',')
+    .map((email) => email.trim())
+    .filter(Boolean);
+}
+
+/**
+ * Send notification to admin about a booking created from the public website.
+ */
+export async function sendAdminBookingNotification(
+  data: AdminBookingNotificationData
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const resendClient = getResendClient();
+    if (!resendClient) {
+      console.warn('RESEND_API_KEY not configured. Admin booking email not sent.');
+      return { success: false, error: 'Email service not configured' };
+    }
+
+    const to = data.adminEmails && data.adminEmails.length > 0 ? data.adminEmails : getAdminNotificationEmails();
+    if (to.length === 0) {
+      console.warn('BOOKING_ADMIN_NOTIFICATION_EMAIL not configured. Admin booking email not sent.');
+      return { success: false, error: 'Admin notification email not configured' };
+    }
+
+    const { error } = await resendClient.emails.send({
+      from: getFromEmail(),
+      to,
+      subject: `Nueva reserva web - ${SALON_NAME}`,
+      html: getAdminBookingNotificationTemplate(data),
+    });
+
+    if (error) {
+      const msg =
+        typeof error === 'object' && error !== null && 'message' in error
+          ? String((error as { message: string }).message)
+          : JSON.stringify(error);
+      console.error('Error sending admin booking notification:', msg);
+      return { success: false, error: msg };
+    }
+
+    return { success: true };
+  } catch (error: any) {
+    console.error('Error sending admin booking notification:', error);
+    return { success: false, error: error.message || 'Failed to send admin notification email' };
   }
 }
 
@@ -530,6 +594,106 @@ function getEmployeeNotificationTemplate(data: EmployeeNotificationData): string
             <td style="padding: 30px; background-color: #f9fafb; border-top: 1px solid #e5e7eb; text-align: center;">
               <p style="margin: 0; color: #9ca3af; font-size: 12px;">
                 © ${new Date().getFullYear()} ${SALON_NAME} - Panel de Empleados
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `.trim();
+}
+
+function getAdminBookingNotificationTemplate(data: AdminBookingNotificationData): string {
+  const depositDisplay = typeof data.depositAmount === 'number'
+    ? `${(data.depositAmount / 100).toFixed(2)} EUR`
+    : 'No aplica';
+  const dashboardUrl = process.env.NEXT_PUBLIC_BACKOFFICE_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nueva reserva web</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f5f5;">
+  <table role="presentation" style="width: 100%; border-collapse: collapse;">
+    <tr>
+      <td align="center" style="padding: 40px 0;">
+        <table role="presentation" style="width: 600px; max-width: 90%; border-collapse: collapse; background-color: #ffffff; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+          <tr>
+            <td style="padding: 36px; background-color: #881337;">
+              <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 500; text-align: center;">
+                Nueva reserva recibida desde la web
+              </h1>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 36px;">
+              <p style="margin: 0 0 24px 0; color: #374151; font-size: 16px; line-height: 1.6;">
+                Ha llegado una nueva reserva para ${SALON_NAME}. Revisa los detalles y prepara el seguimiento si hace falta.
+              </p>
+
+              <table role="presentation" style="width: 100%; border-collapse: collapse; margin: 24px 0; background-color: #f9fafb; border-left: 4px solid #e11d48; border-radius: 4px;">
+                <tr>
+                  <td style="padding: 20px;">
+                    <table role="presentation" style="width: 100%; border-collapse: collapse;">
+                      <tr>
+                        <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Cliente:</td>
+                        <td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${data.clientName}</td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Email:</td>
+                        <td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${data.clientEmail}</td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Telefono:</td>
+                        <td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${data.clientPhone}</td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Servicio:</td>
+                        <td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${data.serviceName}</td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Profesional:</td>
+                        <td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${data.employeeName}</td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Fecha:</td>
+                        <td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${formatDate(data.bookingDate)}</td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Hora:</td>
+                        <td style="padding: 8px 0; color: #111827; font-size: 16px; font-weight: 700; text-align: right;">${data.bookingTime}</td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Estado:</td>
+                        <td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${data.status}</td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Deposito:</td>
+                        <td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 600; text-align: right;">${depositDisplay}</td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${dashboardUrl}/dashboard/bookings/${data.bookingId}" style="display: inline-block; padding: 14px 30px; background-color: #881337; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 16px; font-weight: 500;">
+                  Ver reserva en admin
+                </a>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 24px; background-color: #f9fafb; border-top: 1px solid #e5e7eb; text-align: center;">
+              <p style="margin: 0; color: #9ca3af; font-size: 12px;">
+                Booking ID: ${data.bookingId}
               </p>
             </td>
           </tr>

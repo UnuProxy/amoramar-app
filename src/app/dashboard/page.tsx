@@ -1022,6 +1022,10 @@ export default function DashboardPage() {
       setClientEmailError(null);
 
       if (selectedClientProfile) {
+        if (!firebaseUser) {
+          throw new Error('Debes iniciar sesión de nuevo para guardar cambios.');
+        }
+
         const token = await firebaseUser.getIdToken();
         const response = await fetch(`/api/clients/${encodeURIComponent(selectedClientProfile.id)}/email`, {
           method: 'PUT',
