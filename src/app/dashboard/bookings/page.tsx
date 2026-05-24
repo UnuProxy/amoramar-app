@@ -58,12 +58,23 @@ type GeneratedPaymentLink = {
 };
 
 const getPublicPaymentUrl = (bookingId: string) => {
-  const baseUrl = (
-    process.env.NEXT_PUBLIC_BASE_URL ||
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    process.env.NEXT_PUBLIC_APP_URL ||
-    (typeof window !== 'undefined' ? window.location.origin : '')
-  ).replace(/\/+$/, '');
+  const normalize = (value?: string) => (value || '').replace(/\/+$/, '');
+  const isBackofficeUrl = (value: string) => /backoffice|admin\./i.test(value);
+  const envBaseUrl = [
+    process.env.NEXT_PUBLIC_PAYMENT_BASE_URL,
+    process.env.NEXT_PUBLIC_BASE_URL,
+    process.env.NEXT_PUBLIC_SITE_URL,
+    process.env.NEXT_PUBLIC_APP_URL,
+  ]
+    .map(normalize)
+    .find((value) => value && !isBackofficeUrl(value));
+
+  const currentOrigin = typeof window !== 'undefined' ? window.location.origin : '';
+  const derivedBaseUrl = normalize(currentOrigin)
+    .replace(/-backoffice(\.|-)/i, '-web$1')
+    .replace(/backoffice/gi, 'web')
+    .replace(/:\/\/admin\./i, '://');
+  const baseUrl = envBaseUrl || derivedBaseUrl;
 
   return `${baseUrl}/booking-payment/${bookingId}`;
 };

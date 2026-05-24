@@ -32,6 +32,27 @@ type PaymentLinkDetails = {
 
 const stripePublicKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
 
+const getPublicPaymentOrigin = () => {
+  const normalize = (value?: string) => (value || '').replace(/\/+$/, '');
+  const isBackofficeUrl = (value: string) => /backoffice|admin\./i.test(value);
+  const envBaseUrl = [
+    process.env.NEXT_PUBLIC_PAYMENT_BASE_URL,
+    process.env.NEXT_PUBLIC_BASE_URL,
+    process.env.NEXT_PUBLIC_SITE_URL,
+    process.env.NEXT_PUBLIC_APP_URL,
+  ]
+    .map(normalize)
+    .find((value) => value && !isBackofficeUrl(value));
+
+  const currentOrigin = typeof window !== 'undefined' ? window.location.origin : '';
+  const derivedBaseUrl = normalize(currentOrigin)
+    .replace(/-backoffice(\.|-)/i, '-web$1')
+    .replace(/backoffice/gi, 'web')
+    .replace(/:\/\/admin\./i, '://');
+
+  return envBaseUrl || derivedBaseUrl;
+};
+
 function formatDisplayDate(dateStr: string) {
   if (!dateStr) return '';
   const parsed = new Date(`${dateStr}T12:00:00`);
@@ -58,6 +79,20 @@ export default function BookingPaymentPage() {
   const elementsRef = useRef<StripeElements | null>(null);
   const cardElementRef = useRef<StripeCardElement | null>(null);
   const cardMountId = 'booking-payment-card-element';
+
+  useEffect(() => {
+    if (!bookingId || typeof window === 'undefined') return;
+    if (!/backoffice|admin\./i.test(window.location.origin)) return;
+
+    const publicOrigin = getPublicPaymentOrigin();
+    if (!publicOrigin || publicOrigin === window.location.origin) return;
+
+    const target = new URL(`${publicOrigin}/booking-payment/${bookingId}`);
+    if (paymentIntentIdFromUrl) {
+      target.searchParams.set('payment_intent', paymentIntentIdFromUrl);
+    }
+    window.location.replace(target.toString());
+  }, [bookingId, paymentIntentIdFromUrl]);
 
   useEffect(() => {
     const loadDetails = async () => {

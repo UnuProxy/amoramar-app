@@ -31,10 +31,11 @@ type PaymentLinkData = {
 
 const getPublicBaseUrl = () => {
   return (
+    process.env.NEXT_PUBLIC_PAYMENT_BASE_URL ||
     process.env.NEXT_PUBLIC_BASE_URL ||
     process.env.NEXT_PUBLIC_SITE_URL ||
     process.env.NEXT_PUBLIC_APP_URL ||
-    'http://localhost:3001'
+    'https://amoramar-web.vercel.app'
   ).replace(/\/+$/, '');
 };
 
