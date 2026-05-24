@@ -35,7 +35,7 @@ const getPublicBaseUrl = () => {
     process.env.NEXT_PUBLIC_BASE_URL ||
     process.env.NEXT_PUBLIC_SITE_URL ||
     process.env.NEXT_PUBLIC_APP_URL ||
-    'https://amoramar-web.vercel.app'
+    'https://amoramar.com'
   ).replace(/\/+$/, '');
 };
 

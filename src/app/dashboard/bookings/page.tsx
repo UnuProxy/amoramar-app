@@ -60,6 +60,7 @@ type GeneratedPaymentLink = {
 const getPublicPaymentUrl = (bookingId: string) => {
   const normalize = (value?: string) => (value || '').replace(/\/+$/, '');
   const isBackofficeUrl = (value: string) => /backoffice|admin\./i.test(value);
+  const currentOrigin = typeof window !== 'undefined' ? window.location.origin : '';
   const envBaseUrl = [
     process.env.NEXT_PUBLIC_PAYMENT_BASE_URL,
     process.env.NEXT_PUBLIC_BASE_URL,
@@ -69,12 +70,10 @@ const getPublicPaymentUrl = (bookingId: string) => {
     .map(normalize)
     .find((value) => value && !isBackofficeUrl(value));
 
-  const currentOrigin = typeof window !== 'undefined' ? window.location.origin : '';
-  const derivedBaseUrl = normalize(currentOrigin)
-    .replace(/-backoffice(\.|-)/i, '-web$1')
-    .replace(/backoffice/gi, 'web')
-    .replace(/:\/\/admin\./i, '://');
-  const baseUrl = envBaseUrl || derivedBaseUrl;
+  const localDevBaseUrl = /^https?:\/\/localhost:3000$/i.test(currentOrigin)
+    ? currentOrigin.replace(':3000', ':3001')
+    : '';
+  const baseUrl = envBaseUrl || localDevBaseUrl || 'https://amoramar.com';
 
   return `${baseUrl}/booking-payment/${bookingId}`;
 };

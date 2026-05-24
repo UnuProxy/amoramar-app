@@ -35,6 +35,7 @@ const stripePublicKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
 const getPublicPaymentOrigin = () => {
   const normalize = (value?: string) => (value || '').replace(/\/+$/, '');
   const isBackofficeUrl = (value: string) => /backoffice|admin\./i.test(value);
+  const currentOrigin = typeof window !== 'undefined' ? window.location.origin : '';
   const envBaseUrl = [
     process.env.NEXT_PUBLIC_PAYMENT_BASE_URL,
     process.env.NEXT_PUBLIC_BASE_URL,
@@ -44,13 +45,11 @@ const getPublicPaymentOrigin = () => {
     .map(normalize)
     .find((value) => value && !isBackofficeUrl(value));
 
-  const currentOrigin = typeof window !== 'undefined' ? window.location.origin : '';
-  const derivedBaseUrl = normalize(currentOrigin)
-    .replace(/-backoffice(\.|-)/i, '-web$1')
-    .replace(/backoffice/gi, 'web')
-    .replace(/:\/\/admin\./i, '://');
+  const localDevBaseUrl = /^https?:\/\/localhost:3000$/i.test(currentOrigin)
+    ? currentOrigin.replace(':3000', ':3001')
+    : '';
 
-  return envBaseUrl || derivedBaseUrl;
+  return envBaseUrl || localDevBaseUrl || 'https://amoramar.com';
 };
 
 function formatDisplayDate(dateStr: string) {
