@@ -65,7 +65,9 @@ export default function BookingPaymentPage() {
         const query = paymentIntentIdFromUrl
           ? `?payment_intent=${encodeURIComponent(paymentIntentIdFromUrl)}`
           : '';
-        const response = await fetch(`/api/bookings/${bookingId}/payment-link${query}`);
+        const response = await fetch(`/api/bookings/${bookingId}/payment-link${query}`, {
+          method: 'POST',
+        });
         const json = await response.json();
         if (!response.ok || !json?.success) {
           throw new Error(json?.error || 'No se pudo cargar el enlace de pago.');

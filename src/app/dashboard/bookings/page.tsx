@@ -57,6 +57,17 @@ type GeneratedPaymentLink = {
   amount: number;
 };
 
+const getPublicPaymentUrl = (bookingId: string) => {
+  const baseUrl = (
+    process.env.NEXT_PUBLIC_BASE_URL ||
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    process.env.NEXT_PUBLIC_APP_URL ||
+    (typeof window !== 'undefined' ? window.location.origin : '')
+  ).replace(/\/+$/, '');
+
+  return `${baseUrl}/booking-payment/${bookingId}`;
+};
+
 // ============================================================================
 // DATE UTILITIES
 // ============================================================================
@@ -1391,14 +1402,6 @@ export default function BookingsPage() {
         throw new Error(bookingJson?.error || 'Could not create booking');
       }
 
-      const paymentResponse = await fetch(`/api/bookings/${bookingJson.data.id}/payment-link`, {
-        method: 'POST',
-      });
-      const paymentJson = await paymentResponse.json();
-      if (!paymentResponse.ok || !paymentJson?.success || !paymentJson.data?.paymentUrl) {
-        throw new Error(paymentJson?.error || 'Could not create payment link');
-      }
-
       const newBooking: Booking = {
         id: bookingJson.data.id,
         salonId: 'default-salon-id',
@@ -1414,7 +1417,6 @@ export default function BookingsPage() {
         requiresDeposit: true,
         depositAmount,
         depositPaid: false,
-        paymentIntentId: paymentJson.data.paymentIntentId,
         paymentStatus: 'pending',
         paymentNotes: 'Admin payment link pending',
         createdByRole: user?.role ?? 'owner',
@@ -1428,8 +1430,8 @@ export default function BookingsPage() {
       setBookings((prev) => [newBooking, ...prev]);
       setGeneratedPaymentLink({
         bookingId: bookingJson.data.id,
-        paymentUrl: paymentJson.data.paymentUrl,
-        amount: paymentJson.data.amount,
+        paymentUrl: getPublicPaymentUrl(bookingJson.data.id),
+        amount: depositAmount,
       });
     } catch (error: any) {
       console.error('Failed to create admin payment link:', error);
