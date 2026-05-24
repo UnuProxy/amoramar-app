@@ -70,6 +70,67 @@ const updateBookingPaymentState = async (
   await updateBooking(bookingDoc.booking.id, updates);
 };
 
+const handleSucceededPaymentIntent = async (intent: Stripe.PaymentIntent) => {
+  const bookingDoc = await getBookingDocByPaymentIntent(intent);
+  const booking = bookingDoc?.booking;
+  if (!booking) return;
+
+  const wasAlreadyPaid =
+    booking.depositPaid === true ||
+    booking.paymentStatus === 'deposit_paid' ||
+    booking.paymentStatus === 'paid';
+
+  await updateBookingPaymentState(bookingDoc, {
+    paymentIntentId: intent.id,
+    paymentStatus: 'deposit_paid',
+    depositPaid: true,
+    depositAmount: intent.amount_received || intent.amount || booking.depositAmount,
+    status: booking.status === 'pending' ? 'confirmed' : booking.status,
+  });
+
+  if (wasAlreadyPaid) return;
+
+  const [service, employee] = await Promise.all([
+    getAdminDoc<Service>('services', booking.serviceId),
+    getAdminDoc<Employee>('employees', booking.employeeId),
+  ]);
+
+  if (service && employee && booking.clientEmail) {
+    await enqueueEmailConfirmationForBooking({
+      id: booking.id,
+      clientName: booking.clientName,
+      clientEmail: booking.clientEmail,
+      serviceName: booking.isConsultation ? `Consulta Gratuita - ${service.serviceName}` : service.serviceName,
+      employeeName: `${employee.firstName} ${employee.lastName || ''}`.trim(),
+      bookingDate: booking.bookingDate,
+      bookingTime: booking.bookingTime,
+      status: 'confirmed',
+      duration: booking.isConsultation && booking.consultationDuration ? booking.consultationDuration : service.duration,
+      price: booking.isConsultation ? '0' : service.price.toString(),
+    }).catch((error) => console.error('[stripe webhook] confirmation enqueue failed', booking.id, error));
+
+    enqueueEmailReminderForBooking({
+      id: booking.id,
+      clientName: booking.clientName,
+      clientEmail: booking.clientEmail,
+      serviceName: booking.isConsultation ? `Consulta Gratuita - ${service.serviceName}` : service.serviceName,
+      employeeName: `${employee.firstName} ${employee.lastName || ''}`.trim(),
+      bookingDate: booking.bookingDate,
+      bookingTime: booking.bookingTime,
+      status: 'confirmed',
+    }).catch((error) => console.error('[stripe webhook] reminder enqueue failed', booking.id, error));
+  }
+
+  enqueueWhatsAppJobsForConfirmedBooking({
+    ...booking,
+    paymentIntentId: intent.id,
+    depositPaid: true,
+    depositAmount: intent.amount_received || intent.amount || booking.depositAmount,
+    paymentStatus: 'deposit_paid',
+    status: 'confirmed',
+  }).catch((error) => console.error('[stripe webhook] WhatsApp enqueue failed', booking.id, error));
+};
+
 export async function POST(request: NextRequest) {
   if (!stripe) {
     return NextResponse.json({ error: 'Stripe is not configured.' }, { status: 500 });
@@ -96,61 +157,16 @@ export async function POST(request: NextRequest) {
     switch (event.type) {
       case 'payment_intent.succeeded': {
         const intent = event.data.object as Stripe.PaymentIntent;
-        const bookingDoc = await getBookingDocByPaymentIntent(intent);
-        const booking = bookingDoc?.booking;
-        if (booking) {
-          const wasAlreadyPaid =
-            booking.depositPaid === true ||
-            booking.paymentStatus === 'deposit_paid' ||
-            booking.paymentStatus === 'paid';
+        await handleSucceededPaymentIntent(intent);
+        break;
+      }
 
-          await updateBookingPaymentState(bookingDoc, {
-            paymentStatus: 'deposit_paid',
-            depositPaid: true,
-            depositAmount: intent.amount_received || intent.amount || booking.depositAmount,
-            status: booking.status === 'pending' ? 'confirmed' : booking.status,
-          });
-
-          if (!wasAlreadyPaid) {
-            const [service, employee] = await Promise.all([
-              getAdminDoc<Service>('services', booking.serviceId),
-              getAdminDoc<Employee>('employees', booking.employeeId),
-            ]);
-
-            if (service && employee && booking.clientEmail) {
-              await enqueueEmailConfirmationForBooking({
-                id: booking.id,
-                clientName: booking.clientName,
-                clientEmail: booking.clientEmail,
-                serviceName: booking.isConsultation ? `Consulta Gratuita - ${service.serviceName}` : service.serviceName,
-                employeeName: `${employee.firstName} ${employee.lastName || ''}`.trim(),
-                bookingDate: booking.bookingDate,
-                bookingTime: booking.bookingTime,
-                status: 'confirmed',
-                duration: booking.isConsultation && booking.consultationDuration ? booking.consultationDuration : service.duration,
-                price: booking.isConsultation ? '0' : service.price.toString(),
-              }).catch((error) => console.error('[stripe webhook] confirmation enqueue failed', booking.id, error));
-
-              enqueueEmailReminderForBooking({
-                id: booking.id,
-                clientName: booking.clientName,
-                clientEmail: booking.clientEmail,
-                serviceName: booking.isConsultation ? `Consulta Gratuita - ${service.serviceName}` : service.serviceName,
-                employeeName: `${employee.firstName} ${employee.lastName || ''}`.trim(),
-                bookingDate: booking.bookingDate,
-                bookingTime: booking.bookingTime,
-                status: 'confirmed',
-              }).catch((error) => console.error('[stripe webhook] reminder enqueue failed', booking.id, error));
-            }
-
-            enqueueWhatsAppJobsForConfirmedBooking({
-              ...booking,
-              depositPaid: true,
-              depositAmount: intent.amount_received || intent.amount || booking.depositAmount,
-              paymentStatus: 'deposit_paid',
-              status: 'confirmed',
-            }).catch((error) => console.error('[stripe webhook] WhatsApp enqueue failed', booking.id, error));
-          }
+      case 'checkout.session.completed': {
+        const session = event.data.object as Stripe.Checkout.Session;
+        const paymentIntentId = typeof session.payment_intent === 'string' ? session.payment_intent : null;
+        if (paymentIntentId) {
+          const intent = await stripe.paymentIntents.retrieve(paymentIntentId);
+          await handleSucceededPaymentIntent(intent);
         }
         break;
       }

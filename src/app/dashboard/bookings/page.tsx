@@ -75,7 +75,7 @@ const getPublicPaymentUrl = (bookingId: string) => {
     : '';
   const baseUrl = envBaseUrl || localDevBaseUrl || 'https://amoramar.com';
 
-  return `${baseUrl}/booking-payment/${bookingId}`;
+  return `${baseUrl}/api/bookings/${bookingId}/payment-link?checkout=1`;
 };
 
 // ============================================================================

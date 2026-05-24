@@ -41,6 +41,49 @@ export async function createPaymentIntent(
   }
 }
 
+export async function createBookingCheckoutSession(params: {
+  amount: number;
+  currency?: string;
+  serviceName: string;
+  clientEmail?: string;
+  successUrl: string;
+  cancelUrl: string;
+  metadata: Record<string, string>;
+}): Promise<Stripe.Checkout.Session> {
+  try {
+    if (!stripe) {
+      throw new Error('Stripe is not configured.');
+    }
+
+    return await stripe.checkout.sessions.create({
+      mode: 'payment',
+      customer_email: params.clientEmail || undefined,
+      line_items: [
+        {
+          quantity: 1,
+          price_data: {
+            currency: params.currency || 'eur',
+            unit_amount: params.amount,
+            product_data: {
+              name: params.serviceName,
+              description: 'Amor Amar booking deposit',
+            },
+          },
+        },
+      ],
+      metadata: params.metadata,
+      payment_intent_data: {
+        metadata: params.metadata,
+      },
+      success_url: params.successUrl,
+      cancel_url: params.cancelUrl,
+    });
+  } catch (error: any) {
+    console.error('Error creating checkout session:', error);
+    throw new Error(error.message || 'Failed to create checkout session');
+  }
+}
+
 /**
  * Retrieve a payment intent
  */

@@ -3,7 +3,7 @@ import type { Firestore } from 'firebase-admin/firestore';
 import { Timestamp } from 'firebase-admin/firestore';
 import { getAdminDb } from '@/shared/lib/firebaseAdmin';
 import { getBooking, getEmployee, getService, updateBooking } from '@/shared/lib/firestore';
-import { calculateDepositAmount, createPaymentIntent, getPaymentIntent } from '@/shared/lib/stripe';
+import { calculateDepositAmount, createBookingCheckoutSession, createPaymentIntent, getPaymentIntent } from '@/shared/lib/stripe';
 import type { ApiResponse, Booking, Employee, Service } from '@/shared/lib/types';
 
 export const runtime = 'nodejs';
@@ -46,6 +46,8 @@ const buildPaymentUrl = (bookingId: string, paymentIntentId?: string | null) => 
   }
   return url.toString();
 };
+
+const buildCheckoutUrl = (bookingId: string) => `${getPublicBaseUrl()}/api/bookings/${bookingId}/payment-link?checkout=1`;
 
 const getOptionalAdminDb = (): Firestore | null => {
   try {
@@ -202,14 +204,76 @@ async function getPaymentLinkData(
   };
 }
 
+async function createStripeCheckoutRedirect(bookingId: string) {
+  const context = await loadBookingContext(bookingId);
+  const { booking, service, employee } = context;
+
+  if (!service) {
+    throw Object.assign(new Error('Service not found for this booking'), { statusCode: 404 });
+  }
+
+  const totalAmount = Number(service.price) || 0;
+  const amount = booking.depositAmount && booking.depositAmount > 0
+    ? booking.depositAmount
+    : calculateDepositAmount(totalAmount, 50);
+  const employeeName = employee ? `${employee.firstName} ${employee.lastName || ''}`.trim() : '';
+  const successUrl = new URL(`${getPublicBaseUrl()}/book/success`);
+  successUrl.searchParams.set('bookingId', booking.id);
+  successUrl.searchParams.set('service', service.serviceName);
+  if (employeeName) successUrl.searchParams.set('employee', employeeName);
+  successUrl.searchParams.set('date', booking.bookingDate);
+  successUrl.searchParams.set('time', booking.bookingTime);
+  if (booking.clientEmail) successUrl.searchParams.set('email', booking.clientEmail);
+  successUrl.searchParams.set('deposit', String(amount / 100));
+  successUrl.searchParams.set('remaining', String(Math.max(0, totalAmount - amount / 100)));
+
+  const session = await createBookingCheckoutSession({
+    amount,
+    serviceName: `Reserva Amor Amar - ${service.serviceName}`,
+    clientEmail: booking.clientEmail || undefined,
+    successUrl: successUrl.toString(),
+    cancelUrl: buildCheckoutUrl(booking.id),
+    metadata: {
+      bookingId: booking.id,
+      serviceId: booking.serviceId,
+      serviceName: service.serviceName,
+      bookingDate: booking.bookingDate,
+      bookingTime: booking.bookingTime,
+      clientEmail: booking.clientEmail || '',
+      clientName: booking.clientName || '',
+      source: 'admin_stripe_checkout_link',
+    },
+  });
+
+  await persistPaymentIntentOnBooking(context, {
+    depositAmount: amount,
+    requiresDeposit: true,
+    depositPaid: false,
+    paymentStatus: 'pending',
+    paymentNotes: `Stripe Checkout session ${session.id}`,
+    status: booking.status === 'cancelled' ? booking.status : 'pending',
+  });
+
+  if (!session.url) {
+    throw Object.assign(new Error('Stripe did not return a checkout URL'), { statusCode: 500 });
+  }
+
+  return session.url;
+}
+
 export async function GET(
   request: Request,
   context: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await context.params;
-    const paymentIntentId = new URL(request.url).searchParams.get('paymentIntentId') ||
-      new URL(request.url).searchParams.get('payment_intent');
+    const url = new URL(request.url);
+    if (url.searchParams.get('checkout') === '1') {
+      const checkoutUrl = await createStripeCheckoutRedirect(id);
+      return NextResponse.redirect(checkoutUrl, { status: 303 });
+    }
+    const paymentIntentId = url.searchParams.get('paymentIntentId') ||
+      url.searchParams.get('payment_intent');
     const data = await getPaymentLinkData(id, false, paymentIntentId);
     return NextResponse.json<ApiResponse<PaymentLinkData>>({ success: true, data });
   } catch (error: any) {
@@ -226,9 +290,11 @@ export async function POST(
 ) {
   try {
     const { id } = await context.params;
-    const paymentIntentId = new URL(request.url).searchParams.get('paymentIntentId') ||
-      new URL(request.url).searchParams.get('payment_intent');
-    const data = await getPaymentLinkData(id, true, paymentIntentId);
+    const url = new URL(request.url);
+    const paymentIntentId = url.searchParams.get('paymentIntentId') ||
+      url.searchParams.get('payment_intent');
+    const data = await getPaymentLinkData(id, false, paymentIntentId);
+    data.paymentUrl = buildCheckoutUrl(id);
     return NextResponse.json<ApiResponse<PaymentLinkData>>({ success: true, data });
   } catch (error: any) {
     return NextResponse.json<ApiResponse<null>>(
