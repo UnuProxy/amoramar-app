@@ -3,6 +3,7 @@ import Stripe from 'stripe';
 import { Timestamp } from 'firebase-admin/firestore';
 import { stripe } from '@/shared/lib/stripe';
 import { getAdminDb } from '@/shared/lib/firebaseAdmin';
+import { getBooking, getEmployee, getService, updateBooking } from '@/shared/lib/firestore';
 import { enqueueWhatsAppJobsForConfirmedBooking } from '@/shared/lib/whatsappJobs';
 import { enqueueEmailConfirmationForBooking, enqueueEmailReminderForBooking } from '@/shared/lib/emailReminderJobs';
 import type { Booking, Employee, Service } from '@/shared/lib/types';
@@ -11,20 +12,62 @@ export const runtime = 'nodejs';
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
-const getBookingDocByPaymentIntentId = async (paymentIntentId: string) => {
-  const snap = await getAdminDb()
+const getOptionalAdminDb = () => {
+  try {
+    return getAdminDb();
+  } catch (error) {
+    console.error('[stripe webhook] Firebase Admin unavailable, using client SDK fallback:', error);
+    return null;
+  }
+};
+
+const getBookingDocByPaymentIntent = async (intent: Stripe.PaymentIntent) => {
+  const db = getOptionalAdminDb();
+
+  if (!db) {
+    const metadataBookingId = intent.metadata?.bookingId;
+    const booking = metadataBookingId ? await getBooking(metadataBookingId) : null;
+    return booking ? { ref: null, booking } : null;
+  }
+
+  const snap = await db
     .collection('bookings')
-    .where('paymentIntentId', '==', paymentIntentId)
+    .where('paymentIntentId', '==', intent.id)
     .limit(1)
     .get();
   const doc = snap.docs[0];
+  if (!doc && intent.metadata?.bookingId) {
+    const metadataDoc = await db.collection('bookings').doc(intent.metadata.bookingId).get();
+    if (!metadataDoc.exists) return null;
+    return { ref: metadataDoc.ref, booking: { id: metadataDoc.id, ...metadataDoc.data() } as Booking };
+  }
   if (!doc) return null;
   return { ref: doc.ref, booking: { id: doc.id, ...doc.data() } as Booking };
 };
 
 const getAdminDoc = async <T,>(collection: string, id: string): Promise<T | null> => {
-  const snap = await getAdminDb().collection(collection).doc(id).get();
+  const db = getOptionalAdminDb();
+  if (!db) {
+    if (collection === 'services') return (await getService(id)) as T | null;
+    if (collection === 'employees') return (await getEmployee(id)) as T | null;
+    return null;
+  }
+  const snap = await db.collection(collection).doc(id).get();
   return snap.exists ? ({ id: snap.id, ...snap.data() } as T) : null;
+};
+
+const updateBookingPaymentState = async (
+  bookingDoc: Awaited<ReturnType<typeof getBookingDocByPaymentIntent>>,
+  updates: Partial<Booking>
+) => {
+  if (!bookingDoc) return;
+
+  if (bookingDoc.ref) {
+    await bookingDoc.ref.set({ ...updates, updatedAt: Timestamp.now() }, { merge: true });
+    return;
+  }
+
+  await updateBooking(bookingDoc.booking.id, updates);
 };
 
 export async function POST(request: NextRequest) {
@@ -53,7 +96,7 @@ export async function POST(request: NextRequest) {
     switch (event.type) {
       case 'payment_intent.succeeded': {
         const intent = event.data.object as Stripe.PaymentIntent;
-        const bookingDoc = await getBookingDocByPaymentIntentId(intent.id);
+        const bookingDoc = await getBookingDocByPaymentIntent(intent);
         const booking = bookingDoc?.booking;
         if (booking) {
           const wasAlreadyPaid =
@@ -61,13 +104,12 @@ export async function POST(request: NextRequest) {
             booking.paymentStatus === 'deposit_paid' ||
             booking.paymentStatus === 'paid';
 
-          await bookingDoc.ref.set({
+          await updateBookingPaymentState(bookingDoc, {
             paymentStatus: 'deposit_paid',
             depositPaid: true,
             depositAmount: intent.amount_received || intent.amount || booking.depositAmount,
             status: booking.status === 'pending' ? 'confirmed' : booking.status,
-            updatedAt: Timestamp.now(),
-          }, { merge: true });
+          });
 
           if (!wasAlreadyPaid) {
             const [service, employee] = await Promise.all([
@@ -115,13 +157,12 @@ export async function POST(request: NextRequest) {
 
       case 'payment_intent.payment_failed': {
         const intent = event.data.object as Stripe.PaymentIntent;
-        const bookingDoc = await getBookingDocByPaymentIntentId(intent.id);
+        const bookingDoc = await getBookingDocByPaymentIntent(intent);
         if (bookingDoc) {
-          await bookingDoc.ref.set({
+          await updateBookingPaymentState(bookingDoc, {
             paymentStatus: 'failed',
             depositPaid: false,
-            updatedAt: Timestamp.now(),
-          }, { merge: true });
+          });
         }
         break;
       }
@@ -130,13 +171,13 @@ export async function POST(request: NextRequest) {
         const charge = event.data.object as Stripe.Charge;
         const paymentIntentId = typeof charge.payment_intent === 'string' ? charge.payment_intent : null;
         if (paymentIntentId) {
-          const bookingDoc = await getBookingDocByPaymentIntentId(paymentIntentId);
+          const intent = await stripe.paymentIntents.retrieve(paymentIntentId);
+          const bookingDoc = await getBookingDocByPaymentIntent(intent);
           if (bookingDoc) {
-            await bookingDoc.ref.set({
+            await updateBookingPaymentState(bookingDoc, {
               paymentStatus: 'refunded',
               depositPaid: false,
-              updatedAt: Timestamp.now(),
-            }, { merge: true });
+            });
           }
         }
         break;

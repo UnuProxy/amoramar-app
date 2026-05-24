@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { loadStripe, type Stripe, type StripeCardElement, type StripeElements } from '@stripe/stripe-js';
 import { BrandLogo } from '@/shared/components/BrandLogo';
 import { Loading } from '@/shared/components/Loading';
@@ -47,7 +47,9 @@ function formatDisplayDate(dateStr: string) {
 export default function BookingPaymentPage() {
   const params = useParams<{ bookingId: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const bookingId = params.bookingId;
+  const paymentIntentIdFromUrl = searchParams.get('payment_intent');
   const [details, setDetails] = useState<PaymentLinkDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [paying, setPaying] = useState(false);
@@ -60,7 +62,10 @@ export default function BookingPaymentPage() {
   useEffect(() => {
     const loadDetails = async () => {
       try {
-        const response = await fetch(`/api/bookings/${bookingId}/payment-link`);
+        const query = paymentIntentIdFromUrl
+          ? `?payment_intent=${encodeURIComponent(paymentIntentIdFromUrl)}`
+          : '';
+        const response = await fetch(`/api/bookings/${bookingId}/payment-link${query}`);
         const json = await response.json();
         if (!response.ok || !json?.success) {
           throw new Error(json?.error || 'No se pudo cargar el enlace de pago.');
@@ -76,7 +81,7 @@ export default function BookingPaymentPage() {
     if (bookingId) {
       loadDetails();
     }
-  }, [bookingId]);
+  }, [bookingId, paymentIntentIdFromUrl]);
 
   useEffect(() => {
     if (!details?.clientSecret || details.paid || !stripePublicKey) return;

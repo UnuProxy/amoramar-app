@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
+import type { Firestore } from 'firebase-admin/firestore';
 import { Timestamp } from 'firebase-admin/firestore';
 import { getAdminDb } from '@/shared/lib/firebaseAdmin';
+import { getBooking, getEmployee, getService, updateBooking } from '@/shared/lib/firestore';
 import { calculateDepositAmount, createPaymentIntent, getPaymentIntent } from '@/shared/lib/stripe';
 import type { ApiResponse, Booking, Employee, Service } from '@/shared/lib/types';
 
@@ -36,23 +38,97 @@ const getPublicBaseUrl = () => {
   ).replace(/\/+$/, '');
 };
 
-const buildPaymentUrl = (bookingId: string) => `${getPublicBaseUrl()}/booking-payment/${bookingId}`;
+const buildPaymentUrl = (bookingId: string, paymentIntentId?: string | null) => {
+  const url = new URL(`${getPublicBaseUrl()}/booking-payment/${bookingId}`);
+  if (paymentIntentId) {
+    url.searchParams.set('payment_intent', paymentIntentId);
+  }
+  return url.toString();
+};
 
-async function getPaymentLinkData(bookingId: string, createIfMissing: boolean): Promise<PaymentLinkData> {
-  const db = getAdminDb();
-  const bookingRef = db.collection('bookings').doc(bookingId);
-  const bookingSnap = await bookingRef.get();
-  if (!bookingSnap.exists) {
+const getOptionalAdminDb = (): Firestore | null => {
+  try {
+    return getAdminDb();
+  } catch (error) {
+    console.error('[payment-link] Firebase Admin unavailable, using client SDK fallback:', error);
+    return null;
+  }
+};
+
+const loadBookingContext = async (bookingId: string) => {
+  const db = getOptionalAdminDb();
+
+  if (db) {
+    const bookingRef = db.collection('bookings').doc(bookingId);
+    const bookingSnap = await bookingRef.get();
+    if (!bookingSnap.exists) {
+      throw Object.assign(new Error('Booking not found'), { statusCode: 404 });
+    }
+
+    const booking = { id: bookingSnap.id, ...bookingSnap.data() } as Booking;
+    const [serviceSnap, employeeSnap] = await Promise.all([
+      db.collection('services').doc(booking.serviceId).get(),
+      db.collection('employees').doc(booking.employeeId).get(),
+    ]);
+
+    return {
+      db,
+      bookingRef,
+      booking,
+      service: serviceSnap.exists ? ({ id: serviceSnap.id, ...serviceSnap.data() } as Service) : null,
+      employee: employeeSnap.exists ? ({ id: employeeSnap.id, ...employeeSnap.data() } as Employee) : null,
+    };
+  }
+
+  const booking = await getBooking(bookingId);
+  if (!booking) {
     throw Object.assign(new Error('Booking not found'), { statusCode: 404 });
   }
-  const booking = { id: bookingSnap.id, ...bookingSnap.data() } as Booking;
 
-  const [serviceSnap, employeeSnap] = await Promise.all([
-    db.collection('services').doc(booking.serviceId).get(),
-    db.collection('employees').doc(booking.employeeId).get(),
+  const [service, employee] = await Promise.all([
+    getService(booking.serviceId),
+    getEmployee(booking.employeeId),
   ]);
-  const service = serviceSnap.exists ? ({ id: serviceSnap.id, ...serviceSnap.data() } as Service) : null;
-  const employee = employeeSnap.exists ? ({ id: employeeSnap.id, ...employeeSnap.data() } as Employee) : null;
+
+  return {
+    db: null,
+    bookingRef: null,
+    booking,
+    service,
+    employee,
+  };
+};
+
+const persistPaymentIntentOnBooking = async (
+  context: Awaited<ReturnType<typeof loadBookingContext>>,
+  updates: Partial<Booking>
+) => {
+  const payload = {
+    ...updates,
+    updatedAt: Timestamp.now(),
+  };
+
+  if (context.bookingRef) {
+    await context.bookingRef.set(payload, { merge: true });
+    return;
+  }
+
+  try {
+    await updateBooking(context.booking.id, updates);
+  } catch (error) {
+    // The payment URL still works because the PaymentIntent carries bookingId metadata.
+    // Webhook confirmation also falls back to that metadata.
+    console.error('[payment-link] Could not persist payment intent on booking:', error);
+  }
+};
+
+async function getPaymentLinkData(
+  bookingId: string,
+  createIfMissing: boolean,
+  requestedPaymentIntentId?: string | null
+): Promise<PaymentLinkData> {
+  const context = await loadBookingContext(bookingId);
+  const { booking, service, employee } = context;
 
   if (!service) {
     throw Object.assign(new Error('Service not found for this booking'), { statusCode: 404 });
@@ -63,7 +139,7 @@ async function getPaymentLinkData(bookingId: string, createIfMissing: boolean): 
     ? booking.depositAmount
     : calculateDepositAmount(totalAmount, 50);
 
-  let paymentIntentId = booking.paymentIntentId || null;
+  let paymentIntentId = requestedPaymentIntentId || booking.paymentIntentId || null;
   let clientSecret: string | null = null;
   let paid = booking.depositPaid === true || booking.paymentStatus === 'deposit_paid' || booking.paymentStatus === 'paid';
 
@@ -93,20 +169,19 @@ async function getPaymentLinkData(bookingId: string, createIfMissing: boolean): 
     paymentIntentId = intent.id;
     clientSecret = intent.client_secret || null;
 
-    await bookingRef.set({
+    await persistPaymentIntentOnBooking(context, {
       paymentIntentId,
       depositAmount: amount,
       requiresDeposit: true,
       depositPaid: false,
       paymentStatus: 'pending',
       status: booking.status === 'cancelled' ? booking.status : 'pending',
-      updatedAt: Timestamp.now(),
-    }, { merge: true });
+    });
   }
 
   return {
     bookingId: booking.id,
-    paymentUrl: buildPaymentUrl(booking.id),
+    paymentUrl: buildPaymentUrl(booking.id, paymentIntentId),
     clientSecret,
     paymentIntentId,
     amount,
@@ -132,7 +207,9 @@ export async function GET(
 ) {
   try {
     const { id } = await context.params;
-    const data = await getPaymentLinkData(id, false);
+    const paymentIntentId = new URL(request.url).searchParams.get('paymentIntentId') ||
+      new URL(request.url).searchParams.get('payment_intent');
+    const data = await getPaymentLinkData(id, false, paymentIntentId);
     return NextResponse.json<ApiResponse<PaymentLinkData>>({ success: true, data });
   } catch (error: any) {
     return NextResponse.json<ApiResponse<null>>(
@@ -148,7 +225,9 @@ export async function POST(
 ) {
   try {
     const { id } = await context.params;
-    const data = await getPaymentLinkData(id, true);
+    const paymentIntentId = new URL(request.url).searchParams.get('paymentIntentId') ||
+      new URL(request.url).searchParams.get('payment_intent');
+    const data = await getPaymentLinkData(id, true, paymentIntentId);
     return NextResponse.json<ApiResponse<PaymentLinkData>>({ success: true, data });
   } catch (error: any) {
     return NextResponse.json<ApiResponse<null>>(
