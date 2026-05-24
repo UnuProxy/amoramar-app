@@ -294,7 +294,7 @@ export async function POST(
     const paymentIntentId = url.searchParams.get('paymentIntentId') ||
       url.searchParams.get('payment_intent');
     const data = await getPaymentLinkData(id, false, paymentIntentId);
-    data.paymentUrl = buildCheckoutUrl(id);
+    data.paymentUrl = await createStripeCheckoutRedirect(id);
     return NextResponse.json<ApiResponse<PaymentLinkData>>({ success: true, data });
   } catch (error: any) {
     return NextResponse.json<ApiResponse<null>>(

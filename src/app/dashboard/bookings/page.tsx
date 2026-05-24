@@ -57,27 +57,6 @@ type GeneratedPaymentLink = {
   amount: number;
 };
 
-const getPublicPaymentUrl = (bookingId: string) => {
-  const normalize = (value?: string) => (value || '').replace(/\/+$/, '');
-  const isBackofficeUrl = (value: string) => /backoffice|admin\./i.test(value);
-  const currentOrigin = typeof window !== 'undefined' ? window.location.origin : '';
-  const envBaseUrl = [
-    process.env.NEXT_PUBLIC_PAYMENT_BASE_URL,
-    process.env.NEXT_PUBLIC_BASE_URL,
-    process.env.NEXT_PUBLIC_SITE_URL,
-    process.env.NEXT_PUBLIC_APP_URL,
-  ]
-    .map(normalize)
-    .find((value) => value && !isBackofficeUrl(value));
-
-  const localDevBaseUrl = /^https?:\/\/localhost:3000$/i.test(currentOrigin)
-    ? currentOrigin.replace(':3000', ':3001')
-    : '';
-  const baseUrl = envBaseUrl || localDevBaseUrl || 'https://amoramar.com';
-
-  return `${baseUrl}/api/bookings/${bookingId}/payment-link?checkout=1`;
-};
-
 // ============================================================================
 // DATE UTILITIES
 // ============================================================================
@@ -1412,6 +1391,14 @@ export default function BookingsPage() {
         throw new Error(bookingJson?.error || 'Could not create booking');
       }
 
+      const paymentResponse = await fetch(`/api/bookings/${bookingJson.data.id}/payment-link`, {
+        method: 'POST',
+      });
+      const paymentJson = await paymentResponse.json();
+      if (!paymentResponse.ok || !paymentJson?.success || !paymentJson.data?.paymentUrl) {
+        throw new Error(paymentJson?.error || 'Could not create Stripe link');
+      }
+
       const newBooking: Booking = {
         id: bookingJson.data.id,
         salonId: 'default-salon-id',
@@ -1440,8 +1427,8 @@ export default function BookingsPage() {
       setBookings((prev) => [newBooking, ...prev]);
       setGeneratedPaymentLink({
         bookingId: bookingJson.data.id,
-        paymentUrl: getPublicPaymentUrl(bookingJson.data.id),
-        amount: depositAmount,
+        paymentUrl: paymentJson.data.paymentUrl,
+        amount: paymentJson.data.amount || depositAmount,
       });
     } catch (error: any) {
       console.error('Failed to create admin payment link:', error);
