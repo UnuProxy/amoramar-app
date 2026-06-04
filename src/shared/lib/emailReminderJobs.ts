@@ -27,11 +27,26 @@ type EmailReminderJob = {
 
 const db = () => getAdminDb();
 const jobDocId = (bookingId: string, type: EmailReminderJob['type']) => `${bookingId}_${type}`;
+const REMINDER_SEND_CUTOFF_MINUTES = 30;
 
 const bookingStartAt = (booking: Pick<Booking, 'bookingDate' | 'bookingTime'>): Date | null => {
   if (!booking.bookingDate || !booking.bookingTime) return null;
   const candidate = new Date(`${booking.bookingDate}T${booking.bookingTime}:00`);
   return Number.isNaN(candidate.getTime()) ? null : candidate;
+};
+
+const isReminderStillUseful = (
+  job: Pick<EmailReminderJob, 'type' | 'bookingDate' | 'bookingTime'>,
+  nowMillis = Date.now()
+): boolean => {
+  if (job.type !== 'EMAIL_REMINDER_24H') return true;
+
+  const startAt = bookingStartAt(job);
+  if (!startAt) return false;
+
+  // Never send reminders after the appointment has started, and avoid sending
+  // awkward last-minute emails if delayed queue processing catches up too late.
+  return startAt.getTime() - nowMillis > REMINDER_SEND_CUTOFF_MINUTES * 60 * 1000;
 };
 
 export const enqueueEmailReminderForBooking = async (
@@ -178,6 +193,18 @@ const processEmailReminderJobRef = async (
 
   if (!claimed) return 'skipped';
 
+  if (!isReminderStillUseful(claimed)) {
+    await ref.set(
+      {
+        status: 'failed',
+        updatedAt: Timestamp.now(),
+        lastError: 'skipped_stale_reminder',
+      },
+      { merge: true }
+    );
+    return 'skipped';
+  }
+
   try {
     const result =
       claimed.type === 'EMAIL_CONFIRMATION'
@@ -259,7 +286,7 @@ export const processDueEmailReminderJobs = async (
     docs = fallbackSnap.docs
       .filter((doc) => {
         const data = doc.data() as EmailReminderJob;
-        return data.dueAt?.toMillis?.() <= now.toMillis();
+        return data.dueAt?.toMillis?.() <= now.toMillis() && isReminderStillUseful(data, now.toMillis());
       })
       .sort((a, b) => {
         const aDue = (a.data() as EmailReminderJob).dueAt?.toMillis?.() || 0;
