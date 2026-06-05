@@ -3,8 +3,8 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { getBookings, getEmployees, getEmployeeServices, getServices } from '@/shared/lib/firestore';
-import type { Booking, BookingFormData, Employee, EmployeeService, Service } from '@/shared/lib/types';
+import { getBookings, getClients, getEmployees, getEmployeeServices, getServices } from '@/shared/lib/firestore';
+import type { Booking, BookingFormData, Client, Employee, EmployeeService, Service } from '@/shared/lib/types';
 import { formatCurrency, formatDate, formatTime, cn } from '@/shared/lib/utils';
 import { useLanguage } from '@/shared/context/LanguageContext';
 import { useAuth } from '@/shared/hooks/useAuth';
@@ -55,6 +55,36 @@ type GeneratedPaymentLink = {
   bookingId: string;
   paymentUrl: string;
   amount: number;
+};
+
+type ClientSuggestion = {
+  id?: string;
+  name: string;
+  email: string;
+  phone: string;
+};
+
+const getAdminServiceGroupLabel = (groupId: string, fallback: string, language: Language): string => {
+  const labels: Record<string, Record<Language, string>> = {
+    'beauty-face': {
+      en: 'Brows & Lashes',
+      es: 'Cejas y Pestanas',
+    },
+    nails: {
+      en: 'Nails',
+      es: 'Unas',
+    },
+    hair: {
+      en: 'Hair',
+      es: 'Pelo',
+    },
+    estetica: {
+      en: 'Estetica',
+      es: 'Estetica',
+    },
+  };
+
+  return labels[groupId]?.[language] || fallback;
 };
 
 // ============================================================================
@@ -1083,6 +1113,7 @@ export default function BookingsPage() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [employeeServices, setEmployeeServices] = useState<EmployeeService[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingBookingId, setDeletingBookingId] = useState<string | null>(null);
 
@@ -1120,9 +1151,12 @@ export default function BookingsPage() {
   const [employeeFilter, setEmployeeFilter] = useState<string>(() => searchParams.get('employee') || 'all');
   const [adminBookingForm, setAdminBookingForm] = useState<AdminPaymentLinkForm | null>(null);
   const [selectedAdminServiceGroupId, setSelectedAdminServiceGroupId] = useState<string | null>(null);
+  const [adminServiceSearch, setAdminServiceSearch] = useState('');
+  const [adminServicePickerOpen, setAdminServicePickerOpen] = useState(false);
   const [creatingPaymentLink, setCreatingPaymentLink] = useState(false);
   const [generatedPaymentLink, setGeneratedPaymentLink] = useState<GeneratedPaymentLink | null>(null);
   const [copiedPaymentLink, setCopiedPaymentLink] = useState(false);
+  const [adminClientSuggestionsOpen, setAdminClientSuggestionsOpen] = useState(false);
 
   const hasActiveFilters = statusFilter !== 'all' || employeeFilter !== 'all' || searchTerm !== '';
 
@@ -1196,16 +1230,18 @@ export default function BookingsPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [bookingsData, employeesData, servicesData, employeeServicesData] = await Promise.all([
+        const [bookingsData, employeesData, servicesData, employeeServicesData, clientsData] = await Promise.all([
           getBookings(),
           getEmployees(),
           getServices(),
           getEmployeeServices(),
+          getClients(),
         ]);
         setBookings(bookingsData);
         setEmployees(employeesData);
         setServices(servicesData);
         setEmployeeServices(employeeServicesData);
+        setClients(clientsData);
       } catch (error) {
         console.error('Error fetching bookings:', error);
       } finally {
@@ -1248,6 +1284,65 @@ export default function BookingsPage() {
     [services]
   );
 
+  const adminClientSuggestions = useMemo<ClientSuggestion[]>(() => {
+    const clientMap = new Map<string, ClientSuggestion>();
+
+    clients.forEach((client) => {
+      const name = `${client.firstName || ''} ${client.lastName || ''}`.trim();
+      const email = client.email?.trim().toLowerCase() || '';
+      const phone = client.phone?.trim() || '';
+      const key = email || `${name.toLowerCase()}|${phone}`;
+
+      if (key && (name || email || phone)) {
+        clientMap.set(key, { id: client.id, name, email, phone });
+      }
+    });
+
+    bookings.forEach((booking) => {
+      const name = booking.clientName?.trim() || '';
+      const email = booking.clientEmail?.trim().toLowerCase() || '';
+      const phone = booking.clientPhone?.trim() || '';
+      const key = email || `${name.toLowerCase()}|${phone}`;
+
+      if (key && (name || email || phone) && !clientMap.has(key)) {
+        clientMap.set(key, { name, email, phone });
+      }
+    });
+
+    return Array.from(clientMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [bookings, clients]);
+
+  const adminClientMatches = useMemo(() => {
+    const term = adminBookingForm?.clientName.trim().toLowerCase() || '';
+    const source = term
+      ? adminClientSuggestions.filter((client) => {
+          const name = client.name.toLowerCase();
+          const email = client.email.toLowerCase();
+          const phone = client.phone.toLowerCase();
+          return name.includes(term) || email.includes(term) || phone.includes(term);
+        })
+      : adminClientSuggestions;
+
+    return source.slice(0, 10);
+  }, [adminBookingForm?.clientName, adminClientSuggestions]);
+
+  const findExactAdminClientMatch = useCallback(
+    (value: string): ClientSuggestion | null => {
+      const term = value.trim().toLowerCase();
+      if (!term) return null;
+
+      const matches = adminClientSuggestions.filter((client) => {
+        const values = [client.name, client.email, client.phone]
+          .map((item) => item.trim().toLowerCase())
+          .filter(Boolean);
+        return values.includes(term);
+      });
+
+      return matches.length === 1 ? matches[0] : null;
+    },
+    [adminClientSuggestions]
+  );
+
   const adminEmployeeServices = useMemo(() => {
     if (!adminBookingForm?.employeeId) return [];
 
@@ -1286,10 +1381,9 @@ export default function BookingsPage() {
     const groups = serviceCatalogConfig.groups
       .map((group) => ({
         id: group.id,
-        label: getCatalogGroupLabel(group, language === 'es' ? 'es' : 'en'),
+        label: getAdminServiceGroupLabel(group.id, getCatalogGroupLabel(group, language === 'es' ? 'es' : 'en'), language),
         services: adminEmployeeServices.filter((service) => getServiceGroupId(service) === group.id),
-      }))
-      .filter((group) => group.services.length > 0);
+      }));
 
     const knownGroupIds = new Set(serviceCatalogConfig.groups.map((group) => group.id));
     const uncataloguedServices = adminEmployeeServices.filter((service) => !knownGroupIds.has(getServiceGroupId(service)));
@@ -1304,11 +1398,29 @@ export default function BookingsPage() {
     return groups;
   }, [adminEmployeeServices, language, serviceCatalogConfig]);
 
+  const firstAdminServiceGroupWithServices = adminServiceGroups.find((group) => group.services.length > 0);
   const activeAdminServiceGroup =
-    adminServiceGroups.find((group) => group.id === selectedAdminServiceGroupId) ||
+    adminServiceGroups.find((group) => group.id === selectedAdminServiceGroupId && group.services.length > 0) ||
     (selectedAdminService ? adminServiceGroups.find((group) => group.id === getServiceGroupId(selectedAdminService)) : undefined) ||
+    firstAdminServiceGroupWithServices ||
     adminServiceGroups[0] ||
     null;
+
+  const filteredAdminServices = useMemo(() => {
+    if (!activeAdminServiceGroup) return [];
+
+    const term = adminServiceSearch.trim().toLowerCase();
+    if (!term) return activeAdminServiceGroup.services;
+
+    return activeAdminServiceGroup.services.filter((service) => {
+      const searchable = [
+        service.serviceName,
+        String(service.price || ''),
+        String(service.duration || ''),
+      ].join(' ').toLowerCase();
+      return searchable.includes(term);
+    });
+  }, [activeAdminServiceGroup, adminServiceSearch]);
 
   const openAdminBookingModal = useCallback(
     (time: string) => {
@@ -1327,6 +1439,9 @@ export default function BookingsPage() {
       setGeneratedPaymentLink(null);
       setCopiedPaymentLink(false);
       setSelectedAdminServiceGroupId(null);
+      setAdminServiceSearch('');
+      setAdminServicePickerOpen(false);
+      setAdminClientSuggestionsOpen(false);
     },
     [selectedDate]
   );
@@ -1335,9 +1450,43 @@ export default function BookingsPage() {
     if (creatingPaymentLink) return;
     setAdminBookingForm(null);
     setSelectedAdminServiceGroupId(null);
+    setAdminServiceSearch('');
+    setAdminServicePickerOpen(false);
     setGeneratedPaymentLink(null);
     setCopiedPaymentLink(false);
+    setAdminClientSuggestionsOpen(false);
   };
+
+  const applyAdminClientSuggestion = useCallback((client: ClientSuggestion) => {
+    const displayName = client.name || client.email || client.phone;
+    setAdminBookingForm((prev) => prev
+      ? {
+          ...prev,
+          clientName: displayName,
+          clientEmail: client.email,
+          clientPhone: client.phone,
+        }
+      : prev
+    );
+    setAdminClientSuggestionsOpen(false);
+  }, []);
+
+  const handleAdminClientNameChange = useCallback(
+    (value: string) => {
+      const exactMatch = findExactAdminClientMatch(value);
+      setAdminBookingForm((prev) => prev
+        ? {
+            ...prev,
+            clientName: exactMatch?.name || value,
+            clientEmail: exactMatch ? exactMatch.email : prev.clientEmail,
+            clientPhone: exactMatch ? exactMatch.phone : prev.clientPhone,
+          }
+        : prev
+      );
+      setAdminClientSuggestionsOpen(true);
+    },
+    [findExactAdminClientMatch]
+  );
 
   const handleCreateAdminPaymentLink = async () => {
     if (!adminBookingForm) return;
@@ -2287,6 +2436,8 @@ export default function BookingsPage() {
                         value={adminBookingForm.employeeId}
                         onChange={(event) => {
                           setSelectedAdminServiceGroupId(null);
+                          setAdminServiceSearch('');
+                          setAdminServicePickerOpen(false);
                           setAdminBookingForm((prev) => prev ? { ...prev, employeeId: event.target.value, serviceId: '' } : prev);
                         }}
                         className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-emerald-400"
@@ -2332,24 +2483,41 @@ export default function BookingsPage() {
                       </div>
                     ) : (
                       <>
-                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    <div className="rounded-2xl border border-white bg-white p-3 shadow-sm">
+                      <div className="mb-2 flex items-center justify-between gap-3">
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+                          {language === 'es' ? 'Categorias principales' : 'Main categories'}
+                        </p>
+                        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
+                          {adminEmployeeServices.length} {language === 'es' ? 'servicios' : 'services'}
+                        </p>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                       {adminServiceGroups.map((group) => {
                         const isActive = activeAdminServiceGroup?.id === group.id;
+                        const hasServices = group.services.length > 0;
                         return (
                           <button
                             key={group.id}
                             type="button"
-                            onClick={() => setSelectedAdminServiceGroupId(group.id)}
+                            disabled={!hasServices}
+                            onClick={() => {
+                              setSelectedAdminServiceGroupId(group.id);
+                              setAdminServiceSearch('');
+                              setAdminServicePickerOpen(false);
+                            }}
                             className={cn(
-                              'rounded-2xl border px-3 py-3 text-left transition-all',
+                              'rounded-2xl border px-3 py-4 text-center transition-all',
                               isActive
-                                ? 'border-emerald-300 bg-white shadow-sm'
-                                : 'border-slate-100 bg-white/70 hover:border-slate-300'
+                                ? 'border-emerald-400 bg-emerald-50 shadow-sm ring-2 ring-emerald-100'
+                                : hasServices
+                                  ? 'border-slate-100 bg-white/70 hover:border-slate-300'
+                                  : 'border-slate-100 bg-slate-50 text-slate-300 opacity-60'
                             )}
                           >
                             <p className={cn(
-                              'text-[10px] font-black uppercase tracking-[0.14em] leading-tight',
-                              isActive ? 'text-emerald-700' : 'text-slate-700'
+                              'text-[11px] font-black uppercase tracking-[0.14em] leading-tight',
+                              isActive ? 'text-emerald-700' : hasServices ? 'text-slate-700' : 'text-slate-300'
                             )}>
                               {group.label}
                             </p>
@@ -2359,41 +2527,98 @@ export default function BookingsPage() {
                           </button>
                         );
                       })}
+                      </div>
                     </div>
 
                     {activeAdminServiceGroup && (
-                      <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
-                        {activeAdminServiceGroup.services.map((service) => {
-                          const isSelected = service.id === adminBookingForm.serviceId;
-                          return (
-                            <button
-                              key={service.id}
-                              type="button"
-                              onClick={() => {
-                                setSelectedAdminServiceGroupId(getServiceGroupId(service));
-                                setAdminBookingForm((prev) => prev ? { ...prev, serviceId: service.id } : prev);
-                              }}
-                              className={cn(
-                                'w-full rounded-2xl border px-4 py-3 text-left transition-all',
-                                isSelected
-                                  ? 'border-slate-900 bg-slate-900 text-white shadow-lg'
-                                  : 'border-slate-100 bg-white text-slate-800 hover:border-emerald-300 hover:shadow-sm'
-                              )}
-                            >
-                              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                                <p className="text-xs font-black uppercase tracking-[0.1em] leading-snug">
-                                  {service.serviceName}
-                                </p>
-                                <p className={cn(
-                                  'shrink-0 text-[10px] font-black uppercase tracking-[0.16em]',
-                                  isSelected ? 'text-white/70' : 'text-slate-400'
-                                )}>
-                                  {formatCurrency(service.price)} · {service.duration} min
-                                </p>
-                              </div>
-                            </button>
-                          );
-                        })}
+                      <div className="rounded-2xl border border-white bg-white p-3 shadow-sm">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                          <div>
+                            <p className="text-sm font-black uppercase tracking-tight text-slate-900">
+                              {activeAdminServiceGroup.label}
+                            </p>
+                            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
+                              {activeAdminServiceGroup.services.length} {language === 'es' ? 'servicios disponibles' : 'available services'}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setAdminServicePickerOpen((open) => !open)}
+                            className={cn(
+                              'rounded-2xl border px-4 py-3 text-left transition sm:min-w-80',
+                              selectedAdminService
+                                ? 'border-slate-900 bg-slate-900 text-white'
+                                : 'border-emerald-200 bg-emerald-50 text-emerald-900 hover:border-emerald-400'
+                            )}
+                          >
+                            <p className="text-[10px] font-black uppercase tracking-[0.18em] opacity-70">
+                              {language === 'es' ? 'Servicio elegido' : 'Chosen service'}
+                            </p>
+                            <p className="mt-1 truncate text-sm font-black uppercase tracking-tight">
+                              {selectedAdminService?.serviceName || (language === 'es' ? 'Elegir servicio' : 'Choose service')}
+                            </p>
+                            {selectedAdminService && (
+                              <p className="mt-1 text-[10px] font-black uppercase tracking-[0.16em] opacity-70">
+                                {formatCurrency(selectedAdminService.price)} · {selectedAdminService.duration} min
+                              </p>
+                            )}
+                          </button>
+                        </div>
+
+                        {adminServicePickerOpen && (
+                          <div className="mt-3 rounded-2xl border border-slate-100 bg-slate-50 p-3">
+                            <div className="relative">
+                              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-300" />
+                              <input
+                                value={adminServiceSearch}
+                                onChange={(event) => setAdminServiceSearch(event.target.value)}
+                                placeholder={language === 'es' ? 'Buscar servicio...' : 'Search service...'}
+                                className="w-full rounded-2xl border border-slate-100 bg-white py-3 pl-10 pr-4 text-sm font-semibold text-slate-800 outline-none transition focus:border-emerald-400"
+                                autoFocus
+                              />
+                            </div>
+
+                            <div className="mt-3 max-h-56 space-y-2 overflow-y-auto pr-1">
+                              {filteredAdminServices.length === 0 ? (
+                                <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-5 text-center text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+                                  {language === 'es' ? 'No hay servicios con ese texto' : 'No services match that search'}
+                                </div>
+                              ) : filteredAdminServices.map((service) => {
+                                const isSelected = service.id === adminBookingForm.serviceId;
+                                return (
+                                  <button
+                                    key={service.id}
+                                    type="button"
+                                    onClick={() => {
+                                      setSelectedAdminServiceGroupId(getServiceGroupId(service));
+                                      setAdminBookingForm((prev) => prev ? { ...prev, serviceId: service.id } : prev);
+                                      setAdminServicePickerOpen(false);
+                                      setAdminServiceSearch('');
+                                    }}
+                                    className={cn(
+                                      'w-full rounded-2xl border px-4 py-3 text-left transition-all',
+                                      isSelected
+                                        ? 'border-slate-900 bg-slate-900 text-white shadow-lg'
+                                        : 'border-slate-100 bg-white text-slate-800 hover:border-emerald-300 hover:shadow-sm'
+                                    )}
+                                  >
+                                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                                      <p className="text-xs font-black uppercase tracking-[0.1em] leading-snug">
+                                        {service.serviceName}
+                                      </p>
+                                      <p className={cn(
+                                        'shrink-0 text-[10px] font-black uppercase tracking-[0.16em]',
+                                        isSelected ? 'text-white/70' : 'text-slate-400'
+                                      )}>
+                                        {formatCurrency(service.price)} · {service.duration} min
+                                      </p>
+                                    </div>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                       </>
@@ -2401,17 +2626,64 @@ export default function BookingsPage() {
                   </div>
 
                   <div className="grid gap-4 sm:grid-cols-3">
-                    <label className="space-y-2">
+                    <div className="space-y-2">
                       <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
                         {language === 'es' ? 'Cliente' : 'Client'}
                       </span>
-                      <input
-                        value={adminBookingForm.clientName}
-                        onChange={(event) => setAdminBookingForm((prev) => prev ? { ...prev, clientName: event.target.value } : prev)}
-                        placeholder={language === 'es' ? 'Nombre completo' : 'Full name'}
-                        className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-emerald-400"
-                      />
-                    </label>
+                      <div className="relative">
+                        <input
+                          value={adminBookingForm.clientName}
+                          onChange={(event) => handleAdminClientNameChange(event.target.value)}
+                          onFocus={() => setAdminClientSuggestionsOpen(true)}
+                          onBlur={() => setTimeout(() => setAdminClientSuggestionsOpen(false), 120)}
+                          placeholder={language === 'es' ? 'Nombre completo' : 'Full name'}
+                          className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-emerald-400"
+                        />
+                        {adminClientSuggestionsOpen && (
+                          <div className="absolute z-30 mt-2 max-h-72 w-full overflow-y-auto rounded-2xl border-2 border-emerald-100 bg-white shadow-2xl">
+                            {adminClientMatches.length === 0 ? (
+                              <div className="px-4 py-4 text-center">
+                                <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">
+                                  {language === 'es' ? 'Cliente nuevo' : 'New client'}
+                                </p>
+                                <p className="mt-1 text-xs font-semibold text-slate-400">
+                                  {language === 'es' ? 'Completa email y telefono manualmente' : 'Fill email and phone manually'}
+                                </p>
+                              </div>
+                            ) : (
+                              <>
+                                {!adminBookingForm.clientName.trim() && (
+                                  <div className="border-b border-emerald-50 bg-emerald-50 px-4 py-2">
+                                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-700">
+                                      {language === 'es' ? 'Clientes recientes' : 'Recent clients'}
+                                    </p>
+                                  </div>
+                                )}
+                                {adminClientMatches.map((client, index) => {
+                                  const displayName = client.name || client.email || client.phone;
+                                  return (
+                                    <button
+                                      key={client.id || `${client.email}-${client.phone}-${index}`}
+                                      type="button"
+                                      onMouseDown={(event) => event.preventDefault()}
+                                      onClick={() => applyAdminClientSuggestion(client)}
+                                      className="w-full px-4 py-3 text-left transition hover:bg-slate-50"
+                                    >
+                                      <div className="truncate text-sm font-black uppercase tracking-tight text-slate-900">
+                                        {displayName}
+                                      </div>
+                                      <div className="mt-1 truncate text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+                                        {[client.email, client.phone].filter(Boolean).join(' - ')}
+                                      </div>
+                                    </button>
+                                  );
+                                })}
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
                     <label className="space-y-2">
                       <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Email</span>
                       <input
