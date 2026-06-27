@@ -29,6 +29,7 @@ type EmailReminderJob = {
 const db = () => getAdminDb();
 const jobDocId = (bookingId: string, type: EmailReminderJob['type']) => `${bookingId}_${type}`;
 const REMINDER_SEND_CUTOFF_MINUTES = 30;
+const MAX_EMAIL_JOB_ATTEMPTS = 3;
 
 const bookingStartAt = (booking: Pick<Booking, 'bookingDate' | 'bookingTime'>): Date | null => {
   if (!booking.bookingDate || !booking.bookingTime) return null;
@@ -267,7 +268,7 @@ export const refreshQueuedEmailReminderForBooking = async (
 
 const processEmailReminderJobRef = async (
   ref: DocumentReference
-): Promise<'sent' | 'failed' | 'skipped'> => {
+): Promise<'sent' | 'failed' | 'retrying' | 'skipped'> => {
   const claimed = await db().runTransaction(async (transaction) => {
     const snap = await transaction.get(ref);
     if (!snap.exists) return null;
@@ -338,16 +339,19 @@ const processEmailReminderJobRef = async (
 
     return 'sent';
   } catch (error: any) {
+    const attempts = (claimed.attempts || 0) + 1;
+    const finalStatus: EmailReminderJob['status'] = attempts >= MAX_EMAIL_JOB_ATTEMPTS ? 'failed' : 'queued';
     await ref.set(
       {
-        status: 'failed',
+        status: finalStatus,
+        attempts,
         updatedAt: Timestamp.now(),
         lastError: String(error?.message || error),
       },
       { merge: true }
     );
 
-    return 'failed';
+    return finalStatus === 'failed' ? 'failed' : 'retrying';
   }
 };
 
