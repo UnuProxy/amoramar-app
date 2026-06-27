@@ -5,6 +5,8 @@ import { getAdminDb } from '@/shared/lib/firebaseAdmin';
 import { getBooking } from '@/shared/lib/firestore';
 import { hoursUntilBooking } from '@/shared/lib/utils';
 import type { ApiResponse, Booking, UserRole } from '@/shared/lib/types';
+import { refreshQueuedEmailReminderForBooking } from '@/shared/lib/emailReminderJobs';
+import { refreshQueuedWhatsAppReminderForBooking } from '@/shared/lib/whatsappJobs';
 
 type CancelRequest = {
   role?: UserRole | 'admin';
@@ -123,6 +125,15 @@ export async function POST(
         updatedAt: new Date(),
       });
     }
+
+    await Promise.allSettled([
+      refreshQueuedEmailReminderForBooking({ ...booking, ...updates, id: booking.id, status: 'cancelled' }).catch((error) => {
+        console.error('Failed to cancel queued email reminder:', id, error);
+      }),
+      refreshQueuedWhatsAppReminderForBooking({ ...booking, ...updates, id: booking.id, status: 'cancelled' }).catch((error) => {
+        console.error('Failed to cancel queued WhatsApp reminder:', id, error);
+      }),
+    ]);
 
     return NextResponse.json<ApiResponse<{ refundStatus: string; hoursUntil: number; requiresClientWrite: boolean }>>({
       success: true,

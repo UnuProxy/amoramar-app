@@ -35,6 +35,65 @@ export const toDateKeyInTimeZone = (date: Date, timeZone: string): string => {
 export const getDateKeyInMadrid = (date: Date = new Date()): string =>
   toDateKeyInTimeZone(date, MADRID_TIME_ZONE);
 
+const getWallClockMillisInTimeZone = (date: Date, timeZone: string): number => {
+  const parts = getTimeZoneParts(date, timeZone);
+  const year = Number(pickPart(parts, 'year'));
+  const month = Number(pickPart(parts, 'month'));
+  const day = Number(pickPart(parts, 'day'));
+  const hour = Number(pickPart(parts, 'hour'));
+  const minute = Number(pickPart(parts, 'minute'));
+
+  if ([year, month, day, hour, minute].some(Number.isNaN)) {
+    return Number.NaN;
+  }
+
+  return Date.UTC(year, month - 1, day, hour, minute);
+};
+
+export const getMadridDateTime = (dateKey: string, time: string): Date | null => {
+  const dateMatch = dateKey.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const timeMatch = time.match(/^(\d{2}):(\d{2})$/);
+  if (!dateMatch || !timeMatch) return null;
+
+  const [, yearRaw, monthRaw, dayRaw] = dateMatch;
+  const [, hourRaw, minuteRaw] = timeMatch;
+  const year = Number(yearRaw);
+  const month = Number(monthRaw);
+  const day = Number(dayRaw);
+  const hour = Number(hourRaw);
+  const minute = Number(minuteRaw);
+
+  if (
+    [year, month, day, hour, minute].some(Number.isNaN) ||
+    month < 1 ||
+    month > 12 ||
+    day < 1 ||
+    day > 31 ||
+    hour < 0 ||
+    hour > 23 ||
+    minute < 0 ||
+    minute > 59
+  ) {
+    return null;
+  }
+
+  const desiredWallMillis = Date.UTC(year, month - 1, day, hour, minute);
+  let utcMillis = desiredWallMillis;
+
+  // Convert a Madrid wall-clock appointment time to a real UTC instant.
+  // The small fixed-point loop handles daylight-saving offsets safely.
+  for (let i = 0; i < 3; i += 1) {
+    const actualWallMillis = getWallClockMillisInTimeZone(new Date(utcMillis), MADRID_TIME_ZONE);
+    if (Number.isNaN(actualWallMillis)) return null;
+
+    const diff = desiredWallMillis - actualWallMillis;
+    if (diff === 0) break;
+    utcMillis += diff;
+  }
+
+  return new Date(utcMillis);
+};
+
 export const getMinutesInTimeZone = (date: Date, timeZone: string): number => {
   const parts = getTimeZoneParts(date, timeZone);
   const hour = Number(pickPart(parts, 'hour'));
@@ -174,7 +233,8 @@ export const formatCurrency = (amount: number): string => {
 
 // Hours until a booking happens from now (can be negative if in the past)
 export const hoursUntilBooking = (bookingDate: string, bookingTime: string): number => {
-  const bookingDateTime = new Date(`${bookingDate}T${bookingTime}`);
+  const bookingDateTime = getMadridDateTime(bookingDate, bookingTime);
+  if (!bookingDateTime) return Number.NEGATIVE_INFINITY;
   const diffMs = bookingDateTime.getTime() - Date.now();
   return diffMs / (1000 * 60 * 60);
 };

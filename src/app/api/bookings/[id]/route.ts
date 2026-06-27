@@ -3,7 +3,8 @@ import { getBooking, updateBooking, getEmployeeByUserId } from '@/shared/lib/fir
 import { getAdminDb } from '@/shared/lib/firebaseAdmin';
 import type { ApiResponse, Booking, UserRole } from '@/shared/lib/types';
 import { BookingScheduleValidationError, validateBookingSchedule } from '@/shared/lib/bookingAvailability';
-import { enqueueWhatsAppJobsForConfirmedBooking } from '@/shared/lib/whatsappJobs';
+import { enqueueWhatsAppJobsForConfirmedBooking, refreshQueuedWhatsAppReminderForBooking } from '@/shared/lib/whatsappJobs';
+import { refreshQueuedEmailReminderForBooking } from '@/shared/lib/emailReminderJobs';
 
 export const runtime = 'nodejs';
 
@@ -137,8 +138,29 @@ export async function PUT(
 
     const statusBefore = booking.status;
     const statusAfter = updates.status ?? booking.status;
+    const scheduleChanged =
+      (typeof updates.bookingDate === 'string' && updates.bookingDate !== booking.bookingDate) ||
+      (typeof updates.bookingTime === 'string' && updates.bookingTime !== booking.bookingTime);
 
     await updateBooking(id, updates);
+
+    if (scheduleChanged) {
+      const refreshedBooking = {
+        ...booking,
+        ...updates,
+        id: booking.id,
+        status: statusAfter,
+      } as Booking;
+
+      await Promise.allSettled([
+        refreshQueuedEmailReminderForBooking(refreshedBooking).catch((error) => {
+          console.error('Failed to refresh email reminder after booking schedule change:', id, error);
+        }),
+        refreshQueuedWhatsAppReminderForBooking(refreshedBooking).catch((error) => {
+          console.error('Failed to refresh WhatsApp reminder after booking schedule change:', id, error);
+        }),
+      ]);
+    }
 
     if (statusBefore !== 'confirmed' && statusAfter === 'confirmed') {
       try {
@@ -186,7 +208,22 @@ export async function DELETE(
     const { id } = await context.params;
     // Use Admin SDK to bypass Firestore security rules (this endpoint is intended
     // for owner/admin cleanup of test or unwanted bookings from the dashboard).
-    await getAdminDb().collection('bookings').doc(id).delete();
+    const bookingRef = getAdminDb().collection('bookings').doc(id);
+    const bookingSnap = await bookingRef.get();
+    const booking = bookingSnap.exists ? ({ id: bookingSnap.id, ...(bookingSnap.data() as Omit<Booking, 'id'>) } as Booking) : null;
+
+    if (booking) {
+      await Promise.allSettled([
+        refreshQueuedEmailReminderForBooking({ ...booking, status: 'cancelled' }).catch((error) => {
+          console.error('Failed to cancel queued email reminder before delete:', id, error);
+        }),
+        refreshQueuedWhatsAppReminderForBooking({ ...booking, status: 'cancelled' }).catch((error) => {
+          console.error('Failed to cancel queued WhatsApp reminder before delete:', id, error);
+        }),
+      ]);
+    }
+
+    await bookingRef.delete();
 
     return NextResponse.json<ApiResponse<null>>({
       success: true,

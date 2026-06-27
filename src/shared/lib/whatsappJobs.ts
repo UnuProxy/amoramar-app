@@ -1,6 +1,7 @@
 import { FieldValue, Timestamp, type DocumentReference } from 'firebase-admin/firestore';
 import type { Booking } from '@/shared/lib/types';
 import { getAdminDb } from '@/shared/lib/firebaseAdmin';
+import { getMadridDateTime } from '@/shared/lib/utils';
 
 export type WhatsAppJobType = 'WHATSAPP_CONFIRMATION' | 'WHATSAPP_REMINDER_24H';
 export type WhatsAppEnqueueResult = {
@@ -15,6 +16,8 @@ type JobDoc = {
   templateName: 'booking_confirmed_new' | 'booking_reminder_24h' | (string & {});
   lang: string;
   vars: Record<string, string>;
+  bookingDate?: string;
+  bookingTime?: string;
   dueAt: Timestamp;
   status: 'queued' | 'processing' | 'sent' | 'failed';
   attempts: number;
@@ -43,8 +46,7 @@ const normalizeWhatsAppRecipientDigits = (phone?: string): string => {
 
 const bookingStartAt = (booking: Pick<Booking, 'bookingDate' | 'bookingTime'>): Date | null => {
   if (!booking.bookingDate || !booking.bookingTime) return null;
-  const candidate = new Date(`${booking.bookingDate}T${booking.bookingTime}:00`);
-  return Number.isNaN(candidate.getTime()) ? null : candidate;
+  return getMadridDateTime(booking.bookingDate, booking.bookingTime);
 };
 
 const getLocationLabel = (): string => process.env.WHATSAPP_LOCATION_LABEL || 'Amor Amar';
@@ -106,6 +108,8 @@ const createJobPayload = (
   templateName: type === 'WHATSAPP_CONFIRMATION' ? 'booking_confirmed_new' : 'booking_reminder_24h',
   lang: getLanguageCode(),
   vars: buildVars(booking),
+  bookingDate: booking.bookingDate,
+  bookingTime: booking.bookingTime,
   dueAt,
   status: 'queued',
   attempts: 0,
@@ -178,6 +182,83 @@ export const enqueueWhatsAppJobsForConfirmedBooking = async (booking: Booking): 
   return { queued: true };
 };
 
+export const refreshQueuedWhatsAppReminderForBooking = async (
+  booking: Pick<Booking, 'id' | 'bookingDate' | 'bookingTime' | 'status'>
+): Promise<WhatsAppEnqueueResult> => {
+  const reminderRef = db().collection('notification_jobs').doc(jobDocId(booking.id, 'WHATSAPP_REMINDER_24H'));
+  const snap = await reminderRef.get();
+  if (!snap.exists) {
+    return { queued: false, skippedReason: 'missing_job' };
+  }
+
+  const data = snap.data() as JobDoc | undefined;
+  if (!data || (data.status !== 'queued' && data.status !== 'failed')) {
+    return { queued: false, skippedReason: 'already_handled' };
+  }
+
+  if (booking.status === 'cancelled') {
+    await reminderRef.set(
+      {
+        status: 'failed',
+        updatedAt: Timestamp.now(),
+        lastError: 'skipped_cancelled_booking',
+      },
+      { merge: true }
+    );
+    return { queued: false, skippedReason: 'status_cancelled' };
+  }
+
+  const startAt = bookingStartAt(booking);
+  if (!startAt) {
+    await reminderRef.set(
+      {
+        status: 'failed',
+        updatedAt: Timestamp.now(),
+        lastError: 'invalid_datetime',
+      },
+      { merge: true }
+    );
+    return { queued: false, skippedReason: 'invalid_datetime' };
+  }
+
+  const now = Timestamp.now();
+  if (startAt.getTime() <= now.toMillis()) {
+    await reminderRef.set(
+      {
+        status: 'failed',
+        updatedAt: now,
+        lastError: 'booking_in_past',
+      },
+      { merge: true }
+    );
+    return { queued: false, skippedReason: 'booking_in_past' };
+  }
+
+  let reminderDueMillis = startAt.getTime() - 24 * 60 * 60 * 1000;
+  if (reminderDueMillis < now.toMillis()) {
+    reminderDueMillis = now.toMillis() + 60 * 1000;
+  }
+
+  await reminderRef.set(
+    {
+      vars: {
+        ...(data.vars || {}),
+        date: formatTemplateDate(booking.bookingDate),
+        time: booking.bookingTime || '',
+      },
+      bookingDate: booking.bookingDate,
+      bookingTime: booking.bookingTime,
+      dueAt: Timestamp.fromMillis(reminderDueMillis),
+      status: 'queued',
+      updatedAt: now,
+      lastError: FieldValue.delete(),
+    },
+    { merge: true }
+  );
+
+  return { queued: true };
+};
+
 const buildTemplateComponents = (vars: Record<string, string>) => {
   const ordered = ['client_name', 'date', 'time', 'location'];
   return [
@@ -189,6 +270,32 @@ const buildTemplateComponents = (vars: Record<string, string>) => {
       })),
     },
   ];
+};
+
+const isWhatsAppReminderStillUseful = (job: JobDoc, nowMillis = Date.now()): boolean => {
+  if (job.type !== 'WHATSAPP_REMINDER_24H') return true;
+  if (!job.bookingDate || !job.bookingTime) return true;
+
+  const startAt = getMadridDateTime(job.bookingDate, job.bookingTime);
+  if (!startAt) return false;
+
+  return startAt.getTime() - nowMillis > 30 * 60 * 1000;
+};
+
+const getSkipReasonForStaleWhatsAppReminder = async (job: JobDoc): Promise<string | null> => {
+  if (job.type !== 'WHATSAPP_REMINDER_24H') return null;
+
+  const bookingSnap = await db().collection('bookings').doc(job.bookingId).get();
+  if (!bookingSnap.exists) return 'booking_missing';
+
+  const booking = bookingSnap.data() as Booking | undefined;
+  if (!booking || booking.status === 'cancelled') return 'booking_cancelled';
+  if (job.bookingDate && job.bookingTime && (booking.bookingDate !== job.bookingDate || booking.bookingTime !== job.bookingTime)) {
+    return 'booking_schedule_changed';
+  }
+  if (!isWhatsAppReminderStillUseful(job)) return 'skipped_stale_reminder';
+
+  return null;
 };
 
 const sendWhatsAppTemplate = async (
@@ -290,6 +397,16 @@ async function processQueuedNotificationJobRef(ref: DocumentReference): Promise<
 
   const current = (await ref.get()).data() as JobDoc | undefined;
   if (!current || current.status !== 'processing') return 'skipped';
+
+  const staleReminderReason = await getSkipReasonForStaleWhatsAppReminder(current);
+  if (staleReminderReason) {
+    await ref.update({
+      status: 'failed',
+      lastError: staleReminderReason,
+      updatedAt: Timestamp.now(),
+    });
+    return 'skipped';
+  }
 
   try {
     const runtimeLang = getLanguageCode();

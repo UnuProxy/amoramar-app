@@ -2,6 +2,7 @@ import { FieldValue, Timestamp, type DocumentReference, type QueryDocumentSnapsh
 import type { Booking } from '@/shared/lib/types';
 import { getAdminDb } from '@/shared/lib/firebaseAdmin';
 import { sendBookingConfirmation, sendBookingReminder } from '@/shared/lib/email';
+import { getMadridDateTime } from '@/shared/lib/utils';
 
 type EmailReminderJob = {
   bookingId: string;
@@ -31,8 +32,7 @@ const REMINDER_SEND_CUTOFF_MINUTES = 30;
 
 const bookingStartAt = (booking: Pick<Booking, 'bookingDate' | 'bookingTime'>): Date | null => {
   if (!booking.bookingDate || !booking.bookingTime) return null;
-  const candidate = new Date(`${booking.bookingDate}T${booking.bookingTime}:00`);
-  return Number.isNaN(candidate.getTime()) ? null : candidate;
+  return getMadridDateTime(booking.bookingDate, booking.bookingTime);
 };
 
 const isReminderStillUseful = (
@@ -47,6 +47,22 @@ const isReminderStillUseful = (
   // Never send reminders after the appointment has started, and avoid sending
   // awkward last-minute emails if delayed queue processing catches up too late.
   return startAt.getTime() - nowMillis > REMINDER_SEND_CUTOFF_MINUTES * 60 * 1000;
+};
+
+const getSkipReasonForStaleReminder = async (job: EmailReminderJob): Promise<string | null> => {
+  if (job.type !== 'EMAIL_REMINDER_24H') return null;
+
+  const bookingSnap = await db().collection('bookings').doc(job.bookingId).get();
+  if (!bookingSnap.exists) return 'booking_missing';
+
+  const booking = bookingSnap.data() as Booking | undefined;
+  if (!booking || booking.status === 'cancelled') return 'booking_cancelled';
+  if (booking.bookingDate !== job.bookingDate || booking.bookingTime !== job.bookingTime) {
+    return 'booking_schedule_changed';
+  }
+  if (!isReminderStillUseful(job)) return 'skipped_stale_reminder';
+
+  return null;
 };
 
 export const enqueueEmailReminderForBooking = async (
@@ -169,7 +185,84 @@ export const enqueueEmailConfirmationForBooking = async (
     { merge: true }
   );
 
+  const processResult = await processEmailReminderJobRef(ref);
+  if (processResult === 'failed') {
+    return { queued: false, skippedReason: 'send_failed' };
+  }
+
   return { queued: true };
+};
+
+export const refreshQueuedEmailReminderForBooking = async (
+  booking: Pick<Booking, 'id' | 'bookingDate' | 'bookingTime' | 'status'>
+): Promise<{ refreshed: boolean; skippedReason?: string }> => {
+  const ref = db().collection('email_notification_jobs').doc(jobDocId(booking.id, 'EMAIL_REMINDER_24H'));
+  const snap = await ref.get();
+  if (!snap.exists) {
+    return { refreshed: false, skippedReason: 'missing_job' };
+  }
+
+  const data = snap.data() as EmailReminderJob | undefined;
+  if (!data || (data.status !== 'queued' && data.status !== 'failed')) {
+    return { refreshed: false, skippedReason: 'already_handled' };
+  }
+
+  if (booking.status === 'cancelled') {
+    await ref.set(
+      {
+        status: 'failed',
+        updatedAt: Timestamp.now(),
+        lastError: 'skipped_cancelled_booking',
+      },
+      { merge: true }
+    );
+    return { refreshed: false, skippedReason: 'status_cancelled' };
+  }
+
+  const startAt = bookingStartAt(booking);
+  if (!startAt) {
+    await ref.set(
+      {
+        status: 'failed',
+        updatedAt: Timestamp.now(),
+        lastError: 'invalid_datetime',
+      },
+      { merge: true }
+    );
+    return { refreshed: false, skippedReason: 'invalid_datetime' };
+  }
+
+  const now = Timestamp.now();
+  if (startAt.getTime() <= now.toMillis()) {
+    await ref.set(
+      {
+        status: 'failed',
+        updatedAt: now,
+        lastError: 'booking_in_past',
+      },
+      { merge: true }
+    );
+    return { refreshed: false, skippedReason: 'booking_in_past' };
+  }
+
+  let dueMillis = startAt.getTime() - 24 * 60 * 60 * 1000;
+  if (dueMillis < now.toMillis()) {
+    dueMillis = now.toMillis() + 60 * 1000;
+  }
+
+  await ref.set(
+    {
+      bookingDate: booking.bookingDate,
+      bookingTime: booking.bookingTime,
+      dueAt: Timestamp.fromMillis(dueMillis),
+      status: 'queued',
+      updatedAt: now,
+      lastError: FieldValue.delete(),
+    },
+    { merge: true }
+  );
+
+  return { refreshed: true };
 };
 
 const processEmailReminderJobRef = async (
@@ -193,12 +286,13 @@ const processEmailReminderJobRef = async (
 
   if (!claimed) return 'skipped';
 
-  if (!isReminderStillUseful(claimed)) {
+  const staleReminderReason = await getSkipReasonForStaleReminder(claimed);
+  if (staleReminderReason) {
     await ref.set(
       {
         status: 'failed',
         updatedAt: Timestamp.now(),
-        lastError: 'skipped_stale_reminder',
+        lastError: staleReminderReason,
       },
       { merge: true }
     );

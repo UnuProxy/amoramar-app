@@ -613,6 +613,23 @@ export const createBooking = async (bookingData: Omit<Booking, 'id' | 'createdAt
 };
 
 export const updateBooking = async (bookingId: string, updates: Partial<Booking>): Promise<void> => {
+  const shouldUseBookingApi =
+    typeof window !== 'undefined' &&
+    (typeof updates.bookingDate === 'string' || typeof updates.bookingTime === 'string');
+
+  if (shouldUseBookingApi) {
+    const response = await fetch(`/api/bookings/${encodeURIComponent(bookingId)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates),
+    });
+    const result = await response.json().catch(() => null);
+    if (!response.ok || result?.success === false) {
+      throw new Error(result?.error || 'Failed to update booking');
+    }
+    return;
+  }
+
   const docRef = doc(checkDb(), 'bookings', bookingId);
   
   const cleanUpdates: Record<string, any> = {

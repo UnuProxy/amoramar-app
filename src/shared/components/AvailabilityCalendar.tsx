@@ -18,6 +18,10 @@ interface DayAvailability {
   hasAvailability: boolean;
 }
 
+const getCalendarDateKey = (date: Date): string => {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+};
+
 export function AvailabilityCalendar({
   selectedDate,
   onDateSelect,
@@ -50,7 +54,7 @@ export function AvailabilityCalendar({
         
         for (let day = 1; day <= daysInMonth; day++) {
           const date = new Date(year, month, day);
-          const dateStr = getDateKeyInMadrid(date);
+          const dateStr = getCalendarDateKey(date);
           
           // Skip past dates
           if (dateStr < minDate) continue;
@@ -184,7 +188,7 @@ export function AvailabilityCalendar({
             return <div key={`empty-${index}`} className="aspect-square" />;
           }
           
-          const dateStr = getDateKeyInMadrid(day);
+          const dateStr = getCalendarDateKey(day);
           const isPast = dateStr < minDate;
           const isSelected = dateStr === selectedDate;
           const hasAvailability = availabilityMap.get(dateStr) || false;
