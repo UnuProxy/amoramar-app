@@ -22,6 +22,7 @@ import type {
   Service,
   TimeSlot,
 } from '@/shared/lib/types';
+import { useAuth } from '@/shared/hooks/useAuth';
 
 const dayNames: Record<string, string> = {
   monday: 'Lun',
@@ -126,6 +127,7 @@ export function AdminCalendar({
   onRequestBooking,
   onBookingPatched,
 }: AdminCalendarProps) {
+  const { user } = useAuth();
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('');
   const [employeeServices, setEmployeeServices] = useState<Service[]>([]);
   const [selectedServiceId, setSelectedServiceId] = useState<string>('');
@@ -505,7 +507,9 @@ export function AdminCalendar({
         bookingDate: newDate,
         bookingTime: newTime,
         status: 'confirmed',
-      });
+        actorRole: user?.role || 'owner',
+        actorUserId: user?.id,
+      } as Partial<Booking> & { actorRole: 'owner' | 'employee' | 'client'; actorUserId?: string });
       setBookings((prev) =>
         prev.map((b) =>
           b.id === booking.id ? { ...b, bookingDate: newDate, bookingTime: newTime, status: 'confirmed' } : b
@@ -513,9 +517,9 @@ export function AdminCalendar({
       );
       onBookingPatched?.(booking.id, { bookingDate: newDate, bookingTime: newTime, status: 'confirmed' });
       setBookingModal(null);
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      alert('No se pudo reprogramar la reserva');
+      alert(`No se pudo reprogramar la reserva.\n\n${e?.message || 'Error desconocido'}`);
       setBookingModal((prev) => (prev ? { ...prev, saving: false } : prev));
     }
   };

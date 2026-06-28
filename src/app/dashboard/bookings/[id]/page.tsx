@@ -324,12 +324,14 @@ export default function BookingDetailPage() {
       await updateBooking(booking.id, {
         bookingDate: newBookingDate,
         bookingTime: newBookingTime,
-      });
+        actorRole: user?.role || 'owner',
+        actorUserId: user?.id,
+      } as Partial<Booking> & { actorRole: 'owner' | 'employee' | 'client'; actorUserId?: string });
       setBooking({ ...booking, bookingDate: newBookingDate, bookingTime: newBookingTime });
       setIsEditingDateTime(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating date/time:', error);
-      alert('Error al actualizar la fecha y hora');
+      alert(`Error al actualizar la fecha y hora.\n\n${error?.message || 'Error desconocido'}`);
     } finally {
       setUpdatingDateTime(false);
     }

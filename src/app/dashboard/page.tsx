@@ -38,7 +38,7 @@ import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 
 type TabType = 'overview' | 'clients' | 'bookings';
-type PushNotificationStatus = 'idle' | 'unsupported' | 'blocked' | 'saving' | 'enabled' | 'not_configured' | 'error';
+type PushNotificationStatus = 'checking' | 'idle' | 'unsupported' | 'blocked' | 'saving' | 'enabled' | 'not_configured' | 'error';
 
 const urlBase64ToArrayBuffer = (base64String: string): ArrayBuffer => {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
@@ -143,7 +143,7 @@ export default function DashboardPage() {
   const [acknowledgingBookingId, setAcknowledgingBookingId] = useState<string | null>(null);
   const [acknowledgingAllBookings, setAcknowledgingAllBookings] = useState(false);
   const [notificationInboxOpen, setNotificationInboxOpen] = useState(false);
-  const [pushNotificationStatus, setPushNotificationStatus] = useState<PushNotificationStatus>('idle');
+  const [pushNotificationStatus, setPushNotificationStatus] = useState<PushNotificationStatus>('checking');
   const [pushNotificationError, setPushNotificationError] = useState<string | null>(null);
   const [bookingRefreshKey, setBookingRefreshKey] = useState(0);
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -163,6 +163,7 @@ export default function DashboardPage() {
         enabled: 'Activado',
         noNotifications: 'No hay reservas nuevas pendientes de confirmar.',
         view: 'Ver',
+        close: 'Cerrar',
         acknowledge: 'Confirmar',
         by: 'Por',
         sourceWebsite: 'Web',
@@ -174,6 +175,7 @@ export default function DashboardPage() {
         failed: 'Fallido',
         pending: 'Pendiente',
         pushStatus: {
+          checking: 'Comprobando este dispositivo...',
           enabled: 'Push activado en este dispositivo',
           saving: 'Activando push...',
           blocked: 'Push bloqueado en el navegador',
@@ -206,6 +208,7 @@ export default function DashboardPage() {
       enabled: 'Enabled',
       noNotifications: 'No new bookings waiting for acknowledgement.',
       view: 'View',
+      close: 'Close',
       acknowledge: 'Acknowledge',
       by: 'By',
       sourceWebsite: 'Website',
@@ -217,6 +220,7 @@ export default function DashboardPage() {
       failed: 'Failed',
       pending: 'Pending',
       pushStatus: {
+        checking: 'Checking this device...',
         enabled: 'Device push enabled',
         saving: 'Enabling push...',
         blocked: 'Push blocked in browser',
@@ -303,6 +307,32 @@ export default function DashboardPage() {
     return notificationCopy.pending;
   }, [notificationCopy]);
 
+  const savePushSubscriptionForCurrentUser = useCallback(
+    async (subscription: PushSubscription) => {
+      if (!firebaseUser) return;
+      const token = await firebaseUser.getIdToken();
+      const saveResponse = await fetch('/api/push/subscribe', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ subscription: subscription.toJSON(), language }),
+      });
+
+      if (!saveResponse.ok) {
+        const errorData = await saveResponse.json().catch(() => null);
+        throw new Error(
+          errorData?.error ||
+          (language === 'es'
+            ? 'No se pudo guardar este dispositivo para notificaciones push.'
+            : 'Could not save this device for push notifications.')
+        );
+      }
+    },
+    [firebaseUser, language]
+  );
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -338,51 +368,84 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    let cancelled = false;
+
+    const checkExistingPushSubscription = async () => {
+      if (typeof window === 'undefined') return;
     if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
-      setPushNotificationStatus('unsupported');
+        if (!cancelled) setPushNotificationStatus('unsupported');
       return;
     }
 
     if (Notification.permission === 'denied') {
-      setPushNotificationStatus('blocked');
+        if (!cancelled) setPushNotificationStatus('blocked');
       return;
     }
 
-    navigator.serviceWorker
-      .getRegistration('/sw.js')
-      .then((registration) => registration?.pushManager.getSubscription())
-      .then((subscription) => {
-        if (subscription) {
-          setPushNotificationStatus('enabled');
-        } else if (Notification.permission === 'granted') {
-          setPushNotificationStatus('idle');
+      if (Notification.permission !== 'granted') {
+        if (!cancelled) setPushNotificationStatus('idle');
+        return;
+      }
+
+      if (!cancelled) setPushNotificationStatus('checking');
+
+      try {
+        const registration = await navigator.serviceWorker.register('/sw.js');
+        const readyRegistration = await navigator.serviceWorker.ready.catch(() => registration);
+        const activeRegistration = readyRegistration || registration;
+        let subscription = await activeRegistration.pushManager.getSubscription();
+
+        if (!subscription) {
+          const keyResponse = await fetch('/api/push/public-key');
+          const keyData = await keyResponse.json();
+
+          if (!keyData.configured || !keyData.publicKey) {
+            if (!cancelled) setPushNotificationStatus('not_configured');
+            return;
+          }
+
+          subscription = await activeRegistration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToArrayBuffer(keyData.publicKey),
+          });
         }
-      })
-      .catch(() => setPushNotificationStatus('idle'));
-  }, []);
+
+        try {
+          await savePushSubscriptionForCurrentUser(subscription);
+          setPushNotificationError(null);
+        } catch (error) {
+          // The browser permission and local subscription are already valid. Do not block
+          // the dashboard again; keep trying to sync through the language-sync effect.
+          console.error('Error saving existing push subscription:', error);
+        }
+
+        if (!cancelled) setPushNotificationStatus('enabled');
+      } catch (error) {
+        console.error('Error checking push subscription:', error);
+        if (!cancelled) setPushNotificationStatus('error');
+      }
+    };
+
+    checkExistingPushSubscription();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [savePushSubscriptionForCurrentUser]);
 
   useEffect(() => {
     if (!firebaseUser || pushNotificationStatus !== 'enabled') return;
     if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return;
 
     navigator.serviceWorker
-      .getRegistration('/sw.js')
-      .then((registration) => registration?.pushManager.getSubscription())
+      .ready
+      .then((registration) => registration.pushManager.getSubscription())
       .then(async (subscription) => {
         if (!subscription) return;
-        const token = await firebaseUser.getIdToken();
-        await fetch('/api/push/subscribe', {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ subscription: subscription.toJSON(), language }),
-        });
+        await savePushSubscriptionForCurrentUser(subscription);
       })
       .catch((error) => console.error('Error syncing push notification language:', error));
-  }, [firebaseUser, language, pushNotificationStatus]);
+  }, [firebaseUser, pushNotificationStatus, savePushSubscriptionForCurrentUser]);
 
   useEffect(() => {
     setActiveTab(parseTab(searchParams?.get('tab') || null));
@@ -1132,24 +1195,14 @@ export default function DashboardPage() {
           userVisibleOnly: true,
           applicationServerKey: urlBase64ToArrayBuffer(keyData.publicKey),
         }));
-      const token = await firebaseUser.getIdToken();
-      const saveResponse = await fetch('/api/push/subscribe', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ subscription: subscription.toJSON(), language }),
-      });
 
-      if (!saveResponse.ok) {
-        const errorData = await saveResponse.json().catch(() => null);
-        throw new Error(
-          errorData?.error ||
-          (language === 'es'
-            ? 'No se pudo guardar este dispositivo para notificaciones push.'
-            : 'Could not save this device for push notifications.')
-        );
+      try {
+        await savePushSubscriptionForCurrentUser(subscription);
+      } catch (error: any) {
+        console.error('Error saving push subscription:', error);
+        setPushNotificationError(error?.message || (language === 'es'
+          ? 'El permiso del navegador está activado, pero no se pudo sincronizar con el servidor.'
+          : 'Browser permission is enabled, but the device could not sync with the server.'));
       }
 
       setPushNotificationStatus('enabled');
@@ -1161,6 +1214,7 @@ export default function DashboardPage() {
   };
 
   const getPushNotificationStatusText = () => {
+    if (pushNotificationStatus === 'checking') return notificationCopy.pushStatus.checking;
     if (pushNotificationStatus === 'enabled') return notificationCopy.pushStatus.enabled;
     if (pushNotificationStatus === 'saving') return notificationCopy.pushStatus.saving;
     if (pushNotificationStatus === 'blocked') return notificationCopy.pushStatus.blocked;
@@ -1571,6 +1625,7 @@ export default function DashboardPage() {
   const cleanupBookingsForContact = cleanupBookingsForContactImpl;
   const shouldShowMandatoryPushPrompt =
     user?.role === 'owner' &&
+    pushNotificationStatus !== 'checking' &&
     pushNotificationStatus !== 'enabled' &&
     pushNotificationStatus !== 'unsupported' &&
     pushNotificationStatus !== 'not_configured';
@@ -1682,7 +1737,14 @@ export default function DashboardPage() {
             </button>
 
             {notificationInboxOpen && (
-              <div className="absolute right-0 z-40 mt-3 w-[calc(100vw-2rem)] max-w-md overflow-hidden rounded-[28px] border border-slate-100 bg-white shadow-2xl shadow-slate-900/20">
+              <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/35 px-3 pb-4 pt-20 backdrop-blur-sm sm:absolute sm:inset-auto sm:right-0 sm:top-full sm:z-40 sm:mt-3 sm:block sm:bg-transparent sm:p-0 sm:backdrop-blur-none">
+                <button
+                  type="button"
+                  className="absolute inset-0 cursor-default sm:hidden"
+                  aria-label={notificationCopy.close}
+                  onClick={() => setNotificationInboxOpen(false)}
+                />
+                <div className="relative z-10 flex max-h-[calc(100vh-7rem)] w-full max-w-md flex-col overflow-hidden rounded-[28px] border border-slate-100 bg-white shadow-2xl shadow-slate-900/20 sm:max-h-none">
                 <div className="border-b border-slate-100 bg-slate-50 px-5 py-4">
                   <div className="flex items-start justify-between gap-4">
                     <div>
@@ -1703,6 +1765,16 @@ export default function DashboardPage() {
                         {acknowledgingAllBookings ? notificationCopy.saving : notificationCopy.allSeen}
                       </button>
                     )}
+                    <button
+                      type="button"
+                      onClick={() => setNotificationInboxOpen(false)}
+                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-slate-200 text-slate-400 transition hover:border-slate-900 hover:text-slate-900"
+                      aria-label={notificationCopy.close}
+                    >
+                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.4} d="M6 18 18 6M6 6l12 12" />
+                      </svg>
+                    </button>
                   </div>
 
                   {user?.role === 'owner' && (
@@ -1727,7 +1799,7 @@ export default function DashboardPage() {
                   )}
                 </div>
 
-                <div className="max-h-[60vh] space-y-3 overflow-y-auto p-4">
+                <div className="space-y-3 overflow-y-auto p-4 sm:max-h-[60vh]">
                   {newBookingNotifications.length === 0 ? (
                     <div className="rounded-3xl border border-slate-100 bg-slate-50 p-5 text-sm font-semibold text-slate-500">
                       {notificationCopy.noNotifications}
@@ -1779,6 +1851,7 @@ export default function DashboardPage() {
                       );
                     })
                   )}
+                </div>
                 </div>
               </div>
             )}
