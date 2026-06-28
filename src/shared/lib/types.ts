@@ -263,6 +263,9 @@ export interface Booking {
   createdByRole?: UserRole;
   createdByName?: string;
   createdByUserId?: string;
+  adminAcknowledgedAt?: Date;
+  adminAcknowledgedBy?: string;
+  adminAcknowledgedByName?: string;
   notes?: string;
   // Consultation booking (free, shorter duration)
   isConsultation?: boolean; // If true, this is a free consultation booking

@@ -6,6 +6,7 @@ import { getPaymentIntent } from '@/shared/lib/stripe';
 import { BookingScheduleValidationError, validateBookingSchedule } from '@/shared/lib/bookingAvailability';
 import { enqueueWhatsAppJobsForConfirmedBooking } from '@/shared/lib/whatsappJobs';
 import { enqueueEmailConfirmationForBooking, enqueueEmailReminderForBooking } from '@/shared/lib/emailReminderJobs';
+import { sendAdminBookingCreatedPush } from '@/shared/lib/pushNotifications';
 
 export const runtime = 'nodejs';
 
@@ -302,7 +303,7 @@ export async function POST(request: NextRequest) {
     } else {
       const bookingStatus = isConsultation ? 'confirmed' : (allowUnpaid ? 'pending' : 'confirmed');
       const clientEmailTrimmed = data.clientEmail?.trim() || '';
-      if (clientEmailTrimmed && !deferNotificationsUntilPaid) {
+      if (clientEmailTrimmed) {
         const confirmationQueueResult = await enqueueEmailConfirmationForBooking({
           id: bookingId,
           clientName: data.clientName,
@@ -315,12 +316,14 @@ export async function POST(request: NextRequest) {
           duration: isConsultation && data.consultationDuration ? data.consultationDuration : service.duration,
           price: isConsultation ? '0' : servicePrice.toString(),
         });
-        if (!confirmationQueueResult.queued && confirmationQueueResult.skippedReason !== 'already_handled') {
+        if (confirmationQueueResult.queued || confirmationQueueResult.skippedReason === 'already_handled') {
+          emailSent = true;
+        } else {
           emailSent = false;
           emailError = `confirmation_queue_skipped:${confirmationQueueResult.skippedReason || 'unknown'}`;
           console.error('[email] confirmation enqueue skipped for booking', bookingId, emailError);
         }
-      } else if (!deferNotificationsUntilPaid) {
+      } else {
         console.warn('[email] skip confirmation: no client email', bookingId);
         emailSent = false;
         emailError = 'missing_client_email';
@@ -373,6 +376,21 @@ export async function POST(request: NextRequest) {
           adminEmailError = adminNotificationResult.error || 'admin_notification_failed';
           console.error('[email] admin booking notification failed for booking', bookingId, adminEmailError);
         }
+      }
+
+      if (createdByRole === 'client' || createdByRole === 'employee') {
+        sendAdminBookingCreatedPush({
+          booking: {
+            id: bookingId,
+            clientName: data.clientName,
+            bookingDate: data.bookingDate,
+            bookingTime: data.bookingTime,
+            createdByRole,
+            createdByName,
+          },
+          serviceName: isConsultation ? `Consulta Gratuita - ${service.serviceName}` : service.serviceName,
+          employeeName: `${employee.firstName} ${employee.lastName || ''}`.trim(),
+        }).catch((error) => console.error('[push] admin booking push failed for booking', bookingId, error));
       }
     }
 

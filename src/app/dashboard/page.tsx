@@ -33,10 +33,26 @@ import { PaymentMethodModal } from '@/shared/components/PaymentMethodModal';
 import { ClosingSaleModal } from '@/shared/components/ClosingSaleModal';
 import { useDelayedRender } from '@/shared/hooks/useDelayedRender';
 import { useAuth } from '@/shared/hooks/useAuth';
+import { useLanguage } from '@/shared/context/LanguageContext';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 
 type TabType = 'overview' | 'clients' | 'bookings';
+type PushNotificationStatus = 'idle' | 'unsupported' | 'blocked' | 'saving' | 'enabled' | 'not_configured' | 'error';
+
+const urlBase64ToArrayBuffer = (base64String: string): ArrayBuffer => {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = `${base64String}${padding}`.replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const outputBuffer = new ArrayBuffer(rawData.length);
+  const outputArray = new Uint8Array(outputBuffer);
+
+  for (let i = 0; i < rawData.length; i += 1) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+
+  return outputBuffer;
+};
 
 interface ClientData {
   name: string;
@@ -58,6 +74,7 @@ interface ClientData {
 
 export default function DashboardPage() {
   const { user, firebaseUser } = useAuth();
+  const { language } = useLanguage();
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const router = useRouter();
@@ -123,11 +140,103 @@ export default function DashboardPage() {
   const [servicePickerOpen, setServicePickerOpen] = useState(false);
   const [activeServiceGroupId, setActiveServiceGroupId] = useState<string | null>(null);
   const [bookingSaving, setBookingSaving] = useState(false);
+  const [acknowledgingBookingId, setAcknowledgingBookingId] = useState<string | null>(null);
+  const [acknowledgingAllBookings, setAcknowledgingAllBookings] = useState(false);
+  const [notificationInboxOpen, setNotificationInboxOpen] = useState(false);
+  const [pushNotificationStatus, setPushNotificationStatus] = useState<PushNotificationStatus>('idle');
+  const [pushNotificationError, setPushNotificationError] = useState<string | null>(null);
   const [bookingRefreshKey, setBookingRefreshKey] = useState(0);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [actionConfirm, setActionConfirm] = useState<{ booking: Booking; nextStatus: Booking['status'] } | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const clientSectionRef = useRef<HTMLDivElement>(null);
+  const notificationCopy = useMemo(() => {
+    if (language === 'es') {
+      return {
+        ariaOpen: 'Abrir notificaciones de reservas',
+        inboxTitle: 'Bandeja de reservas',
+        needsAcknowledgement: (count: number) => `${count} ${count === 1 ? 'necesita' : 'necesitan'} confirmación`,
+        allSeen: 'Todo visto',
+        saving: 'Guardando...',
+        enablePushTitle: 'Activar notificaciones en este dispositivo',
+        enablePushButton: 'Activar push',
+        enabled: 'Activado',
+        noNotifications: 'No hay reservas nuevas pendientes de confirmar.',
+        view: 'Ver',
+        acknowledge: 'Confirmar',
+        by: 'Por',
+        sourceWebsite: 'Web',
+        sourceEmployee: 'Empleado',
+        sourceTeam: 'Equipo',
+        paidInFull: 'Pagado completo',
+        depositPaid: 'Depósito pagado',
+        refunded: 'Reembolsado',
+        failed: 'Fallido',
+        pending: 'Pendiente',
+        pushStatus: {
+          enabled: 'Push activado en este dispositivo',
+          saving: 'Activando push...',
+          blocked: 'Push bloqueado en el navegador',
+          unsupported: 'Push no disponible aquí',
+          notConfigured: 'Falta configurar push en el servidor',
+          error: 'No se pudo activar push',
+          idle: 'Activar push en este dispositivo',
+        },
+        mandatoryPush: {
+          title: 'Activa las notificaciones para continuar',
+          body: 'Este panel necesita avisarte al momento cuando llega una reserva nueva. Pulsa el botón y acepta el permiso del navegador.',
+          blockedTitle: 'Las notificaciones están bloqueadas',
+          blockedBody: 'El navegador no permite volver a pedir el permiso. Cambia los permisos de este sitio a "Permitir notificaciones" y recarga la página.',
+          savingBody: 'Esperando la confirmación del navegador...',
+          button: 'Activar notificaciones ahora',
+          retry: 'Intentar de nuevo',
+          footer: 'Después de aceptar, esta pantalla se desbloquea automáticamente.',
+        },
+      };
+    }
+
+    return {
+      ariaOpen: 'Open booking notifications',
+      inboxTitle: 'Booking inbox',
+      needsAcknowledgement: (count: number) => `${count} need acknowledgement`,
+      allSeen: 'All seen',
+      saving: 'Saving...',
+      enablePushTitle: 'Enable push on this device',
+      enablePushButton: 'Enable push',
+      enabled: 'Enabled',
+      noNotifications: 'No new bookings waiting for acknowledgement.',
+      view: 'View',
+      acknowledge: 'Acknowledge',
+      by: 'By',
+      sourceWebsite: 'Website',
+      sourceEmployee: 'Employee',
+      sourceTeam: 'Team',
+      paidInFull: 'Paid in full',
+      depositPaid: 'Deposit paid',
+      refunded: 'Refunded',
+      failed: 'Failed',
+      pending: 'Pending',
+      pushStatus: {
+        enabled: 'Device push enabled',
+        saving: 'Enabling push...',
+        blocked: 'Push blocked in browser',
+        unsupported: 'Push not supported here',
+        notConfigured: 'Server push setup needed',
+        error: 'Push setup failed',
+        idle: 'Enable push on this device',
+      },
+      mandatoryPush: {
+        title: 'Enable notifications to continue',
+        body: 'This dashboard needs to alert you immediately when a new booking arrives. Press the button and accept the browser permission.',
+        blockedTitle: 'Notifications are blocked',
+        blockedBody: 'The browser cannot ask again. Change this site permission to "Allow notifications" and reload the page.',
+        savingBody: 'Waiting for browser confirmation...',
+        button: 'Enable notifications now',
+        retry: 'Try again',
+        footer: 'After you accept, this screen unlocks automatically.',
+      },
+    };
+  }, [language]);
   const syncTabToUrl = useCallback(
     (tab: TabType) => {
       setActiveTab(tab);
@@ -187,12 +296,12 @@ export default function DashboardPage() {
     const hasDepositOnly =
       !isFullyPaid &&
       (booking.paymentStatus === 'deposit_paid' || booking.depositPaid === true || booking.paymentStatus === 'paid');
-    if (booking.paymentStatus === 'refunded') return 'Refunded';
-    if (booking.paymentStatus === 'failed') return 'Failed';
-    if (isFullyPaid) return 'Paid in full';
-    if (hasDepositOnly) return 'Deposit paid';
-    return 'Pending';
-  }, []);
+    if (booking.paymentStatus === 'refunded') return notificationCopy.refunded;
+    if (booking.paymentStatus === 'failed') return notificationCopy.failed;
+    if (isFullyPaid) return notificationCopy.paidInFull;
+    if (hasDepositOnly) return notificationCopy.depositPaid;
+    return notificationCopy.pending;
+  }, [notificationCopy]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -227,6 +336,53 @@ export default function DashboardPage() {
     const interval = setInterval(() => setCurrentTime(new Date()), 60000);
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
+      setPushNotificationStatus('unsupported');
+      return;
+    }
+
+    if (Notification.permission === 'denied') {
+      setPushNotificationStatus('blocked');
+      return;
+    }
+
+    navigator.serviceWorker
+      .getRegistration('/sw.js')
+      .then((registration) => registration?.pushManager.getSubscription())
+      .then((subscription) => {
+        if (subscription) {
+          setPushNotificationStatus('enabled');
+        } else if (Notification.permission === 'granted') {
+          setPushNotificationStatus('idle');
+        }
+      })
+      .catch(() => setPushNotificationStatus('idle'));
+  }, []);
+
+  useEffect(() => {
+    if (!firebaseUser || pushNotificationStatus !== 'enabled') return;
+    if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return;
+
+    navigator.serviceWorker
+      .getRegistration('/sw.js')
+      .then((registration) => registration?.pushManager.getSubscription())
+      .then(async (subscription) => {
+        if (!subscription) return;
+        const token = await firebaseUser.getIdToken();
+        await fetch('/api/push/subscribe', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ subscription: subscription.toJSON(), language }),
+        });
+      })
+      .catch((error) => console.error('Error syncing push notification language:', error));
+  }, [firebaseUser, language, pushNotificationStatus]);
 
   useEffect(() => {
     setActiveTab(parseTab(searchParams?.get('tab') || null));
@@ -828,6 +984,192 @@ export default function DashboardPage() {
     };
   }, [filteredBookings, bookings, employees, getServicePrice]);
 
+  const newBookingNotifications = useMemo(() => {
+    return bookings
+      .filter((booking) => {
+        if (booking.adminAcknowledgedAt || booking.status === 'cancelled') return false;
+        return booking.createdByRole === 'client' || booking.createdByRole === 'employee';
+      })
+      .sort((a, b) => {
+        const aCreated = a.createdAt instanceof Date ? a.createdAt.getTime() : new Date(a.createdAt || 0).getTime();
+        const bCreated = b.createdAt instanceof Date ? b.createdAt.getTime() : new Date(b.createdAt || 0).getTime();
+        return bCreated - aCreated;
+      })
+      .slice(0, 12);
+  }, [bookings]);
+
+  const getBookingNotificationSource = useCallback((booking: Booking) => {
+    if (booking.createdByRole === 'client') return notificationCopy.sourceWebsite;
+    if (booking.createdByRole === 'employee') {
+      return booking.createdByName
+        ? `${notificationCopy.sourceEmployee}: ${booking.createdByName}`
+        : notificationCopy.sourceEmployee;
+    }
+    return booking.createdByName || notificationCopy.sourceTeam;
+  }, [notificationCopy]);
+
+  const getAcknowledgerName = useCallback(() => {
+    if (user?.firstName) return `${user.firstName} ${user.lastName || ''}`.trim();
+    return user?.email || 'Admin';
+  }, [user?.email, user?.firstName, user?.lastName]);
+
+  const acknowledgeBookingNotification = async (booking: Booking) => {
+    const acknowledgedAt = new Date();
+    const updates: Partial<Booking> = {
+      adminAcknowledgedAt: acknowledgedAt,
+      adminAcknowledgedBy: user?.id,
+      adminAcknowledgedByName: getAcknowledgerName(),
+    };
+
+    setAcknowledgingBookingId(booking.id);
+    try {
+      await updateBooking(booking.id, updates);
+      setBookings((prev) =>
+        prev.map((item) => (item.id === booking.id ? { ...item, ...updates, updatedAt: acknowledgedAt } : item))
+      );
+    } catch (error) {
+      console.error('Error acknowledging booking notification:', error);
+      alert('No se pudo marcar la notificación como vista.');
+    } finally {
+      setAcknowledgingBookingId(null);
+    }
+  };
+
+  const acknowledgeAllBookingNotifications = async () => {
+    if (newBookingNotifications.length === 0) return;
+
+    const acknowledgedAt = new Date();
+    const acknowledgedByName = getAcknowledgerName();
+    setAcknowledgingAllBookings(true);
+    try {
+      await Promise.all(
+        newBookingNotifications.map((booking) =>
+          updateBooking(booking.id, {
+            adminAcknowledgedAt: acknowledgedAt,
+            adminAcknowledgedBy: user?.id,
+            adminAcknowledgedByName: acknowledgedByName,
+          })
+        )
+      );
+      const ids = new Set(newBookingNotifications.map((booking) => booking.id));
+      setBookings((prev) =>
+        prev.map((booking) =>
+          ids.has(booking.id)
+            ? {
+                ...booking,
+                adminAcknowledgedAt: acknowledgedAt,
+                adminAcknowledgedBy: user?.id,
+                adminAcknowledgedByName: acknowledgedByName,
+                updatedAt: acknowledgedAt,
+              }
+            : booking
+        )
+      );
+    } catch (error) {
+      console.error('Error acknowledging booking notifications:', error);
+      alert('No se pudieron marcar todas las notificaciones como vistas.');
+    } finally {
+      setAcknowledgingAllBookings(false);
+    }
+  };
+
+  const enablePushNotifications = async () => {
+    setPushNotificationError(null);
+
+    if (!firebaseUser) {
+      setPushNotificationStatus('error');
+      setPushNotificationError(
+        language === 'es'
+          ? 'Vuelve a iniciar sesión antes de activar las notificaciones push.'
+          : 'Log in again before enabling push notifications.'
+      );
+      return;
+    }
+
+    if (typeof window === 'undefined' || !('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
+      setPushNotificationStatus('unsupported');
+      setPushNotificationError(
+        language === 'es'
+          ? 'Este navegador no permite notificaciones push web.'
+          : 'This browser does not support web push notifications.'
+      );
+      return;
+    }
+
+    setPushNotificationStatus('saving');
+    try {
+      const keyResponse = await fetch('/api/push/public-key');
+      const keyData = await keyResponse.json();
+      if (!keyData.configured || !keyData.publicKey) {
+        setPushNotificationStatus('not_configured');
+        setPushNotificationError(
+          language === 'es'
+            ? 'Las notificaciones push todavía no están configuradas en el servidor.'
+            : 'Push notifications are not configured on the server yet.'
+        );
+        return;
+      }
+
+      const permission = Notification.permission === 'granted'
+        ? 'granted'
+        : await Notification.requestPermission();
+
+      if (permission !== 'granted') {
+        setPushNotificationStatus('blocked');
+        setPushNotificationError(
+          language === 'es'
+            ? 'Las notificaciones están bloqueadas en este navegador.'
+            : 'Notifications are blocked for this browser.'
+        );
+        return;
+      }
+
+      const registration = await navigator.serviceWorker.register('/sw.js');
+      const existingSubscription = await registration.pushManager.getSubscription();
+      const subscription =
+        existingSubscription ||
+        (await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToArrayBuffer(keyData.publicKey),
+        }));
+      const token = await firebaseUser.getIdToken();
+      const saveResponse = await fetch('/api/push/subscribe', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ subscription: subscription.toJSON(), language }),
+      });
+
+      if (!saveResponse.ok) {
+        const errorData = await saveResponse.json().catch(() => null);
+        throw new Error(
+          errorData?.error ||
+          (language === 'es'
+            ? 'No se pudo guardar este dispositivo para notificaciones push.'
+            : 'Could not save this device for push notifications.')
+        );
+      }
+
+      setPushNotificationStatus('enabled');
+    } catch (error: any) {
+      console.error('Error enabling push notifications:', error);
+      setPushNotificationStatus('error');
+      setPushNotificationError(error?.message || 'Could not enable push notifications.');
+    }
+  };
+
+  const getPushNotificationStatusText = () => {
+    if (pushNotificationStatus === 'enabled') return notificationCopy.pushStatus.enabled;
+    if (pushNotificationStatus === 'saving') return notificationCopy.pushStatus.saving;
+    if (pushNotificationStatus === 'blocked') return notificationCopy.pushStatus.blocked;
+    if (pushNotificationStatus === 'unsupported') return notificationCopy.pushStatus.unsupported;
+    if (pushNotificationStatus === 'not_configured') return notificationCopy.pushStatus.notConfigured;
+    if (pushNotificationStatus === 'error') return notificationCopy.pushStatus.error;
+    return notificationCopy.pushStatus.idle;
+  };
+
 
   const handleBookingStatusChange = async (bookingId: string, newStatus: Booking['status']) => {
     try {
@@ -1227,6 +1569,11 @@ export default function DashboardPage() {
   };
 
   const cleanupBookingsForContact = cleanupBookingsForContactImpl;
+  const shouldShowMandatoryPushPrompt =
+    user?.role === 'owner' &&
+    pushNotificationStatus !== 'enabled' &&
+    pushNotificationStatus !== 'unsupported' &&
+    pushNotificationStatus !== 'not_configured';
 
   if (loading) {
     return (
@@ -1238,6 +1585,63 @@ export default function DashboardPage() {
 
   return (
     <div className="max-w-[1600px] mx-auto space-y-10 pb-12">
+      {shouldShowMandatoryPushPrompt && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/60 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-lg rounded-[36px] border border-red-100 bg-white p-6 shadow-2xl shadow-slate-950/30 sm:p-8">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-red-50 text-red-600">
+              <svg className="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2.4}
+                  d="M15 17h5l-1.4-1.4A2 2 0 0 1 18 14.2V11a6 6 0 1 0-12 0v3.2a2 2 0 0 1-.6 1.4L4 17h5m6 0a3 3 0 0 1-6 0m6 0H9"
+                />
+              </svg>
+            </div>
+
+            <div className="mt-6 text-center">
+              <p className="text-[10px] font-black uppercase tracking-[0.28em] text-red-600">
+                {notificationCopy.inboxTitle}
+              </p>
+              <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-900">
+                {pushNotificationStatus === 'blocked'
+                  ? notificationCopy.mandatoryPush.blockedTitle
+                  : notificationCopy.mandatoryPush.title}
+              </h2>
+              <p className="mt-3 text-sm font-semibold leading-6 text-slate-500">
+                {pushNotificationStatus === 'blocked'
+                  ? notificationCopy.mandatoryPush.blockedBody
+                  : pushNotificationStatus === 'saving'
+                    ? notificationCopy.mandatoryPush.savingBody
+                    : notificationCopy.mandatoryPush.body}
+              </p>
+              {pushNotificationError && (
+                <p className="mt-3 rounded-2xl bg-red-50 px-4 py-3 text-xs font-bold text-red-700">
+                  {pushNotificationError}
+                </p>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={enablePushNotifications}
+              disabled={pushNotificationStatus === 'saving'}
+              className="mt-7 w-full rounded-2xl bg-red-600 px-5 py-4 text-[11px] font-black uppercase tracking-[0.2em] text-white shadow-lg shadow-red-600/20 transition hover:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {pushNotificationStatus === 'saving'
+                ? notificationCopy.saving
+                : pushNotificationStatus === 'blocked'
+                  ? notificationCopy.mandatoryPush.retry
+                  : notificationCopy.mandatoryPush.button}
+            </button>
+
+            <p className="mt-4 text-center text-[11px] font-bold text-slate-400">
+              {notificationCopy.mandatoryPush.footer}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Header - Modern & Professional */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-8">
         <div>
@@ -1251,15 +1655,145 @@ export default function DashboardPage() {
             </p>
           </div>
         </div>
-        <button
-          onClick={() => openBookingModal()}
-          className="px-8 py-4 rounded-xl bg-slate-800 text-white text-[10px] font-black shadow-lg shadow-slate-900/10 hover:bg-slate-900 hover:-translate-y-0.5 transition-all flex items-center justify-center gap-3 uppercase tracking-[0.2em]"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
-          </svg>
-          New Booking
-        </button>
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setNotificationInboxOpen((open) => !open)}
+              className={cn(
+                'relative flex h-14 w-14 items-center justify-center rounded-xl border text-slate-700 shadow-lg shadow-slate-900/5 transition-all hover:-translate-y-0.5 hover:border-slate-900 hover:text-slate-900',
+                newBookingNotifications.length > 0 ? 'border-red-200 bg-red-50' : 'border-slate-100 bg-white'
+              )}
+              aria-label={notificationCopy.ariaOpen}
+            >
+              <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2.3}
+                  d="M15 17h5l-1.4-1.4A2 2 0 0 1 18 14.2V11a6 6 0 1 0-12 0v3.2a2 2 0 0 1-.6 1.4L4 17h5m6 0a3 3 0 0 1-6 0m6 0H9"
+                />
+              </svg>
+              {newBookingNotifications.length > 0 && (
+                <span className="absolute -right-1 -top-1 flex min-h-6 min-w-6 items-center justify-center rounded-full bg-red-600 px-1.5 text-[10px] font-black text-white ring-4 ring-white">
+                  {newBookingNotifications.length}
+                </span>
+              )}
+            </button>
+
+            {notificationInboxOpen && (
+              <div className="absolute right-0 z-40 mt-3 w-[calc(100vw-2rem)] max-w-md overflow-hidden rounded-[28px] border border-slate-100 bg-white shadow-2xl shadow-slate-900/20">
+                <div className="border-b border-slate-100 bg-slate-50 px-5 py-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-[0.24em] text-red-600">
+                        {notificationCopy.inboxTitle}
+                      </p>
+                      <h2 className="mt-1 text-xl font-black text-slate-900">
+                        {notificationCopy.needsAcknowledgement(newBookingNotifications.length)}
+                      </h2>
+                    </div>
+                    {newBookingNotifications.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={acknowledgeAllBookingNotifications}
+                        disabled={acknowledgingAllBookings}
+                        className="rounded-2xl bg-slate-900 px-3 py-2 text-[9px] font-black uppercase tracking-[0.16em] text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {acknowledgingAllBookings ? notificationCopy.saving : notificationCopy.allSeen}
+                      </button>
+                    )}
+                  </div>
+
+                  {user?.role === 'owner' && (
+                    <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-3">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">
+                          {getPushNotificationStatusText()}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={enablePushNotifications}
+                          disabled={pushNotificationStatus === 'saving' || pushNotificationStatus === 'enabled' || pushNotificationStatus === 'unsupported'}
+                          className="rounded-xl border border-slate-200 px-3 py-2 text-[9px] font-black uppercase tracking-[0.14em] text-slate-700 transition hover:border-slate-900 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {pushNotificationStatus === 'enabled' ? notificationCopy.enabled : notificationCopy.enablePushButton}
+                        </button>
+                      </div>
+                      {pushNotificationError && (
+                        <p className="mt-2 text-xs font-semibold text-red-600">{pushNotificationError}</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <div className="max-h-[60vh] space-y-3 overflow-y-auto p-4">
+                  {newBookingNotifications.length === 0 ? (
+                    <div className="rounded-3xl border border-slate-100 bg-slate-50 p-5 text-sm font-semibold text-slate-500">
+                      {notificationCopy.noNotifications}
+                    </div>
+                  ) : (
+                    newBookingNotifications.map((booking) => {
+                      const service = services.find((item) => item.id === booking.serviceId);
+                      const employee = employees.find((item) => item.id === booking.employeeId);
+                      const paymentLabel = getPaymentLabel(booking);
+                      return (
+                        <div key={booking.id} className="rounded-3xl border border-red-100 bg-white p-4 shadow-sm">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="rounded-full bg-red-50 px-3 py-1 text-[9px] font-black uppercase tracking-[0.16em] text-red-600">
+                              {getBookingNotificationSource(booking)}
+                            </span>
+                            <span className="rounded-full bg-slate-100 px-3 py-1 text-[9px] font-black uppercase tracking-[0.16em] text-slate-500">
+                              {paymentLabel}
+                            </span>
+                          </div>
+                          <h3 className="mt-3 truncate text-lg font-black uppercase tracking-tight text-slate-900">
+                            {booking.clientName || 'Sin nombre'}
+                          </h3>
+                          <p className="mt-1 truncate text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
+                            {service?.serviceName || booking.serviceName || 'Servicio'} · {employee ? `${employee.firstName} ${employee.lastName || ''}`.trim() : 'Profesional'}
+                          </p>
+                          <div className="mt-3 flex flex-wrap items-center gap-3 text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">
+                            <span>{formatDate(booking.bookingDate)}</span>
+                            <span className="text-red-600">{formatTime(booking.bookingTime)}</span>
+                            {booking.createdByName && <span>{notificationCopy.by} {booking.createdByName}</span>}
+                          </div>
+                          <div className="mt-4 flex gap-2">
+                            <Link
+                              href={`/dashboard/bookings/${booking.id}`}
+                              onClick={() => setNotificationInboxOpen(false)}
+                              className="flex-1 rounded-2xl border border-slate-200 px-4 py-3 text-center text-[10px] font-black uppercase tracking-[0.16em] text-slate-500 transition hover:border-slate-900 hover:text-slate-900"
+                            >
+                              {notificationCopy.view}
+                            </Link>
+                            <button
+                              type="button"
+                              onClick={() => acknowledgeBookingNotification(booking)}
+                              disabled={acknowledgingBookingId === booking.id || acknowledgingAllBookings}
+                              className="flex-1 rounded-2xl bg-red-600 px-4 py-3 text-[10px] font-black uppercase tracking-[0.16em] text-white transition hover:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              {acknowledgingBookingId === booking.id ? notificationCopy.saving : notificationCopy.acknowledge}
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <button
+            onClick={() => openBookingModal()}
+            className="px-8 py-4 rounded-xl bg-slate-800 text-white text-[10px] font-black shadow-lg shadow-slate-900/10 hover:bg-slate-900 hover:-translate-y-0.5 transition-all flex items-center justify-center gap-3 uppercase tracking-[0.2em]"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+            </svg>
+            New Booking
+          </button>
+        </div>
       </div>
 
       {/* Main Tabs - Premium Luxury Style */}
