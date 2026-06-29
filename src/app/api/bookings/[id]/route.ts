@@ -1,12 +1,165 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getBooking, updateBooking, getEmployeeByUserId } from '@/shared/lib/firestore';
+import { getBooking } from '@/shared/lib/firestore';
 import { getAdminDb } from '@/shared/lib/firebaseAdmin';
+import { Timestamp } from 'firebase-admin/firestore';
 import type { ApiResponse, Booking, UserRole } from '@/shared/lib/types';
 import { BookingScheduleValidationError, validateBookingSchedule } from '@/shared/lib/bookingAvailability';
 import { enqueueWhatsAppJobsForConfirmedBooking, refreshQueuedWhatsAppReminderForBooking } from '@/shared/lib/whatsappJobs';
 import { refreshQueuedEmailReminderForBooking } from '@/shared/lib/emailReminderJobs';
 
 export const runtime = 'nodejs';
+
+const DAY_NAMES = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'] as const;
+
+const toMinutes = (time: string): number => {
+  const [hours, minutes] = time.split(':').map(Number);
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) {
+    throw new BookingScheduleValidationError('Invalid booking time format.', 400);
+  }
+  return hours * 60 + minutes;
+};
+
+const overlaps = (startA: number, endA: number, startB: number, endB: number): boolean => {
+  return startA < endB && startB < endA;
+};
+
+const withoutUndefined = <T extends Record<string, any>>(value: T): T => {
+  return Object.fromEntries(Object.entries(value).filter(([, item]) => item !== undefined)) as T;
+};
+
+const validateBookingScheduleWithAdminDb = async ({
+  employeeId,
+  serviceId,
+  bookingDate,
+  bookingTime,
+  isConsultation = false,
+  consultationDuration,
+  excludeBookingId,
+  skipScheduleValidation = false,
+}: {
+  employeeId: string;
+  serviceId: string;
+  bookingDate: string;
+  bookingTime: string;
+  isConsultation?: boolean;
+  consultationDuration?: number;
+  excludeBookingId?: string;
+  skipScheduleValidation?: boolean;
+}) => {
+  const db = getAdminDb();
+  const serviceSnap = await db.collection('services').doc(serviceId).get();
+  if (!serviceSnap.exists) {
+    throw new BookingScheduleValidationError('Service not found for this booking.', 404);
+  }
+
+  const service = serviceSnap.data() as any;
+  const requestedDuration = isConsultation
+    ? consultationDuration || service.consultationDuration || 20
+    : service.duration;
+
+  if (!requestedDuration || requestedDuration <= 0) {
+    throw new BookingScheduleValidationError('Service duration is invalid.', 400);
+  }
+
+  const dateObj = new Date(`${bookingDate}T12:00:00`);
+  if (Number.isNaN(dateObj.getTime())) {
+    throw new BookingScheduleValidationError('Invalid booking date.', 400);
+  }
+
+  const requestedStart = toMinutes(bookingTime);
+  const requestedEnd = requestedStart + requestedDuration;
+  const dayOfWeek = DAY_NAMES[dateObj.getDay()];
+
+  if (!skipScheduleValidation) {
+    const availabilitySnap = await db.collection('availability').where('employeeId', '==', employeeId).get();
+    const allAvailability = availabilitySnap.docs.map((doc) => doc.data() as any);
+    const genericAvailability = allAvailability.filter((item) => !item.serviceId);
+    const availability =
+      genericAvailability.length > 0
+        ? genericAvailability
+        : allAvailability.filter((item) => item.serviceId === serviceId);
+    const dayAvailabilities = availability.filter((item) => {
+      if (!item.isAvailable) return false;
+      if (item.dayOfWeek !== dayOfWeek) return false;
+      if (item.startDate && bookingDate < item.startDate) return false;
+      if (item.endDate && bookingDate > item.endDate) return false;
+      return true;
+    });
+
+    if (dayAvailabilities.length === 0) {
+      throw new BookingScheduleValidationError('Employee has no working schedule for this date.');
+    }
+
+    const fitsInWorkingSchedule = dayAvailabilities.some((item) => {
+      const windowStart = toMinutes(item.startTime);
+      const windowEnd = toMinutes(item.endTime);
+      return requestedStart >= windowStart && requestedEnd <= windowEnd;
+    });
+
+    if (!fitsInWorkingSchedule) {
+      throw new BookingScheduleValidationError(
+        `This booking does not fit the employee's work schedule. ${requestedDuration} minutes are required.`
+      );
+    }
+  }
+
+  const [bookingsSnap, blockedSlotsSnap] = await Promise.all([
+    db
+      .collection('bookings')
+      .where('employeeId', '==', employeeId)
+      .where('bookingDate', '==', bookingDate)
+      .get(),
+    db
+      .collection('blockedSlots')
+      .where('employeeId', '==', employeeId)
+      .where('date', '==', bookingDate)
+      .get(),
+  ]);
+
+  const dayBookings = bookingsSnap.docs
+    .map((doc) => ({ id: doc.id, ...(doc.data() as Omit<Booking, 'id'>) } as Booking))
+    .filter((booking) => {
+      if (booking.status === 'cancelled') return false;
+      if (excludeBookingId && booking.id === excludeBookingId) return false;
+      return booking.bookingDate === bookingDate;
+    });
+
+  const serviceIdsToLoad = Array.from(
+    new Set(dayBookings.filter((booking) => !booking.isConsultation).map((booking) => booking.serviceId))
+  );
+  const servicesById = new Map<string, number>();
+  await Promise.all(
+    serviceIdsToLoad.map(async (id) => {
+      const dayServiceSnap = await db.collection('services').doc(id).get();
+      if (dayServiceSnap.exists) {
+        servicesById.set(id, Number((dayServiceSnap.data() as any).duration));
+      }
+    })
+  );
+
+  for (const booking of dayBookings) {
+    const existingDuration = booking.isConsultation
+      ? booking.consultationDuration || 20
+      : servicesById.get(booking.serviceId) || requestedDuration;
+    const existingStart = toMinutes(booking.bookingTime);
+    const existingEnd = existingStart + existingDuration;
+
+    if (overlaps(requestedStart, requestedEnd, existingStart, existingEnd)) {
+      throw new BookingScheduleValidationError('This employee already has another booking in that time range.');
+    }
+  }
+
+  const blocksForDay = blockedSlotsSnap.docs.map((doc) => doc.data() as any);
+  for (const block of blocksForDay) {
+    if (!skipScheduleValidation && block.serviceId && block.serviceId !== serviceId) continue;
+    const blockStart = toMinutes(block.startTime);
+    const blockEnd = block.endTime ? toMinutes(block.endTime) : blockStart + requestedDuration;
+
+    if (overlaps(requestedStart, requestedEnd, blockStart, blockEnd)) {
+      throw new BookingScheduleValidationError('This time range is blocked in the employee schedule.');
+    }
+  }
+};
 
 export async function GET(
   request: NextRequest,
@@ -69,7 +222,12 @@ export async function PUT(
     delete (updates as any).actorUserId;
     delete (updates as any).actorEmployeeId;
 
-    const booking = await getBooking(id);
+    const db = getAdminDb();
+    const bookingRef = db.collection('bookings').doc(id);
+    const bookingSnap = await bookingRef.get();
+    const booking = bookingSnap.exists
+      ? ({ id: bookingSnap.id, ...(bookingSnap.data() as Omit<Booking, 'id'>) } as Booking)
+      : null;
 
     if (!booking) {
       return NextResponse.json<ApiResponse<null>>(
@@ -92,7 +250,8 @@ export async function PUT(
         );
       }
 
-      const employee = await getEmployeeByUserId(actorUserId);
+      const employeeSnap = await db.collection('employees').where('userId', '==', actorUserId).limit(1).get();
+      const employee = employeeSnap.empty ? null : { id: employeeSnap.docs[0]!.id, ...(employeeSnap.docs[0]!.data() as any) };
       const ownsBooking =
         (employee && employee.id === booking.employeeId) ||
         (actorEmployeeId && actorEmployeeId === booking.employeeId);
@@ -124,16 +283,26 @@ export async function PUT(
       typeof updates.consultationDuration === 'number';
 
     if (touchesSchedule) {
-      await validateBookingSchedule({
-        employeeId: updates.employeeId || booking.employeeId,
-        serviceId: updates.serviceId || booking.serviceId,
-        bookingDate: updates.bookingDate || booking.bookingDate,
-        bookingTime: updates.bookingTime || booking.bookingTime,
-        isConsultation: updates.isConsultation ?? booking.isConsultation,
-        consultationDuration: updates.consultationDuration ?? booking.consultationDuration,
-        excludeBookingId: booking.id,
-        skipScheduleValidation: actorRole === 'owner' || actorRole === 'employee' || actorRole === 'admin',
-      });
+      const validationInput = {
+          employeeId: updates.employeeId || booking.employeeId,
+          serviceId: updates.serviceId || booking.serviceId,
+          bookingDate: updates.bookingDate || booking.bookingDate,
+          bookingTime: updates.bookingTime || booking.bookingTime,
+          isConsultation: updates.isConsultation ?? booking.isConsultation,
+          consultationDuration: updates.consultationDuration ?? booking.consultationDuration,
+          excludeBookingId: booking.id,
+          skipScheduleValidation: actorRole === 'owner' || actorRole === 'employee' || actorRole === 'admin',
+        };
+
+      try {
+        await validateBookingScheduleWithAdminDb(validationInput);
+      } catch (error: any) {
+        if (String(error?.message || '').includes('Firebase Admin SDK is not configured')) {
+          await validateBookingSchedule(validationInput);
+        } else {
+          throw error;
+        }
+      }
     }
 
     const statusBefore = booking.status;
@@ -142,7 +311,13 @@ export async function PUT(
       (typeof updates.bookingDate === 'string' && updates.bookingDate !== booking.bookingDate) ||
       (typeof updates.bookingTime === 'string' && updates.bookingTime !== booking.bookingTime);
 
-    await updateBooking(id, updates);
+    await bookingRef.set(
+      withoutUndefined({
+        ...updates,
+        updatedAt: Timestamp.now(),
+      }),
+      { merge: true }
+    );
 
     if (scheduleChanged) {
       const refreshedBooking = {

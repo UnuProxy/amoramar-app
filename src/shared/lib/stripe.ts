@@ -57,6 +57,11 @@ export async function createBookingCheckoutSession(params: {
 
     return await stripe.checkout.sessions.create({
       mode: 'payment',
+      // Keep admin-generated deposit links on plain card checkout. Stripe Link can
+      // trap clients in account/phone verification when their Link account data
+      // does not match, even though a normal card payment would work.
+      payment_method_types: ['card'],
+      locale: 'es',
       customer_email: params.clientEmail || undefined,
       line_items: [
         {
