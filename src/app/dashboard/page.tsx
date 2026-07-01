@@ -39,6 +39,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 
 type TabType = 'overview' | 'clients' | 'bookings';
 type PushNotificationStatus = 'checking' | 'idle' | 'unsupported' | 'blocked' | 'saving' | 'enabled' | 'not_configured' | 'error';
+const PUSH_ACCEPTED_STORAGE_KEY = 'amoramar-admin-push-accepted-v1';
 
 const urlBase64ToArrayBuffer = (base64String: string): ArrayBuffer => {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
@@ -145,6 +146,7 @@ export default function DashboardPage() {
   const [notificationInboxOpen, setNotificationInboxOpen] = useState(false);
   const [pushNotificationStatus, setPushNotificationStatus] = useState<PushNotificationStatus>('checking');
   const [pushNotificationError, setPushNotificationError] = useState<string | null>(null);
+  const [pushAcceptedOnDevice, setPushAcceptedOnDevice] = useState(false);
   const [bookingRefreshKey, setBookingRefreshKey] = useState(0);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [actionConfirm, setActionConfirm] = useState<{ booking: Booking; nextStatus: Booking['status'] } | null>(null);
@@ -333,6 +335,20 @@ export default function DashboardPage() {
     [firebaseUser, language]
   );
 
+  const markPushAcceptedOnDevice = useCallback(() => {
+    setPushAcceptedOnDevice(true);
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(PUSH_ACCEPTED_STORAGE_KEY, 'true');
+    }
+  }, []);
+
+  const clearPushAcceptedOnDevice = useCallback(() => {
+    setPushAcceptedOnDevice(false);
+    if (typeof window !== 'undefined') {
+      window.localStorage.removeItem(PUSH_ACCEPTED_STORAGE_KEY);
+    }
+  }, []);
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -372,22 +388,32 @@ export default function DashboardPage() {
 
     const checkExistingPushSubscription = async () => {
       if (typeof window === 'undefined') return;
-    if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
+      const acceptedOnThisDevice = window.localStorage.getItem(PUSH_ACCEPTED_STORAGE_KEY) === 'true';
+      if (acceptedOnThisDevice) {
+        setPushAcceptedOnDevice(true);
+      }
+
+      if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
         if (!cancelled) setPushNotificationStatus('unsupported');
-      return;
-    }
-
-    if (Notification.permission === 'denied') {
-        if (!cancelled) setPushNotificationStatus('blocked');
-      return;
-    }
-
-      if (Notification.permission !== 'granted') {
-        if (!cancelled) setPushNotificationStatus('idle');
         return;
       }
 
-      if (!cancelled) setPushNotificationStatus('checking');
+      if (Notification.permission === 'denied') {
+        clearPushAcceptedOnDevice();
+        if (!cancelled) setPushNotificationStatus('blocked');
+        return;
+      }
+
+      if (acceptedOnThisDevice) {
+        if (!cancelled) setPushNotificationStatus('enabled');
+      }
+
+      if (Notification.permission !== 'granted') {
+        if (!cancelled && !acceptedOnThisDevice) setPushNotificationStatus('idle');
+        return;
+      }
+
+      if (!cancelled && !acceptedOnThisDevice) setPushNotificationStatus('checking');
 
       try {
         const registration = await navigator.serviceWorker.register('/sw.js');
@@ -410,6 +436,8 @@ export default function DashboardPage() {
           });
         }
 
+        markPushAcceptedOnDevice();
+
         try {
           await savePushSubscriptionForCurrentUser(subscription);
           setPushNotificationError(null);
@@ -431,7 +459,7 @@ export default function DashboardPage() {
     return () => {
       cancelled = true;
     };
-  }, [savePushSubscriptionForCurrentUser]);
+  }, [clearPushAcceptedOnDevice, markPushAcceptedOnDevice, savePushSubscriptionForCurrentUser]);
 
   useEffect(() => {
     if (!firebaseUser || pushNotificationStatus !== 'enabled') return;
@@ -1187,6 +1215,8 @@ export default function DashboardPage() {
         return;
       }
 
+      markPushAcceptedOnDevice();
+
       const registration = await navigator.serviceWorker.register('/sw.js');
       const existingSubscription = await registration.pushManager.getSubscription();
       const subscription =
@@ -1625,6 +1655,7 @@ export default function DashboardPage() {
   const cleanupBookingsForContact = cleanupBookingsForContactImpl;
   const shouldShowMandatoryPushPrompt =
     user?.role === 'owner' &&
+    !pushAcceptedOnDevice &&
     pushNotificationStatus !== 'checking' &&
     pushNotificationStatus !== 'enabled' &&
     pushNotificationStatus !== 'unsupported' &&
