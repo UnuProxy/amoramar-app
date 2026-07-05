@@ -40,6 +40,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 type TabType = 'overview' | 'clients' | 'bookings';
 type PushNotificationStatus = 'checking' | 'idle' | 'unsupported' | 'blocked' | 'saving' | 'enabled' | 'not_configured' | 'error';
 const PUSH_ACCEPTED_STORAGE_KEY = 'amoramar-admin-push-accepted-v1';
+const FORCE_PUSH_PROMPT_ENABLED = false;
 
 const urlBase64ToArrayBuffer = (base64String: string): ArrayBuffer => {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
@@ -1654,6 +1655,7 @@ export default function DashboardPage() {
 
   const cleanupBookingsForContact = cleanupBookingsForContactImpl;
   const shouldShowMandatoryPushPrompt =
+    FORCE_PUSH_PROMPT_ENABLED &&
     user?.role === 'owner' &&
     !pushAcceptedOnDevice &&
     pushNotificationStatus !== 'checking' &&
