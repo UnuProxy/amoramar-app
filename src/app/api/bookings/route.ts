@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBookings, createBooking, getService, getEmployee, getEmployeeServices } from '@/shared/lib/firestore';
-import { sendAdminBookingNotification, sendEmployeeNotification } from '@/shared/lib/email';
+import { sendAdminBookingNotification, sendBookingConfirmation, sendEmployeeNotification } from '@/shared/lib/email';
 import type { ApiResponse, Booking, BookingFormData } from '@/shared/lib/types';
 import { getPaymentIntent } from '@/shared/lib/stripe';
 import { BookingScheduleValidationError, validateBookingSchedule } from '@/shared/lib/bookingAvailability';
@@ -51,6 +51,16 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const data: BookingFormData = await request.json();
+    const clientEmail = data.clientEmail?.trim() || '';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clientEmail)) {
+      return NextResponse.json<ApiResponse<null>>(
+        {
+          success: false,
+          error: 'A valid client email is required so confirmation and reminder emails can be sent.',
+        },
+        { status: 400 }
+      );
+    }
 
     // In production, get salonId from authenticated user context or service
     const salonId = 'default-salon-id';
@@ -221,7 +231,7 @@ export async function POST(request: NextRequest) {
       serviceId: data.serviceId,
       serviceName: service.serviceName,
       clientName: data.clientName,
-      clientEmail: data.clientEmail,
+      clientEmail,
       clientPhone: data.clientPhone,
       clientPhoneE164: data.clientPhoneE164 || data.clientPhone,
       whatsappOptIn: data.whatsappOptIn ?? true,
@@ -259,7 +269,7 @@ export async function POST(request: NextRequest) {
           serviceId: data.serviceId,
           serviceName: service.serviceName,
           clientName: data.clientName,
-          clientEmail: data.clientEmail,
+          clientEmail,
           clientPhone: data.clientPhone,
           clientPhoneE164: data.clientPhoneE164 || data.clientPhone,
           whatsappOptIn: data.whatsappOptIn ?? true,
@@ -295,6 +305,8 @@ export async function POST(request: NextRequest) {
 
     let emailSent: boolean | undefined;
     let emailError: string | undefined;
+    let reminderQueued: boolean | undefined;
+    let reminderError: string | undefined;
     let adminEmailSent: boolean | undefined;
     let adminEmailError: string | undefined;
 
@@ -302,44 +314,67 @@ export async function POST(request: NextRequest) {
       console.error('Service or employee not found for email notification');
     } else {
       const bookingStatus = isConsultation ? 'confirmed' : (allowUnpaid ? 'pending' : 'confirmed');
-      const clientEmailTrimmed = data.clientEmail?.trim() || '';
-      if (clientEmailTrimmed) {
-        const confirmationQueueResult = await enqueueEmailConfirmationForBooking({
-          id: bookingId,
-          clientName: data.clientName,
-          clientEmail: clientEmailTrimmed,
-          serviceName: isConsultation ? `Consulta Gratuita - ${service.serviceName}` : service.serviceName,
-          employeeName: `${employee.firstName} ${employee.lastName}`,
-          bookingDate: data.bookingDate,
-          bookingTime: data.bookingTime,
-          status: isConsultation ? 'confirmed' : (allowUnpaid ? 'pending' : 'confirmed'),
-          duration: isConsultation && data.consultationDuration ? data.consultationDuration : service.duration,
-          price: isConsultation ? '0' : servicePrice.toString(),
-        });
-        if (confirmationQueueResult.queued || confirmationQueueResult.skippedReason === 'already_handled') {
-          emailSent = true;
-        } else {
-          emailSent = false;
-          emailError = `confirmation_queue_skipped:${confirmationQueueResult.skippedReason || 'unknown'}`;
-          console.error('[email] confirmation enqueue skipped for booking', bookingId, emailError);
+      const confirmationPayload = {
+        id: bookingId,
+        clientName: data.clientName,
+        clientEmail,
+        serviceName: isConsultation ? `Consulta Gratuita - ${service.serviceName}` : service.serviceName,
+        employeeName: `${employee.firstName} ${employee.lastName}`,
+        bookingDate: data.bookingDate,
+        bookingTime: data.bookingTime,
+        status: bookingStatus,
+        duration: isConsultation && data.consultationDuration ? data.consultationDuration : service.duration,
+        price: isConsultation ? '0' : servicePrice.toString(),
+      } as const;
+      try {
+        const confirmationQueueResult = await enqueueEmailConfirmationForBooking(confirmationPayload);
+        emailSent = confirmationQueueResult.sent === true;
+        if (!emailSent) {
+          emailError = `confirmation_${confirmationQueueResult.skippedReason || 'not_sent'}`;
+          console.error('[email] confirmation was not sent immediately for booking', bookingId, emailError);
         }
-      } else {
-        console.warn('[email] skip confirmation: no client email', bookingId);
-        emailSent = false;
-        emailError = 'missing_client_email';
+      } catch (error) {
+        const queueError = String((error as any)?.message || error);
+        console.error('[email] confirmation queue failed; trying direct delivery', bookingId, queueError);
+        const fallbackResult = await sendBookingConfirmation({
+          clientName: confirmationPayload.clientName,
+          clientEmail: confirmationPayload.clientEmail,
+          serviceName: confirmationPayload.serviceName,
+          employeeName: confirmationPayload.employeeName,
+          bookingDate: confirmationPayload.bookingDate,
+          bookingTime: confirmationPayload.bookingTime,
+          duration: confirmationPayload.duration,
+          price: confirmationPayload.price,
+          idempotencyKey: `booking-confirmation/${bookingId}`,
+        });
+        emailSent = fallbackResult.success;
+        if (!fallbackResult.success) {
+          emailError = `confirmation_queue_failed:${queueError}; direct_send_failed:${fallbackResult.error || 'unknown'}`;
+        }
       }
 
-      if (!deferNotificationsUntilPaid) {
-        enqueueEmailReminderForBooking({
+      try {
+        const reminderResult = await enqueueEmailReminderForBooking({
           id: bookingId,
           clientName: data.clientName,
-          clientEmail: data.clientEmail,
+          clientEmail,
           serviceName: isConsultation ? `Consulta Gratuita - ${service.serviceName}` : service.serviceName,
           employeeName: `${employee.firstName} ${employee.lastName}`,
           bookingDate: data.bookingDate,
           bookingTime: data.bookingTime,
-          status: isConsultation ? 'confirmed' : (allowUnpaid ? 'pending' : 'confirmed'),
-        }).catch((error) => console.error('[email] reminder enqueue failed for booking', bookingId, error));
+          status: bookingStatus,
+        });
+        reminderQueued =
+          reminderResult.queued ||
+          reminderResult.skippedReason === 'already_handled';
+        if (!reminderQueued) {
+          reminderError = `reminder_queue_skipped:${reminderResult.skippedReason || 'unknown'}`;
+          console.error('[email] reminder enqueue skipped for booking', bookingId, reminderError);
+        }
+      } catch (error) {
+        reminderQueued = false;
+        reminderError = String((error as any)?.message || error);
+        console.error('[email] reminder enqueue failed for booking', bookingId, reminderError);
       }
 
       // Send notification email to employee (async, don't wait)
@@ -361,7 +396,7 @@ export async function POST(request: NextRequest) {
         const adminNotificationResult = await sendAdminBookingNotification({
           bookingId,
           clientName: data.clientName,
-          clientEmail: clientEmailTrimmed || data.clientEmail,
+          clientEmail,
           clientPhone: data.clientPhone,
           serviceName: isConsultation ? `Consulta Gratuita - ${service.serviceName}` : service.serviceName,
           employeeName: `${employee.firstName} ${employee.lastName}`,
@@ -399,6 +434,8 @@ export async function POST(request: NextRequest) {
         id: string;
         emailSent?: boolean;
         emailError?: string;
+        reminderQueued?: boolean;
+        reminderError?: string;
         adminEmailSent?: boolean;
         adminEmailError?: string;
         whatsappAttempted?: boolean;
@@ -412,6 +449,8 @@ export async function POST(request: NextRequest) {
         ...(whatsappError && { whatsappError }),
         ...(emailSent !== undefined && { emailSent }),
         ...(emailError && { emailError }),
+        ...(reminderQueued !== undefined && { reminderQueued }),
+        ...(reminderError && { reminderError }),
         ...(adminEmailSent !== undefined && { adminEmailSent }),
         ...(adminEmailError && { adminEmailError }),
       },

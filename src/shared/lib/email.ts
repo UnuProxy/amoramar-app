@@ -47,6 +47,7 @@ export interface BookingConfirmationData {
   bookingTime: string;
   duration: number;
   price: string;
+  idempotencyKey?: string;
 }
 
 export interface BookingReminderData {
@@ -57,7 +58,10 @@ export interface BookingReminderData {
   bookingDate: string;
   bookingTime: string;
   hoursUntil: number;
+  idempotencyKey?: string;
 }
+
+type EmailSendResult = { success: boolean; error?: string; id?: string };
 
 export interface EmployeeNotificationData {
   employeeName: string;
@@ -107,7 +111,7 @@ export interface BookingRescheduleData {
 /**
  * Send booking confirmation email to client
  */
-export async function sendBookingConfirmation(data: BookingConfirmationData): Promise<{ success: boolean; error?: string }> {
+export async function sendBookingConfirmation(data: BookingConfirmationData): Promise<EmailSendResult> {
   try {
     const resendClient = getResendClient();
     if (!resendClient) {
@@ -123,12 +127,15 @@ export async function sendBookingConfirmation(data: BookingConfirmationData): Pr
       keyPrefix,
     });
 
-    const { data: emailData, error } = await resendClient.emails.send({
-      from: fromEmail,
-      to: data.clientEmail.trim(),
-      subject: `✓ Reserva Confirmada - ${SALON_NAME}`,
-      html: getBookingConfirmationTemplate(data),
-    });
+    const { data: emailData, error } = await resendClient.emails.send(
+      {
+        from: fromEmail,
+        to: data.clientEmail.trim(),
+        subject: `✓ Reserva Confirmada - ${SALON_NAME}`,
+        html: getBookingConfirmationTemplate(data),
+      },
+      data.idempotencyKey ? { idempotencyKey: data.idempotencyKey } : undefined
+    );
 
     if (error) {
       const msg =
@@ -139,7 +146,7 @@ export async function sendBookingConfirmation(data: BookingConfirmationData): Pr
       return { success: false, error: msg };
     }
 
-    return { success: true };
+    return { success: true, id: emailData?.id };
   } catch (error: any) {
     console.error('Error sending confirmation email:', error);
     return { success: false, error: error.message || 'Failed to send email' };
@@ -149,7 +156,7 @@ export async function sendBookingConfirmation(data: BookingConfirmationData): Pr
 /**
  * Send booking reminder email to client
  */
-export async function sendBookingReminder(data: BookingReminderData): Promise<{ success: boolean; error?: string }> {
+export async function sendBookingReminder(data: BookingReminderData): Promise<EmailSendResult> {
   try {
     const resendClient = getResendClient();
     if (!resendClient) {
@@ -157,19 +164,22 @@ export async function sendBookingReminder(data: BookingReminderData): Promise<{ 
       return { success: false, error: 'Email service not configured' };
     }
 
-    const { data: emailData, error } = await resendClient.emails.send({
-      from: getFromEmail(),
-      to: data.clientEmail,
-      subject: `🔔 Recordatorio: Tu cita en ${data.hoursUntil}h - ${SALON_NAME}`,
-      html: getBookingReminderTemplate(data),
-    });
+    const { data: emailData, error } = await resendClient.emails.send(
+      {
+        from: getFromEmail(),
+        to: data.clientEmail.trim(),
+        subject: `🔔 Recordatorio: Tu cita en ${data.hoursUntil}h - ${SALON_NAME}`,
+        html: getBookingReminderTemplate(data),
+      },
+      data.idempotencyKey ? { idempotencyKey: data.idempotencyKey } : undefined
+    );
 
     if (error) {
       console.error('Error sending reminder email:', error);
       return { success: false, error: error.message };
     }
 
-    return { success: true };
+    return { success: true, id: emailData?.id };
   } catch (error: any) {
     console.error('Error sending reminder email:', error);
     return { success: false, error: error.message || 'Failed to send email' };

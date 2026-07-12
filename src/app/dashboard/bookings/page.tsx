@@ -1496,6 +1496,12 @@ export default function BookingsPage() {
         : 'Choose a service, professional, and client name.');
       return;
     }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(adminBookingForm.clientEmail.trim())) {
+      window.alert(language === 'es'
+        ? 'Introduce un email válido para enviar la confirmación y el recordatorio.'
+        : 'Enter a valid email to send the confirmation and reminder.');
+      return;
+    }
 
     const service = services.find((item) => item.id === adminBookingForm.serviceId);
     if (!service) {

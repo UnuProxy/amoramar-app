@@ -615,7 +615,11 @@ export const createBooking = async (bookingData: Omit<Booking, 'id' | 'createdAt
 export const updateBooking = async (bookingId: string, updates: Partial<Booking>): Promise<void> => {
   const shouldUseBookingApi =
     typeof window !== 'undefined' &&
-    (typeof updates.bookingDate === 'string' || typeof updates.bookingTime === 'string');
+    (
+      typeof updates.bookingDate === 'string' ||
+      typeof updates.bookingTime === 'string' ||
+      updates.status === 'confirmed'
+    );
 
   if (shouldUseBookingApi) {
     const response = await fetch(`/api/bookings/${encodeURIComponent(bookingId)}`, {

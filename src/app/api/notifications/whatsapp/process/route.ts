@@ -5,7 +5,7 @@ import { processDueEmailReminderJobs } from '@/shared/lib/emailReminderJobs';
 
 const isAuthorized = (request: NextRequest): boolean => {
   const secret = process.env.CRON_SECRET;
-  if (!secret) return true;
+  if (!secret) return process.env.NODE_ENV !== 'production';
 
   const authHeader = request.headers.get('authorization') || '';
   const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
@@ -23,10 +23,21 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const [whatsApp, emailReminders] = await Promise.all([
-      processDueWhatsAppJobs(25),
-      processDueEmailReminderJobs(25),
-    ]);
+    // Process email first so a WhatsApp provider failure can never prevent the
+    // critical confirmation/reminder queue from running.
+    const emailReminders = await processDueEmailReminderJobs(100);
+    let whatsApp;
+    try {
+      whatsApp = await processDueWhatsAppJobs(25);
+    } catch (error: any) {
+      console.error('[cron] WhatsApp processing failed:', error);
+      whatsApp = {
+        processed: 0,
+        sent: 0,
+        failed: 1,
+        error: error?.message || 'WhatsApp processing failed',
+      };
+    }
     const result = { whatsApp, emailReminders };
     return NextResponse.json<ApiResponse<typeof result>>({
       success: true,

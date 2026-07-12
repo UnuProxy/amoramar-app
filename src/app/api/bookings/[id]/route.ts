@@ -5,7 +5,11 @@ import { Timestamp } from 'firebase-admin/firestore';
 import type { ApiResponse, Booking, UserRole } from '@/shared/lib/types';
 import { BookingScheduleValidationError, validateBookingSchedule } from '@/shared/lib/bookingAvailability';
 import { enqueueWhatsAppJobsForConfirmedBooking, refreshQueuedWhatsAppReminderForBooking } from '@/shared/lib/whatsappJobs';
-import { refreshQueuedEmailReminderForBooking } from '@/shared/lib/emailReminderJobs';
+import {
+  enqueueEmailConfirmationForBooking,
+  enqueueEmailReminderForBooking,
+  refreshQueuedEmailReminderForBooking,
+} from '@/shared/lib/emailReminderJobs';
 
 export const runtime = 'nodejs';
 
@@ -25,6 +29,32 @@ const overlaps = (startA: number, endA: number, startB: number, endB: number): b
 
 const withoutUndefined = <T extends Record<string, any>>(value: T): T => {
   return Object.fromEntries(Object.entries(value).filter(([, item]) => item !== undefined)) as T;
+};
+
+const getBookingEmailDetails = async (booking: Booking) => {
+  const db = getAdminDb();
+  const [serviceSnap, employeeSnap] = await Promise.all([
+    db.collection('services').doc(booking.serviceId).get(),
+    db.collection('employees').doc(booking.employeeId).get(),
+  ]);
+  const service = serviceSnap.data() as
+    | { serviceName?: string; duration?: number; price?: number | string }
+    | undefined;
+  const employee = employeeSnap.data() as
+    | { firstName?: string; lastName?: string }
+    | undefined;
+  const baseServiceName = service?.serviceName || booking.serviceName || 'Servicio';
+
+  return {
+    serviceName: booking.isConsultation ? `Consulta Gratuita - ${baseServiceName}` : baseServiceName,
+    employeeName:
+      `${employee?.firstName || ''} ${employee?.lastName || ''}`.trim() || 'Amor Amar',
+    duration:
+      booking.isConsultation && booking.consultationDuration
+        ? booking.consultationDuration
+        : Number(service?.duration || 0),
+    price: booking.isConsultation ? '0' : String(service?.price || '0'),
+  };
 };
 
 const validateBookingScheduleWithAdminDb = async ({
@@ -327,8 +357,22 @@ export async function PUT(
         status: statusAfter,
       } as Booking;
 
+      const refreshEmailReminder = async () => {
+        const refreshResult = await refreshQueuedEmailReminderForBooking(refreshedBooking);
+        if (refreshResult.skippedReason !== 'missing_job' || !refreshedBooking.clientEmail?.trim()) {
+          return;
+        }
+
+        const details = await getBookingEmailDetails(refreshedBooking);
+        await enqueueEmailReminderForBooking({
+          ...refreshedBooking,
+          serviceName: details.serviceName,
+          employeeName: details.employeeName,
+        });
+      };
+
       await Promise.allSettled([
-        refreshQueuedEmailReminderForBooking(refreshedBooking).catch((error) => {
+        refreshEmailReminder().catch((error) => {
           console.error('Failed to refresh email reminder after booking schedule change:', id, error);
         }),
         refreshQueuedWhatsAppReminderForBooking(refreshedBooking).catch((error) => {
@@ -338,15 +382,41 @@ export async function PUT(
     }
 
     if (statusBefore !== 'confirmed' && statusAfter === 'confirmed') {
+      const confirmedBooking = {
+        ...booking,
+        ...updates,
+        id: booking.id,
+        status: 'confirmed',
+      } as Booking;
+
       try {
         await enqueueWhatsAppJobsForConfirmedBooking({
-          ...booking,
-          ...updates,
-          id: booking.id,
-          status: 'confirmed',
-        } as Booking);
+          ...confirmedBooking,
+        });
       } catch (whatsAppError) {
         console.error('Failed to enqueue WhatsApp jobs on booking confirmation:', whatsAppError);
+      }
+
+      if (confirmedBooking.clientEmail?.trim()) {
+        try {
+          const details = await getBookingEmailDetails(confirmedBooking);
+          await Promise.all([
+            enqueueEmailConfirmationForBooking({
+              ...confirmedBooking,
+              serviceName: details.serviceName,
+              employeeName: details.employeeName,
+              duration: details.duration,
+              price: details.price,
+            }),
+            enqueueEmailReminderForBooking({
+              ...confirmedBooking,
+              serviceName: details.serviceName,
+              employeeName: details.employeeName,
+            }),
+          ]);
+        } catch (emailError) {
+          console.error('Failed to enqueue emails on booking confirmation:', emailError);
+        }
       }
     }
 

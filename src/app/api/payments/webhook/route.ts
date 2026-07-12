@@ -95,30 +95,52 @@ const handleSucceededPaymentIntent = async (intent: Stripe.PaymentIntent) => {
     getAdminDoc<Employee>('employees', booking.employeeId),
   ]);
 
-  if (service && employee && booking.clientEmail) {
-    await enqueueEmailConfirmationForBooking({
-      id: booking.id,
-      clientName: booking.clientName,
-      clientEmail: booking.clientEmail,
-      serviceName: booking.isConsultation ? `Consulta Gratuita - ${service.serviceName}` : service.serviceName,
-      employeeName: `${employee.firstName} ${employee.lastName || ''}`.trim(),
-      bookingDate: booking.bookingDate,
-      bookingTime: booking.bookingTime,
-      status: 'confirmed',
-      duration: booking.isConsultation && booking.consultationDuration ? booking.consultationDuration : service.duration,
-      price: booking.isConsultation ? '0' : service.price.toString(),
-    }).catch((error) => console.error('[stripe webhook] confirmation enqueue failed', booking.id, error));
+  if (booking.clientEmail) {
+    const baseServiceName = service?.serviceName || booking.serviceName || 'Servicio';
+    const serviceName = booking.isConsultation ? `Consulta Gratuita - ${baseServiceName}` : baseServiceName;
+    const employeeName = employee
+      ? `${employee.firstName} ${employee.lastName || ''}`.trim()
+      : 'Amor Amar';
 
-    enqueueEmailReminderForBooking({
-      id: booking.id,
-      clientName: booking.clientName,
-      clientEmail: booking.clientEmail,
-      serviceName: booking.isConsultation ? `Consulta Gratuita - ${service.serviceName}` : service.serviceName,
-      employeeName: `${employee.firstName} ${employee.lastName || ''}`.trim(),
-      bookingDate: booking.bookingDate,
-      bookingTime: booking.bookingTime,
-      status: 'confirmed',
-    }).catch((error) => console.error('[stripe webhook] reminder enqueue failed', booking.id, error));
+    const emailResults = await Promise.allSettled([
+      enqueueEmailConfirmationForBooking({
+        id: booking.id,
+        clientName: booking.clientName,
+        clientEmail: booking.clientEmail,
+        serviceName,
+        employeeName,
+        bookingDate: booking.bookingDate,
+        bookingTime: booking.bookingTime,
+        status: 'confirmed',
+        duration:
+          booking.isConsultation && booking.consultationDuration
+            ? booking.consultationDuration
+            : service?.duration || 0,
+        price: booking.isConsultation ? '0' : String(service?.price || '0'),
+      }).catch((error) => {
+        console.error('[stripe webhook] confirmation enqueue failed', booking.id, error);
+        throw error;
+      }),
+      enqueueEmailReminderForBooking({
+        id: booking.id,
+        clientName: booking.clientName,
+        clientEmail: booking.clientEmail,
+        serviceName,
+        employeeName,
+        bookingDate: booking.bookingDate,
+        bookingTime: booking.bookingTime,
+        status: 'confirmed',
+      }).catch((error) => {
+        console.error('[stripe webhook] reminder enqueue failed', booking.id, error);
+        throw error;
+      }),
+    ]);
+    const emailFailure = emailResults.find(
+      (result): result is PromiseRejectedResult => result.status === 'rejected'
+    );
+    if (emailFailure) {
+      throw emailFailure.reason;
+    }
   }
 
   enqueueWhatsAppJobsForConfirmedBooking({

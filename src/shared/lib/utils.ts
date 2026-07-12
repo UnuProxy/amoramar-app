@@ -91,7 +91,24 @@ export const getMadridDateTime = (dateKey: string, time: string): Date | null =>
     utcMillis += diff;
   }
 
-  return new Date(utcMillis);
+  const result = new Date(utcMillis);
+  const resolvedParts = getTimeZoneParts(result, MADRID_TIME_ZONE);
+  const resolvedValues = [
+    Number(pickPart(resolvedParts, 'year')),
+    Number(pickPart(resolvedParts, 'month')),
+    Number(pickPart(resolvedParts, 'day')),
+    Number(pickPart(resolvedParts, 'hour')),
+    Number(pickPart(resolvedParts, 'minute')),
+  ];
+  const requestedValues = [year, month, day, hour, minute];
+
+  // Reject impossible calendar values and Madrid wall-clock times skipped by
+  // the spring daylight-saving transition instead of silently moving the slot.
+  if (resolvedValues.some((value, index) => value !== requestedValues[index])) {
+    return null;
+  }
+
+  return result;
 };
 
 export const getMinutesInTimeZone = (date: Date, timeZone: string): number => {

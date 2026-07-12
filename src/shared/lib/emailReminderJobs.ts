@@ -24,12 +24,42 @@ type EmailReminderJob = {
   lastError?: string;
   sentAt?: Timestamp;
   providerMessageId?: string;
+  processingStartedAt?: Timestamp;
 };
 
 const db = () => getAdminDb();
 const jobDocId = (bookingId: string, type: EmailReminderJob['type']) => `${bookingId}_${type}`;
 const REMINDER_SEND_CUTOFF_MINUTES = 30;
-const MAX_EMAIL_JOB_ATTEMPTS = 3;
+const MAX_EMAIL_JOB_ATTEMPTS = 5;
+const IMMEDIATE_CONFIRMATION_ATTEMPTS = 3;
+const PROCESSING_LEASE_MINUTES = 10;
+const EMAIL_JOB_QUERY_LIMIT = 100;
+
+type EmailEnqueueResult = {
+  queued: boolean;
+  sent?: boolean;
+  skippedReason?: string;
+};
+
+const sleep = (milliseconds: number) =>
+  new Promise((resolve) => setTimeout(resolve, milliseconds));
+
+const timestampMillis = (value: unknown): number => {
+  if (value instanceof Timestamp) return value.toMillis();
+  if (value && typeof (value as any).toMillis === 'function') {
+    return (value as any).toMillis();
+  }
+  return 0;
+};
+
+const isProcessingLeaseExpired = (
+  job: Pick<EmailReminderJob, 'status' | 'processingStartedAt' | 'updatedAt'>,
+  nowMillis = Date.now()
+): boolean => {
+  if (job.status !== 'processing') return false;
+  const startedAt = timestampMillis(job.processingStartedAt) || timestampMillis(job.updatedAt);
+  return startedAt === 0 || startedAt <= nowMillis - PROCESSING_LEASE_MINUTES * 60 * 1000;
+};
 
 const bookingStartAt = (booking: Pick<Booking, 'bookingDate' | 'bookingTime'>): Date | null => {
   if (!booking.bookingDate || !booking.bookingTime) return null;
@@ -77,7 +107,7 @@ export const enqueueEmailReminderForBooking = async (
     | 'bookingTime'
     | 'status'
   > & { employeeName: string }
-): Promise<{ queued: boolean; skippedReason?: string }> => {
+): Promise<EmailEnqueueResult> => {
   if (booking.status === 'cancelled') {
     return { queued: false, skippedReason: 'status_cancelled' };
   }
@@ -97,15 +127,27 @@ export const enqueueEmailReminderForBooking = async (
     return { queued: false, skippedReason: 'booking_in_past' };
   }
 
+  const millisUntilBooking = startAt.getTime() - now.toMillis();
   let dueMillis = startAt.getTime() - 24 * 60 * 60 * 1000;
+  let hoursUntil = 24;
   if (dueMillis < now.toMillis()) {
-    dueMillis = now.toMillis() + 60 * 1000;
+    // A booking made with less than 24 hours' notice cannot receive a literal
+    // 24-hour reminder. Queue an immediate, accurately labelled reminder.
+    dueMillis = now.toMillis();
+    hoursUntil = Math.max(1, Math.ceil(millisUntilBooking / (60 * 60 * 1000)));
   }
 
   const ref = db().collection('email_notification_jobs').doc(jobDocId(booking.id, 'EMAIL_REMINDER_24H'));
   const existing = await ref.get();
-  const status = existing.exists ? (existing.data() as EmailReminderJob | undefined)?.status : undefined;
-  if (status === 'queued' || status === 'processing' || status === 'sent') {
+  const existingData = existing.exists ? (existing.data() as EmailReminderJob | undefined) : undefined;
+  const sameSchedule =
+    existingData?.bookingDate === booking.bookingDate &&
+    existingData?.bookingTime === booking.bookingTime;
+  const activeProcessing = existingData?.status === 'processing' && !isProcessingLeaseExpired(existingData);
+  if (
+    sameSchedule &&
+    (existingData?.status === 'queued' || activeProcessing || existingData?.status === 'sent')
+  ) {
     return { queued: false, skippedReason: 'already_handled' };
   }
 
@@ -119,13 +161,17 @@ export const enqueueEmailReminderForBooking = async (
       employeeName: booking.employeeName || 'Amor Amar',
       bookingDate: booking.bookingDate,
       bookingTime: booking.bookingTime,
-      hoursUntil: 24,
+      hoursUntil,
       dueAt: Timestamp.fromMillis(dueMillis),
       status: 'queued',
       attempts: 0,
       createdAt: now,
       updatedAt: now,
-    } satisfies EmailReminderJob,
+      processingStartedAt: FieldValue.delete(),
+      sentAt: FieldValue.delete(),
+      providerMessageId: FieldValue.delete(),
+      lastError: FieldValue.delete(),
+    },
     { merge: true }
   );
 
@@ -147,7 +193,7 @@ export const enqueueEmailConfirmationForBooking = async (
     duration: number;
     price: string;
   }
-): Promise<{ queued: boolean; skippedReason?: string }> => {
+): Promise<EmailEnqueueResult> => {
   if (booking.status === 'cancelled') {
     return { queued: false, skippedReason: 'status_cancelled' };
   }
@@ -160,9 +206,12 @@ export const enqueueEmailConfirmationForBooking = async (
   const now = Timestamp.now();
   const ref = db().collection('email_notification_jobs').doc(jobDocId(booking.id, 'EMAIL_CONFIRMATION'));
   const existing = await ref.get();
-  const status = existing.exists ? (existing.data() as EmailReminderJob | undefined)?.status : undefined;
-  if (status === 'queued' || status === 'processing' || status === 'sent') {
-    return { queued: false, skippedReason: 'already_handled' };
+  const existingData = existing.exists ? (existing.data() as EmailReminderJob | undefined) : undefined;
+  if (existingData?.status === 'sent') {
+    return { queued: false, sent: true, skippedReason: 'already_sent' };
+  }
+  if (existingData?.status === 'processing' && !isProcessingLeaseExpired(existingData)) {
+    return { queued: true, sent: false, skippedReason: 'already_processing' };
   }
 
   await ref.set(
@@ -182,16 +231,35 @@ export const enqueueEmailConfirmationForBooking = async (
       attempts: 0,
       createdAt: now,
       updatedAt: now,
-    } satisfies EmailReminderJob,
+      processingStartedAt: FieldValue.delete(),
+      sentAt: FieldValue.delete(),
+      providerMessageId: FieldValue.delete(),
+      lastError: FieldValue.delete(),
+    },
     { merge: true }
   );
 
-  const processResult = await processEmailReminderJobRef(ref);
-  if (processResult === 'failed') {
-    return { queued: false, skippedReason: 'send_failed' };
+  let processResult: Awaited<ReturnType<typeof processEmailReminderJobRef>> = 'skipped';
+  for (let attempt = 0; attempt < IMMEDIATE_CONFIRMATION_ATTEMPTS; attempt += 1) {
+    processResult = await processEmailReminderJobRef(ref);
+    if (processResult === 'sent') {
+      return { queued: false, sent: true };
+    }
+    if (processResult !== 'retrying') break;
+    if (attempt < IMMEDIATE_CONFIRMATION_ATTEMPTS - 1) {
+      await sleep(400 * (attempt + 1));
+    }
   }
 
-  return { queued: true };
+  if (processResult === 'failed') {
+    return { queued: false, sent: false, skippedReason: 'send_failed' };
+  }
+
+  return {
+    queued: processResult === 'retrying' || processResult === 'skipped',
+    sent: false,
+    skippedReason: processResult === 'retrying' ? 'retry_queued' : 'send_not_completed',
+  };
 };
 
 export const refreshQueuedEmailReminderForBooking = async (
@@ -204,7 +272,20 @@ export const refreshQueuedEmailReminderForBooking = async (
   }
 
   const data = snap.data() as EmailReminderJob | undefined;
-  if (!data || (data.status !== 'queued' && data.status !== 'failed')) {
+  if (!data) {
+    return { refreshed: false, skippedReason: 'missing_job_data' };
+  }
+  const scheduleChanged =
+    data.bookingDate !== booking.bookingDate ||
+    data.bookingTime !== booking.bookingTime;
+  if (
+    (data.status === 'sent' && !scheduleChanged) ||
+    (data.status === 'processing' && !isProcessingLeaseExpired(data)) ||
+    (data.status !== 'queued' &&
+      data.status !== 'failed' &&
+      data.status !== 'sent' &&
+      data.status !== 'processing')
+  ) {
     return { refreshed: false, skippedReason: 'already_handled' };
   }
 
@@ -246,19 +327,27 @@ export const refreshQueuedEmailReminderForBooking = async (
     return { refreshed: false, skippedReason: 'booking_in_past' };
   }
 
+  const millisUntilBooking = startAt.getTime() - now.toMillis();
   let dueMillis = startAt.getTime() - 24 * 60 * 60 * 1000;
+  let hoursUntil = 24;
   if (dueMillis < now.toMillis()) {
-    dueMillis = now.toMillis() + 60 * 1000;
+    dueMillis = now.toMillis();
+    hoursUntil = Math.max(1, Math.ceil(millisUntilBooking / (60 * 60 * 1000)));
   }
 
   await ref.set(
     {
       bookingDate: booking.bookingDate,
       bookingTime: booking.bookingTime,
+      hoursUntil,
       dueAt: Timestamp.fromMillis(dueMillis),
       status: 'queued',
+      attempts: 0,
       updatedAt: now,
       lastError: FieldValue.delete(),
+      processingStartedAt: FieldValue.delete(),
+      sentAt: FieldValue.delete(),
+      providerMessageId: FieldValue.delete(),
     },
     { merge: true }
   );
@@ -279,6 +368,7 @@ const processEmailReminderJobRef = async (
     transaction.update(ref, {
       status: 'processing',
       attempts: FieldValue.increment(1),
+      processingStartedAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
     });
 
@@ -294,6 +384,7 @@ const processEmailReminderJobRef = async (
         status: 'failed',
         updatedAt: Timestamp.now(),
         lastError: staleReminderReason,
+        processingStartedAt: FieldValue.delete(),
       },
       { merge: true }
     );
@@ -312,6 +403,7 @@ const processEmailReminderJobRef = async (
             bookingTime: claimed.bookingTime,
             duration: claimed.duration || 0,
             price: claimed.price || '0',
+            idempotencyKey: `booking-confirmation/${claimed.bookingId}`,
           })
         : await sendBookingReminder({
             clientName: claimed.clientName,
@@ -321,6 +413,7 @@ const processEmailReminderJobRef = async (
             bookingDate: claimed.bookingDate,
             bookingTime: claimed.bookingTime,
             hoursUntil: claimed.hoursUntil || 24,
+            idempotencyKey: `booking-reminder-24h/${claimed.bookingId}/${claimed.bookingDate}/${claimed.bookingTime}`,
           });
 
     if (!result.success) {
@@ -333,6 +426,8 @@ const processEmailReminderJobRef = async (
         sentAt: Timestamp.now(),
         updatedAt: Timestamp.now(),
         lastError: FieldValue.delete(),
+        processingStartedAt: FieldValue.delete(),
+        ...(result.id && { providerMessageId: result.id }),
       },
       { merge: true }
     );
@@ -347,6 +442,7 @@ const processEmailReminderJobRef = async (
         attempts,
         updatedAt: Timestamp.now(),
         lastError: String(error?.message || error),
+        processingStartedAt: FieldValue.delete(),
       },
       { merge: true }
     );
@@ -355,9 +451,37 @@ const processEmailReminderJobRef = async (
   }
 };
 
+const recoverStaleProcessingJobs = async (): Promise<number> => {
+  const snap = await db()
+    .collection('email_notification_jobs')
+    .where('status', '==', 'processing')
+    .limit(EMAIL_JOB_QUERY_LIMIT)
+    .get();
+  const now = Timestamp.now();
+  const staleDocs = snap.docs.filter((doc) =>
+    isProcessingLeaseExpired(doc.data() as EmailReminderJob, now.toMillis())
+  );
+
+  if (staleDocs.length === 0) return 0;
+
+  const batch = db().batch();
+  staleDocs.forEach((doc) => {
+    const job = doc.data() as EmailReminderJob;
+    batch.update(doc.ref, {
+      status: (job.attempts || 0) >= MAX_EMAIL_JOB_ATTEMPTS ? 'failed' : 'queued',
+      processingStartedAt: FieldValue.delete(),
+      updatedAt: now,
+      lastError: 'recovered_expired_processing_lease',
+    });
+  });
+  await batch.commit();
+  return staleDocs.length;
+};
+
 export const processDueEmailReminderJobs = async (
-  limit = 25
-): Promise<{ processed: number; sent: number; failed: number }> => {
+  limit = EMAIL_JOB_QUERY_LIMIT
+): Promise<{ processed: number; sent: number; failed: number; recovered: number }> => {
+  const recovered = await recoverStaleProcessingJobs();
   const now = Timestamp.now();
   let docs: QueryDocumentSnapshot[] = [];
 
@@ -379,7 +503,7 @@ export const processDueEmailReminderJobs = async (
     const fallbackSnap = await db()
       .collection('email_notification_jobs')
       .where('status', '==', 'queued')
-      .limit(limit)
+      .limit(Math.max(limit * 5, 500))
       .get();
     docs = fallbackSnap.docs
       .filter((doc) => {
@@ -390,7 +514,8 @@ export const processDueEmailReminderJobs = async (
         const aDue = (a.data() as EmailReminderJob).dueAt?.toMillis?.() || 0;
         const bDue = (b.data() as EmailReminderJob).dueAt?.toMillis?.() || 0;
         return aDue - bDue;
-      });
+      })
+      .slice(0, limit);
   }
 
   let sent = 0;
@@ -402,5 +527,5 @@ export const processDueEmailReminderJobs = async (
     if (result === 'failed') failed++;
   }
 
-  return { processed: docs.length, sent, failed };
+  return { processed: docs.length, sent, failed, recovered };
 };
